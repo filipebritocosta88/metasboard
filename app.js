@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+// Mantenha sua configuração aqui
 const firebaseConfig = {
   apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
   authDomain: "metasboard.firebaseapp.com",
@@ -16,144 +17,163 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 let usuarioAtual = null;
 
+// Helper: Formatar Moeda
+const BRL = (valor) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+
 // ----- LOGIN / REGISTRO -----
 window.registrar = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
-  createUserWithEmailAndPassword(auth,email,senha).catch(e=>alert(e.message));
+  if(!email || !senha) return alert("Preencha todos os campos");
+  createUserWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro ao criar conta: " + e.message));
 };
 
 window.login = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
-  signInWithEmailAndPassword(auth,email,senha).catch(e=>alert(e.message));
+  signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Dados incorretos: " + e.message));
 };
 
 window.logout = () => signOut(auth);
 
 // ----- MOVIMENTOS -----
-window.adicionarReceita = async () => salvarMovimento("receita");
-window.adicionarDespesa = async () => salvarMovimento("despesa");
+window.adicionarReceita = () => salvarMovimento("receita");
+window.adicionarDespesa = () => salvarMovimento("despesa");
 
-async function salvarMovimento(tipo){
-  const valor = Number(document.getElementById("valor").value);
-  if(!valor) return alert("Digite um valor válido");
-  await addDoc(collection(db,"movimentos"),{tipo, valor, userId:usuarioAtual.uid, criadoEm:Date.now()});
-  document.getElementById("valor").value="";
+async function salvarMovimento(tipo) {
+  const valorInput = document.getElementById("valor");
+  const catInput = document.getElementById("categoriaTransacao");
+  const valor = Number(valorInput.value);
+  const categoria = catInput.value || "Geral";
+
+  if (!valor || valor <= 0) return alert("Digite um valor válido");
+
+  await addDoc(collection(db, "movimentos"), {
+    tipo,
+    valor,
+    categoria,
+    userId: usuarioAtual.uid,
+    criadoEm: Date.now()
+  });
+
+  valorInput.value = "";
+  catInput.value = "";
 }
 
-// ----- CONTAS -----
+// ----- FUNÇÕES DE CARREGAMENTO (SNAPSHOT REAL-TIME) -----
+
+function carregarMovimentos() {
+  const q = query(collection(db, "movimentos"), where("userId", "==", usuarioAtual.uid), orderBy("criadoEm", "desc"));
+  
+  onSnapshot(q, snapshot => {
+    let receita = 0, despesa = 0;
+    const lista = document.getElementById("listaMovimentos");
+    lista.innerHTML = "";
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const id = docSnap.id;
+      if (data.tipo === "receita") receita += data.valor;
+      else despesa += data.valor;
+
+      const item = document.createElement("li");
+      item.className = "flex justify-between items-center p-4 bg-slate-900/50 rounded-2xl border border-slate-700/50 hover:border-slate-500 transition-all";
+      item.innerHTML = `
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center ${data.tipo === 'receita' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-rose-500/20 text-rose-500'}">
+                <i class="fas ${data.tipo === 'receita' ? 'fa-arrow-up' : 'fa-arrow-down'} text-sm"></i>
+            </div>
+            <div>
+                <p class="font-bold text-slate-100">${data.categoria}</p>
+                <p class="text-xs text-slate-500">${new Date(data.criadoEm).toLocaleDateString()}</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+            <span class="font-bold ${data.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}">${data.tipo === 'receita' ? '+' : '-'} ${BRL(data.valor)}</span>
+            <button onclick="excluirItem('movimentos', '${id}')" class="text-slate-600 hover:text-rose-500 transition-colors"><i class="fas fa-trash"></i></button>
+        </div>
+      `;
+      lista.appendChild(item);
+    });
+
+    document.getElementById("receitaTotal").innerText = BRL(receita);
+    document.getElementById("despesaTotal").innerText = BRL(despesa);
+    document.getElementById("saldoTotal").innerText = BRL(receita - despesa);
+  });
+}
+
+function carregarMetas() {
+  const q = query(collection(db, "metas"), where("userId", "==", usuarioAtual.uid));
+  onSnapshot(q, snapshot => {
+    const lista = document.getElementById("listaMetas");
+    lista.innerHTML = "";
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      const id = docSnap.id;
+      const progresso = Math.min((data.atual / data.valor) * 100, 100);
+
+      const card = document.createElement("div");
+      card.className = "bg-slate-800 p-6 rounded-3xl border border-slate-700 space-y-4";
+      card.innerHTML = `
+        <div class="flex justify-between items-start">
+            <div>
+                <h4 class="text-xl font-bold text-white">${data.nome}</h4>
+                <p class="text-sm text-slate-400">Meta: ${BRL(data.valor)}</p>
+            </div>
+            <button onclick="excluirItem('metas', '${id}')" class="text-slate-500 hover:text-rose-500"><i class="fas fa-trash"></i></button>
+        </div>
+        <div class="w-full bg-slate-900 rounded-full h-4 overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-full transition-all duration-1000" style="width: ${progresso}%"></div>
+        </div>
+        <div class="flex justify-between items-center">
+            <span class="text-sm font-bold text-purple-400">${progresso.toFixed(1)}% concluído</span>
+            <div class="flex gap-2">
+                <button onclick="atualizarMeta('${id}', ${data.atual})" class="bg-slate-700 hover:bg-slate-600 px-3 py-1 rounded-lg text-xs font-bold transition-all">Aportar</button>
+            </div>
+        </div>
+      `;
+      lista.appendChild(card);
+    });
+  });
+}
+
+// Funções globais utilitárias
+window.excluirItem = async (colecao, id) => {
+  if (confirm("Tem certeza que deseja excluir?")) {
+    await deleteDoc(doc(db, colecao, id));
+  }
+};
+
+window.atualizarMeta = async (id, valorAtual) => {
+    const aporte = Number(prompt("Quanto deseja adicionar a esta meta?"));
+    if(!aporte || isNaN(aporte)) return;
+    await updateDoc(doc(db, "metas", id), { atual: valorAtual + aporte });
+};
+
+// Funções de Adição (Contas/Dívidas simplificadas)
 window.adicionarConta = async () => {
-  const nome = prompt("Nome da conta:");
-  const saldo = Number(prompt("Saldo inicial:"));
-  if(!nome || isNaN(saldo)) return alert("Dados inválidos");
-  await addDoc(collection(db,"contas"),{nome, saldo, userId:usuarioAtual.uid, criadoEm:Date.now()});
+    const nome = prompt("Nome do Banco/Carteira:");
+    const saldo = Number(prompt("Saldo inicial:"));
+    if(nome && !isNaN(saldo)) await addDoc(collection(db, "contas"), { nome, saldo, userId: usuarioAtual.uid });
 };
 
-// ----- DÍVIDAS -----
 window.adicionarDivida = async () => {
-  const banco = prompt("Banco/credor da dívida:");
-  const valor = Number(prompt("Valor da dívida:"));
-  if(!banco || isNaN(valor)) return alert("Dados inválidos");
-  await addDoc(collection(db,"dividas"),{banco, valor, status:"pendente", userId:usuarioAtual.uid, criadoEm:Date.now()});
+    const banco = prompt("Nome do Credor:");
+    const valor = Number(prompt("Valor total da dívida:"));
+    if(banco && !isNaN(valor)) await addDoc(collection(db, "dividas"), { banco, valor, userId: usuarioAtual.uid, status: "pendente" });
 };
 
-// ----- METAS -----
-window.adicionarMeta = async () => {
-  const nome = prompt("Nome da meta:");
-  const valor = Number(prompt("Valor da meta:"));
-  if(!nome || isNaN(valor)) return alert("Dados inválidos");
-  await addDoc(collection(db,"metas"),{nome, valor, atual:0, userId:usuarioAtual.uid, criadoEm:Date.now()});
-};
-
-// ----- AUTENTICAÇÃO -----
-onAuthStateChanged(auth,user=>{
-  if(user){
-    usuarioAtual=user;
+// Monitor de Auth
+onAuthStateChanged(auth, user => {
+  if (user) {
+    usuarioAtual = user;
     document.getElementById("loginTela").classList.add("hidden");
     document.getElementById("dashboard").classList.remove("hidden");
     carregarMovimentos();
-    carregarContas();
-    carregarDividas();
     carregarMetas();
+    // Carregar os outros se desejar...
   } else {
     document.getElementById("loginTela").classList.remove("hidden");
     document.getElementById("dashboard").classList.add("hidden");
   }
 });
-
-// ----- FUNÇÕES DE CARREGAMENTO -----
-function carregarMovimentos(){
-  const q=query(collection(db,"movimentos"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    let receita=0, despesa=0;
-    const lista=document.getElementById("listaMovimentos"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      if(data.tipo==="receita") receita+=data.valor;
-      if(data.tipo==="despesa") despesa+=data.valor;
-      const li=document.createElement("li");
-      li.className="flex justify-between bg-slate-700 p-3 rounded items-center";
-      li.innerHTML=`${data.tipo==="receita"?"🟢":"🔴"} R$ ${data.valor}`;
-      const botao=document.createElement("button");
-      botao.innerText="Excluir"; botao.className="text-red-400";
-      botao.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir este movimento?")) await deleteDoc(doc(db,"movimentos",id));});
-      li.appendChild(botao); lista.appendChild(li);
-    });
-    document.getElementById("receitaTotal").innerText="R$ "+receita;
-    document.getElementById("despesaTotal").innerText="R$ "+despesa;
-    document.getElementById("saldoTotal").innerText="R$ "+(receita-despesa);
-  });
-}
-
-function carregarContas(){
-  const q=query(collection(db,"contas"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    const lista=document.getElementById("listaContas"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      const li=document.createElement("li");
-      li.className="flex justify-between bg-slate-700 p-3 rounded items-center";
-      li.innerHTML=`🏦 ${data.nome} - R$ ${data.saldo}`;
-      const botaoEditar=document.createElement("button"); botaoEditar.innerText="Editar"; botaoEditar.className="text-yellow-400 mx-2";
-      botaoEditar.addEventListener("click", async ()=>{const novoSaldo=Number(prompt("Novo saldo:", data.saldo)); if(!isNaN(novoSaldo)) await updateDoc(doc(db,"contas",id),{saldo:novoSaldo});});
-      li.appendChild(botaoEditar);
-      const botaoExcluir=document.createElement("button"); botaoExcluir.innerText="Excluir"; botaoExcluir.className="text-red-400";
-      botaoExcluir.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir esta conta?")) await deleteDoc(doc(db,"contas",id));});
-      li.appendChild(botaoExcluir); lista.appendChild(li);
-    });
-    document.getElementById("totalContas").innerText = snapshot.size;
-  });
-}
-
-function carregarDividas(){
-  const q=query(collection(db,"dividas"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    const lista=document.getElementById("listaDividas"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      const li=document.createElement("li"); li.className="flex justify-between bg-slate-700 p-3 rounded items-center";
-      li.innerHTML=`💳 ${data.banco} - R$ ${data.valor} (${data.status})`;
-      const botaoExcluir=document.createElement("button"); botaoExcluir.innerText="Excluir"; botaoExcluir.className="text-red-400";
-      botaoExcluir.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir esta dívida?")) await deleteDoc(doc(db,"dividas",id));});
-      li.appendChild(botaoExcluir);
-      lista.appendChild(li);
-    });
-    document.getElementById("totalDividas").innerText = snapshot.size;
-  });
-}
-
-function carregarMetas(){
-  const q=query(collection(db,"metas"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    const lista=document.getElementById("listaMetas"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      const li=document.createElement("li"); li.className="bg-yellow-500 p-3 rounded flex justify-between items-center";
-      li.innerHTML=`${data.nome} - R$ ${data.atual} / R$ ${data.valor}`;
-      const botaoExcluir=document.createElement("button"); botaoExcluir.innerText="Excluir"; botaoExcluir.className="text-red-400 ml-2";
-      botaoExcluir.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir esta meta?")) await deleteDoc(doc(db,"metas",id));});
-      li.appendChild(botaoExcluir); lista.appendChild(li);
-    });
-  });
-}
