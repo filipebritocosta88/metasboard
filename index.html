@@ -3,136 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MetasBoard | Controle Financeiro</title>
+  <title>MetasBoard | Premium Finance</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style>
-    /* Custom scrollbar para o histórico */
-    #listaMovimentos::-webkit-scrollbar { width: 5px; }
-    #listaMovimentos::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    .progress-glow { box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
   </style>
 </head>
-<body class="bg-[#0f172a] text-slate-200 min-h-screen font-sans">
+<body class="bg-[#0f172a] text-slate-200 min-h-screen">
 
 <div id="loginTela" class="flex items-center justify-center min-h-screen p-4">
-  <div class="bg-slate-800 p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-700">
+  <div class="glass p-8 rounded-3xl w-full max-w-md shadow-2xl">
     <div class="text-center mb-8">
-        <h2 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">MetasBoard</h2>
-        <p class="text-slate-400 mt-2">Sua liberdade financeira começa aqui.</p>
+        <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">MetasBoard</h2>
+        <p class="text-slate-400 mt-2 italic">Onde seus sonhos ganham forma.</p>
     </div>
     <div class="space-y-4">
         <input id="email" type="email" placeholder="Email" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-500 outline-none transition-all">
         <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-500 outline-none transition-all">
-        <button onclick="login()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-4 rounded-xl transition-all shadow-lg shadow-emerald-900/20">Entrar</button>
-        <div class="relative py-4 text-center">
-            <span class="bg-slate-800 px-2 text-slate-500 text-sm">ou</span>
-            <hr class="border-slate-700 -mt-2">
-        </div>
-        <button onclick="registrar()" class="w-full bg-slate-700 hover:bg-slate-600 p-4 rounded-xl transition-all font-medium">Criar conta gratuita</button>
+        <button onclick="login()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold p-4 rounded-xl transition-all">Acessar Painel</button>
+        <button onclick="registrar()" class="w-full text-slate-400 hover:text-white text-sm transition-all">Não tem conta? Registre-se agora</button>
     </div>
   </div>
 </div>
 
 <div id="dashboard" class="hidden flex flex-col md:flex-row min-h-screen">
-
-  <aside class="w-full md:w-64 bg-slate-900/50 backdrop-blur-xl border-r border-slate-800 p-6 flex flex-col">
-    <h1 class="text-2xl font-black text-purple-500 mb-10 flex items-center gap-2">
-        <i class="fas fa-wallet"></i> MetasBoard
+  
+  <aside class="w-full md:w-64 glass p-6 flex flex-col gap-8 border-r border-white/5">
+    <h1 class="text-2xl font-black text-purple-500 flex items-center gap-2 italic">
+        <i class="fas fa-rocket"></i> METASBOARD
     </h1>
     <nav class="space-y-2 flex-1">
-      <button onclick="mostrarSecao('secDashboard')" class="nav-btn w-full text-left p-3 rounded-xl hover:bg-slate-800 flex items-center gap-3 transition-all"><i class="fas fa-chart-pie w-6"></i> Dashboard</button>
-      <button onclick="mostrarSecao('secContas')" class="nav-btn w-full text-left p-3 rounded-xl hover:bg-slate-800 flex items-center gap-3 transition-all"><i class="fas fa-university w-6"></i> Contas</button>
-      <button onclick="mostrarSecao('secDividas')" class="nav-btn w-full text-left p-3 rounded-xl hover:bg-slate-800 flex items-center gap-3 transition-all"><i class="fas fa-credit-card w-6"></i> Dívidas</button>
-      <button onclick="mostrarSecao('secMetas')" class="nav-btn w-full text-left p-3 rounded-xl hover:bg-slate-800 flex items-center gap-3 transition-all"><i class="fas fa-bullseye w-6"></i> Metas</button>
+      <button onclick="mostrarSecao('secDashboard')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 flex items-center gap-3 transition-all font-semibold"><i class="fas fa-chart-line text-purple-400"></i> Resumo</button>
+      <button onclick="mostrarSecao('secContas')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 flex items-center gap-3 transition-all font-semibold"><i class="fas fa-university text-blue-400"></i> Bancos</button>
+      <button onclick="mostrarSecao('secDividas')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 flex items-center gap-3 transition-all font-semibold"><i class="fas fa-credit-card text-rose-400"></i> Dívidas</button>
+      <button onclick="mostrarSecao('secMetas')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 flex items-center gap-3 transition-all font-semibold"><i class="fas fa-bullseye text-emerald-400"></i> Metas</button>
     </nav>
-    <button onclick="logout()" class="mt-auto p-3 text-red-400 hover:bg-red-900/20 rounded-xl flex items-center gap-3 transition-all font-bold">
-        <i class="fas fa-sign-out-alt"></i> Sair
+    <button onclick="logout()" class="p-4 text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-3 transition-all font-bold">
+        <i class="fas fa-power-off"></i> Sair
     </button>
   </aside>
 
   <main class="flex-1 p-6 md:p-10 overflow-y-auto">
 
-    <section id="secDashboard" class="space-y-8 animate-in fade-in duration-500">
-      <header>
-          <h2 class="text-3xl font-bold">Resumo Geral</h2>
-          <p class="text-slate-400">Veja como está sua saúde financeira hoje.</p>
-      </header>
-      
+    <section id="secDashboard" class="space-y-8 animate-in fade-in duration-700">
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div class="bg-gradient-to-br from-emerald-500 to-teal-700 p-5 rounded-2xl shadow-lg border border-white/10">
-          <p class="text-sm opacity-80 uppercase font-bold">Receitas</p>
+        <div class="glass p-6 rounded-2xl border-l-4 border-emerald-500">
+          <p class="text-xs text-slate-400 font-bold uppercase">Receitas</p>
           <p id="receitaTotal" class="text-2xl font-black mt-1">R$ 0,00</p>
         </div>
-        <div class="bg-gradient-to-br from-rose-500 to-red-700 p-5 rounded-2xl shadow-lg border border-white/10">
-          <p class="text-sm opacity-80 uppercase font-bold">Despesas</p>
+        <div class="glass p-6 rounded-2xl border-l-4 border-rose-500">
+          <p class="text-xs text-slate-400 font-bold uppercase">Despesas</p>
           <p id="despesaTotal" class="text-2xl font-black mt-1">R$ 0,00</p>
         </div>
-        <div class="bg-gradient-to-br from-indigo-500 to-purple-700 p-5 rounded-2xl shadow-lg border border-white/10">
-          <p class="text-sm opacity-80 uppercase font-bold">Saldo Atual</p>
+        <div class="glass p-6 rounded-2xl border-l-4 border-purple-500">
+          <p class="text-xs text-slate-400 font-bold uppercase">Saldo Livre</p>
           <p id="saldoTotal" class="text-2xl font-black mt-1">R$ 0,00</p>
         </div>
-        <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700">
-          <p class="text-sm text-slate-400 uppercase font-bold">Contas</p>
-          <p id="totalContas" class="text-2xl font-black mt-1">0</p>
+        <div class="glass p-6 rounded-2xl border-l-4 border-blue-500">
+          <p class="text-xs text-slate-400 font-bold uppercase">Total Bancos</p>
+          <p id="totalContas" class="text-2xl font-black mt-1">R$ 0,00</p>
         </div>
-        <div class="bg-slate-800 p-5 rounded-2xl border border-slate-700">
-          <p class="text-sm text-slate-400 uppercase font-bold">Dívidas</p>
-          <p id="totalDividas" class="text-2xl font-black mt-1">0</p>
+        <div class="glass p-6 rounded-2xl border-l-4 border-orange-500">
+          <p class="text-xs text-slate-400 font-bold uppercase">Total Dívidas</p>
+          <p id="totalDividas" class="text-2xl font-black mt-1">R$ 0,00</p>
         </div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div class="bg-slate-800/50 p-6 rounded-3xl border border-slate-700 backdrop-blur-sm">
-          <h3 class="text-xl font-bold mb-6 flex items-center gap-2"><i class="fas fa-plus-circle text-purple-400"></i> Nova Transação</h3>
+        <div class="glass p-6 rounded-3xl">
+          <h3 class="text-xl font-bold mb-6 flex items-center gap-2 italic"><i class="fas fa-plus-circle text-purple-400"></i> Entrada/Saída</h3>
           <div class="space-y-4">
-            <div>
-                <label class="text-xs text-slate-400 uppercase font-bold ml-1">Valor (R$)</label>
-                <input id="valor" type="number" step="0.01" placeholder="0.00" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 text-xl font-bold outline-none focus:border-emerald-500">
-            </div>
-            <div>
-                <label class="text-xs text-slate-400 uppercase font-bold ml-1">Categoria (Opcional)</label>
-                <input id="categoriaTransacao" type="text" placeholder="Ex: Mercado, Aluguel..." class="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 outline-none">
-            </div>
-            <div class="grid grid-cols-2 gap-3 pt-2">
+            <input id="valor" type="number" step="0.01" placeholder="Valor R$ 0,00" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 text-xl font-black outline-none focus:border-purple-500">
+            <input id="categoriaTransacao" type="text" placeholder="Categoria (ex: Aluguel, Salário)" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 outline-none">
+            <div class="grid grid-cols-2 gap-3">
               <button onclick="adicionarReceita()" class="bg-emerald-600 hover:bg-emerald-500 p-4 rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20">Receita</button>
               <button onclick="adicionarDespesa()" class="bg-rose-600 hover:bg-rose-500 p-4 rounded-xl font-bold transition-all shadow-lg shadow-rose-900/20">Despesa</button>
             </div>
           </div>
         </div>
-
-        <div class="lg:col-span-2 bg-slate-800/50 rounded-3xl border border-slate-700 flex flex-col overflow-hidden">
-            <div class="p-6 border-b border-slate-700 flex justify-between items-center">
-                <h3 class="text-xl font-bold">Histórico Recente</h3>
+        <div class="lg:col-span-2 glass rounded-3xl overflow-hidden flex flex-col">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+                <h3 class="text-xl font-bold italic">Fluxo de Caixa</h3>
                 <i class="fas fa-history text-slate-500"></i>
             </div>
-            <ul id="listaMovimentos" class="p-4 space-y-3 max-h-[400px] overflow-y-auto">
-                </ul>
+            <ul id="listaMovimentos" class="p-4 space-y-3 max-h-[400px] overflow-y-auto"></ul>
         </div>
       </div>
     </section>
 
     <section id="secContas" class="hidden space-y-6">
       <div class="flex justify-between items-center">
-          <h2 class="text-3xl font-bold">Minhas Contas 🏦</h2>
-          <button onclick="adicionarConta()" class="bg-emerald-600 hover:bg-emerald-500 px-6 py-3 rounded-xl font-bold transition-all">+ Nova Conta</button>
+          <h2 class="text-3xl font-black italic">BANCOS 🏦</h2>
+          <button onclick="adicionarConta()" class="bg-blue-600 hover:bg-blue-500 px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-900/20">+ Adicionar Banco</button>
       </div>
       <div id="listaContas" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
     </section>
 
     <section id="secDividas" class="hidden space-y-6">
       <div class="flex justify-between items-center">
-          <h2 class="text-3xl font-bold">Controle de Dívidas 💳</h2>
-          <button onclick="adicionarDivida()" class="bg-rose-600 hover:bg-rose-500 px-6 py-3 rounded-xl font-bold transition-all">+ Registrar Dívida</button>
+          <h2 class="text-3xl font-black italic text-rose-500">DÍVIDAS 💳</h2>
+          <button onclick="adicionarDivida()" class="bg-rose-600 hover:bg-rose-500 px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-rose-900/20">+ Nova Dívida</button>
       </div>
       <div id="listaDividas" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
     </section>
 
     <section id="secMetas" class="hidden space-y-6">
       <div class="flex justify-between items-center">
-          <h2 class="text-3xl font-bold">Metas Financeiras 🎯</h2>
-          <button onclick="adicionarMeta()" class="bg-purple-600 hover:bg-purple-500 px-6 py-3 rounded-xl font-bold transition-all">+ Criar Nova Meta</button>
+          <div>
+            <h2 class="text-3xl font-black italic text-emerald-400 uppercase">Seus Desafios 🎯</h2>
+            <p class="text-slate-400">Poupe com propósito e acompanhe sua evolução.</p>
+          </div>
+          <button onclick="adicionarMeta()" class="bg-emerald-600 hover:bg-emerald-500 px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-900/20">+ Criar Meta</button>
       </div>
-      <div id="listaMetas" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+      <div id="listaMetas" class="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
     </section>
 
   </main>
@@ -141,14 +130,10 @@
 <script type="module" src="app.js"></script>
 
 <script>
-  // Função unificada para troca de seções
   function mostrarSecao(id) {
     const secoes = ['secDashboard', 'secContas', 'secDividas', 'secMetas'];
     secoes.forEach(s => document.getElementById(s).classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
-    
-    // Feedback visual nos botões do menu
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-slate-800', 'text-purple-400'));
   }
 </script>
 </body>
