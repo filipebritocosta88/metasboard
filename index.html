@@ -8,11 +8,8 @@
 
 <body class="bg-slate-900 text-white min-h-screen">
 
-<!-- TELA DE LOGIN -->
 <div id="loginTela" class="flex items-center justify-center min-h-screen">
-
   <div class="bg-slate-800 p-8 rounded-2xl shadow-xl w-96">
-
     <h2 class="text-2xl font-bold mb-6 text-center text-purple-400">
       Entrar no MetasBoard
     </h2>
@@ -32,12 +29,9 @@
       class="w-full bg-blue-600 p-3 rounded hover:bg-blue-700">
       Registrar
     </button>
-
   </div>
-
 </div>
 
-<!-- DASHBOARD -->
 <div id="dashboard" class="flex hidden">
 
   <aside class="w-64 bg-slate-800 min-h-screen p-6">
@@ -45,9 +39,6 @@
     
     <nav class="space-y-4">
       <button class="block w-full text-left hover:text-purple-400">📊 Dashboard</button>
-      <button class="block w-full text-left hover:text-purple-400">🎯 Metas</button>
-      <button class="block w-full text-left hover:text-purple-400">💰 Receitas</button>
-      <button class="block w-full text-left hover:text-purple-400">💸 Despesas</button>
       <button onclick="logout()" class="block w-full text-left text-red-400 hover:text-red-500">🚪 Sair</button>
     </nav>
   </aside>
@@ -57,7 +48,6 @@
     <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
 
     <div class="grid grid-cols-3 gap-6 mb-10">
-
       <div class="bg-gradient-to-r from-green-500 to-emerald-700 p-6 rounded-2xl shadow-xl">
         <h3 class="text-lg">Receita</h3>
         <p id="receitaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
@@ -72,11 +62,9 @@
         <h3 class="text-lg">Saldo</h3>
         <p id="saldoTotal" class="text-3xl font-bold mt-2">R$ 0</p>
       </div>
-
     </div>
 
     <div class="bg-slate-800 p-6 rounded-2xl shadow-lg">
-
       <h3 class="text-xl mb-4">Adicionar Valor</h3>
 
       <input id="valor" type="number" placeholder="Digite o valor"
@@ -93,7 +81,11 @@
           - Despesa
         </button>
       </div>
+    </div>
 
+    <div class="bg-slate-800 p-6 rounded-2xl shadow-lg mt-8">
+      <h3 class="text-xl mb-4">Histórico</h3>
+      <ul id="listaMovimentos" class="space-y-2"></ul>
     </div>
 
   </main>
