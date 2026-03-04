@@ -1,6 +1,6 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
@@ -16,7 +16,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 let usuarioAtual = null;
 
-const BRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+const BRL = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
 // --- AUTH ---
 window.registrar = () => {
@@ -31,7 +31,7 @@ window.login = () => {
 };
 window.logout = () => signOut(auth);
 
-// --- DASHBOARD & MOVIMENTOS ---
+// --- MOVIMENTOS (ORDENAÇÃO MANUAL PARA EVITAR ERRO DE ÍNDICE) ---
 window.adicionarReceita = () => salvarMovimento("receita");
 window.adicionarDespesa = () => salvarMovimento("despesa");
 
@@ -49,31 +49,31 @@ async function salvarMovimento(tipo) {
 }
 
 function carregarMovimentos() {
-    const q = query(collection(db, "movimentos"), where("userId", "==", usuarioAtual.uid), orderBy("criadoEm", "desc"));
+    const q = query(collection(db, "movimentos"), where("userId", "==", usuarioAtual.uid));
     onSnapshot(q, snap => {
         let rec = 0, des = 0;
         const lista = document.getElementById("listaMovimentos");
         lista.innerHTML = "";
-        snap.forEach(d => {
-            const data = d.data();
+        
+        let docs = [];
+        snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+        docs.sort((a, b) => b.criadoEm - a.criadoEm); // Ordena pelo mais recente
+
+        docs.forEach(data => {
             data.tipo === "receita" ? rec += data.valor : des += data.valor;
             const li = document.createElement("li");
-            li.className = "flex justify-between items-center p-4 glass rounded-2xl hover:border-slate-500 transition-all";
+            li.className = "flex justify-between items-center p-4 glass rounded-2xl";
             li.innerHTML = `
                 <div class="flex items-center gap-3">
                     <div class="w-8 h-8 rounded-full flex items-center justify-center ${data.tipo === 'receita' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-rose-500/20 text-rose-500'}">
                         <i class="fas ${data.tipo === 'receita' ? 'fa-plus' : 'fa-minus'} text-xs"></i>
                     </div>
-                    <div>
-                        <p class="font-bold text-sm">${data.categoria}</p>
-                        <p class="text-[10px] text-slate-500">${new Date(data.criadoEm).toLocaleDateString()}</p>
-                    </div>
+                    <div><p class="font-bold text-sm">${data.categoria}</p><p class="text-[10px] text-slate-500">${new Date(data.criadoEm).toLocaleDateString()}</p></div>
                 </div>
                 <div class="flex items-center gap-4 font-black ${data.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}">
                     ${BRL(data.valor)}
-                    <button onclick="excluirItem('movimentos','${d.id}')" class="text-slate-700 hover:text-rose-500 ml-2"><i class="fas fa-trash text-xs"></i></button>
-                </div>
-            `;
+                    <button onclick="excluirItem('movimentos','${data.id}')" class="text-slate-700 hover:text-rose-500 ml-2"><i class="fas fa-trash text-xs"></i></button>
+                </div>`;
             lista.appendChild(li);
         });
         document.getElementById("receitaTotal").innerText = BRL(rec);
@@ -86,9 +86,7 @@ function carregarMovimentos() {
 window.adicionarDivida = async () => {
     const banco = prompt("Nome do Banco/Credor:");
     const valor = Number(prompt("Valor total da dívida:"));
-    if (banco && valor) {
-        await addDoc(collection(db, "dividas"), { banco, valor, userId: usuarioAtual.uid, criadoEm: Date.now() });
-    }
+    if (banco && valor) await addDoc(collection(db, "dividas"), { banco, valor, userId: usuarioAtual.uid });
 };
 
 function carregarDividas() {
@@ -100,7 +98,7 @@ function carregarDividas() {
             const data = d.data(); total += data.valor;
             const div = document.createElement("div");
             div.className = "glass p-5 rounded-2xl flex justify-between items-center border-l-4 border-rose-500";
-            div.innerHTML = `<div><p class="font-bold uppercase text-xs text-slate-400">${data.banco}</p><p class="text-xl font-black">${BRL(data.valor)}</p></div>
+            div.innerHTML = `<div><p class="font-bold uppercase text-[10px] text-slate-400">${data.banco}</p><p class="text-xl font-black">${BRL(data.valor)}</p></div>
                              <button onclick="excluirItem('dividas','${d.id}')" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>`;
             lista.appendChild(div);
         });
@@ -112,9 +110,7 @@ function carregarDividas() {
 window.adicionarConta = async () => {
     const nome = prompt("Nome do Banco:");
     const saldo = Number(prompt("Saldo atual:"));
-    if (nome && !isNaN(saldo)) {
-        await addDoc(collection(db, "contas"), { nome, saldo, userId: usuarioAtual.uid, criadoEm: Date.now() });
-    }
+    if (nome && !isNaN(saldo)) await addDoc(collection(db, "contas"), { nome, saldo, userId: usuarioAtual.uid });
 };
 
 function carregarContas() {
@@ -125,22 +121,20 @@ function carregarContas() {
         snap.forEach(d => {
             const data = d.data(); total += data.saldo;
             const div = document.createElement("div");
-            div.className = "glass p-5 rounded-2xl border-l-4 border-blue-500";
-            div.innerHTML = `<div class="flex justify-between"><div><p class="font-bold uppercase text-xs text-slate-400">${data.nome}</p><p class="text-xl font-black">${BRL(data.saldo)}</p></div>
-                             <button onclick="excluirItem('contas','${d.id}')" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button></div>`;
+            div.className = "glass p-5 rounded-2xl border-l-4 border-blue-500 flex justify-between";
+            div.innerHTML = `<div><p class="font-bold uppercase text-[10px] text-slate-400">${data.nome}</p><p class="text-xl font-black">${BRL(data.saldo)}</p></div>
+                             <button onclick="excluirItem('contas','${d.id}')" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>`;
             lista.appendChild(div);
         });
         document.getElementById("totalContas").innerText = BRL(total);
     });
 }
 
-// --- METAS COM APORTE E CALENDÁRIO ---
+// --- METAS ---
 window.adicionarMeta = async () => {
-    const nome = prompt("O que você quer conquistar?");
-    const valor = Number(prompt("Qual o valor total necessário?"));
-    if (nome && valor) {
-        await addDoc(collection(db, "metas"), { nome, valor, atual: 0, userId: usuarioAtual.uid, criadoEm: Date.now() });
-    }
+    const nome = prompt("O que quer conquistar?");
+    const valor = Number(prompt("Valor total necessário?"));
+    if (nome && valor) await addDoc(collection(db, "metas"), { nome, valor, atual: 0, userId: usuarioAtual.uid });
 };
 
 function carregarMetas() {
@@ -155,7 +149,7 @@ function carregarMetas() {
             card.className = "glass p-6 rounded-3xl space-y-4 relative overflow-hidden group";
             card.innerHTML = `
                 <div class="flex justify-between items-start relative z-10">
-                    <div><h3 class="text-2xl font-black uppercase italic italic">${data.nome}</h3><p class="text-xs text-slate-400 font-bold uppercase tracking-widest">Alvo: ${BRL(data.valor)}</p></div>
+                    <div><h3 class="text-2xl font-black uppercase italic">${data.nome}</h3><p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Alvo: ${BRL(data.valor)}</p></div>
                     <button onclick="excluirItem('metas','${d.id}')" class="text-slate-600 hover:text-rose-500"><i class="fas fa-times-circle text-xl"></i></button>
                 </div>
                 <div class="space-y-2 relative z-10">
@@ -164,37 +158,29 @@ function carregarMetas() {
                 </div>
                 <div class="flex justify-between items-center relative z-10">
                     <p class="text-[10px] text-slate-500 font-bold italic">Último aporte: ${data.ultimoAporteDate || 'Sem registros'}</p>
-                    <button onclick="prepararAporte('${d.id}', '${data.nome}')" class="bg-white text-slate-900 px-4 py-2 rounded-xl font-black text-[10px] hover:bg-emerald-400 hover:scale-105 transition-all uppercase tracking-tighter shadow-xl shadow-emerald-500/20">+ Aportar agora</button>
-                </div>
-                <i class="fas fa-bullseye absolute -bottom-4 -right-4 text-white/5 text-8xl transform group-hover:scale-125 transition-all"></i>
-            `;
+                    <button onclick="prepararAporte('${d.id}', '${data.nome}')" class="bg-white text-slate-900 px-4 py-2 rounded-xl font-black text-[10px] hover:bg-emerald-400 hover:scale-105 transition-all uppercase shadow-xl">+ Aportar agora</button>
+                </div>`;
             lista.appendChild(card);
         });
     });
 }
 
 window.prepararAporte = async (id, nome) => {
-    const valor = Number(prompt(`Quanto está guardando para ${nome}?`));
+    const valor = Number(prompt(`Quanto para ${nome}?`));
     if (!valor || valor <= 0) return;
-    const dataAporte = prompt(`Data do depósito (DD/MM/AAAA):`, new Date().toLocaleDateString('pt-BR'));
+    const dataA = prompt(`Data (DD/MM/AAAA):`, new Date().toLocaleDateString('pt-BR'));
     
     const ref = doc(db, "metas", id);
     const snap = await getDoc(ref);
     if(snap.exists()) {
         const novoTotal = snap.data().atual + valor;
-        await updateDoc(ref, { atual: novoTotal, ultimoAporteDate: dataAporte });
-        
-        // Também registra como despesa (investimento) no histórico geral
-        await addDoc(collection(db, "movimentos"), {
-            tipo: "despesa", valor: valor, categoria: `Aporte: ${nome}`,
-            userId: usuarioAtual.uid, criadoEm: Date.now()
-        });
+        await updateDoc(ref, { atual: novoTotal, ultimoAporteDate: dataA });
+        await addDoc(collection(db, "movimentos"), { tipo: "despesa", valor: valor, categoria: `Aporte: ${nome}`, userId: usuarioAtual.uid, criadoEm: Date.now() });
     }
 };
 
 window.excluirItem = async (col, id) => { if(confirm("Deseja apagar?")) await deleteDoc(doc(db, col, id)); };
 
-// --- OBSERVAR ESTADO ---
 onAuthStateChanged(auth, user => {
     if (user) {
         usuarioAtual = user;
