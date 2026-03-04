@@ -13,7 +13,9 @@ import {
   addDoc,
   query,
   where,
-  onSnapshot
+  onSnapshot,
+  deleteDoc,
+  doc
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -31,91 +33,90 @@ const db = getFirestore(app);
 
 let usuarioAtual = null;
 
-// REGISTRAR
-window.registrar = function () {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-
+window.registrar = ( ) => {
+  const email = emailInput();
+  const senha = senhaInput();
   createUserWithEmailAndPassword(auth, email, senha)
     .catch(error => alert(error.message));
 };
 
-// LOGIN
-window.login = function () {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-
+window.login = ( ) => {
+  const email = emailInput();
+  const senha = senhaInput();
   signInWithEmailAndPassword(auth, email, senha)
     .catch(error => alert(error.message));
 };
 
-// LOGOUT
-window.logout = function () {
-  signOut(auth);
-};
+window.logout = ( ) => signOut(auth);
 
-// ADICIONAR RECEITA
-window.adicionarReceita = async function () {
+window.adicionarReceita = async () => salvarMovimento("receita");
+window.adicionarDespesa = async () => salvarMovimento("despesa");
+
+function emailInput(){ return document.getElementById("email").value }
+function senhaInput(){ return document.getElementById("senha").value }
+
+async function salvarMovimento(tipo){
   const valor = Number(document.getElementById("valor").value);
-  if (!valor) return alert("Digite um valor válido");
+  if(!valor) return alert("Digite um valor válido");
 
-  await addDoc(collection(db, "movimentos"), {
-    tipo: "receita",
-    valor: valor,
-    userId: usuarioAtual.uid
+  await addDoc(collection(db,"movimentos"),{
+    tipo,
+    valor,
+    userId: usuarioAtual.uid,
+    criadoEm: Date.now()
   });
 
-  document.getElementById("valor").value = "";
-};
+  document.getElementById("valor").value="";
+}
 
-// ADICIONAR DESPESA
-window.adicionarDespesa = async function () {
-  const valor = Number(document.getElementById("valor").value);
-  if (!valor) return alert("Digite um valor válido");
-
-  await addDoc(collection(db, "movimentos"), {
-    tipo: "despesa",
-    valor: valor,
-    userId: usuarioAtual.uid
-  });
-
-  document.getElementById("valor").value = "";
-};
-
-// OBSERVAR USUÁRIO
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    usuarioAtual = user;
-
+onAuthStateChanged(auth,(user)=>{
+  if(user){
+    usuarioAtual=user;
     document.getElementById("loginTela").classList.add("hidden");
     document.getElementById("dashboard").classList.remove("hidden");
-
     carregarDados();
-  } else {
+  }else{
     document.getElementById("loginTela").classList.remove("hidden");
     document.getElementById("dashboard").classList.add("hidden");
   }
 });
 
-// CARREGAR DADOS EM TEMPO REAL
-function carregarDados() {
-  const q = query(
-    collection(db, "movimentos"),
-    where("userId", "==", usuarioAtual.uid)
+function carregarDados(){
+  const q=query(
+    collection(db,"movimentos"),
+    where("userId","==",usuarioAtual.uid)
   );
 
-  onSnapshot(q, (snapshot) => {
-    let receita = 0;
-    let despesa = 0;
+  onSnapshot(q,(snapshot)=>{
+    let receita=0;
+    let despesa=0;
+    const lista=document.getElementById("listaMovimentos");
+    lista.innerHTML="";
 
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      if (data.tipo === "receita") receita += data.valor;
-      if (data.tipo === "despesa") despesa += data.valor;
+    snapshot.forEach(docSnap=>{
+      const data=docSnap.data();
+      const id=docSnap.id;
+
+      if(data.tipo==="receita") receita+=data.valor;
+      if(data.tipo==="despesa") despesa+=data.valor;
+
+      const li=document.createElement("li");
+      li.className="flex justify-between bg-slate-700 p-3 rounded";
+
+      li.innerHTML=`
+        <span>${data.tipo==="receita"?"🟢":"🔴"} R$ ${data.valor}</span>
+        <button onclick="excluirMovimento('${id}')" class="text-red-400">Excluir</button>
+      `;
+
+      lista.appendChild(li);
     });
 
-    document.getElementById("receitaTotal").innerText = "R$ " + receita;
-    document.getElementById("despesaTotal").innerText = "R$ " + despesa;
-    document.getElementById("saldoTotal").innerText = "R$ " + (receita - despesa);
+    document.getElementById("receitaTotal").innerText="R$ "+receita;
+    document.getElementById("despesaTotal").innerText="R$ "+despesa;
+    document.getElementById("saldoTotal").innerText="R$ "+(receita-despesa);
   });
 }
+
+window.excluirMovimento=async(id)=>{
+  await deleteDoc(doc(db,"movimentos",id));
+};
