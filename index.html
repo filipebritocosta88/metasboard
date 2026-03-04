@@ -40,7 +40,7 @@
     <h1 class="text-2xl font-bold mb-8 text-purple-400">MetasBoard</h1>
     
     <nav class="space-y-4">
-      <button class="block w-full text-left hover:text-purple-400">📊 Dashboard</button>
+      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarDashboard()">📊 Dashboard</button>
       <button class="block w-full text-left hover:text-purple-400" onclick="mostrarContas()">🏦 Contas</button>
       <button class="block w-full text-left hover:text-purple-400" onclick="mostrarDividas()">💳 Dívidas</button>
       <button onclick="logout()" class="block w-full text-left text-red-400 hover:text-red-500">🚪 Sair</button>
@@ -53,6 +53,7 @@
     <!-- DASHBOARD -->
     <section id="secDashboard">
       <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
+
       <div class="grid grid-cols-3 gap-6 mb-10">
         <div class="bg-gradient-to-r from-green-500 to-emerald-700 p-6 rounded-2xl shadow-xl">
           <h3 class="text-lg">Receita</h3>
@@ -105,20 +106,25 @@
 
 <script>
   // FUNÇÕES PARA TROCAR SEÇÕES
-  function mostrarContas(){
-    document.getElementById("secDashboard").classList.add("hidden");
-    document.getElementById("secContas").classList.remove("hidden");
-    document.getElementById("secDividas").classList.add("hidden");
-  }
-  function mostrarDividas(){
-    document.getElementById("secDashboard").classList.add("hidden");
-    document.getElementById("secContas").classList.add("hidden");
-    document.getElementById("secDividas").classList.remove("hidden");
-  }
   function mostrarDashboard(){
     document.getElementById("secDashboard").classList.remove("hidden");
     document.getElementById("secContas").classList.add("hidden");
     document.getElementById("secDividas").classList.add("hidden");
+    carregarMovimentos(); // Atualiza o dashboard
+  }
+
+  function mostrarContas(){
+    document.getElementById("secDashboard").classList.add("hidden");
+    document.getElementById("secContas").classList.remove("hidden");
+    document.getElementById("secDividas").classList.add("hidden");
+    carregarContas();
+  }
+
+  function mostrarDividas(){
+    document.getElementById("secDashboard").classList.add("hidden");
+    document.getElementById("secContas").classList.add("hidden");
+    document.getElementById("secDividas").classList.remove("hidden");
+    carregarDividas();
   }
 </script>
 
