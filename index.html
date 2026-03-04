@@ -1,84 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8">
   <title>MetasBoard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
-<body style="font-family: Arial; background:#f1f5f9; padding:30px;">
+<body class="bg-slate-900 text-white min-h-screen">
 
-<h1>MetasBoard</h1>
+<div class="flex">
 
-<h2>Adicionar Receita</h2>
-<input type="number" id="receita" placeholder="Valor">
-<button onclick="addReceita()">Salvar</button>
+  <!-- Sidebar -->
+  <aside class="w-64 bg-slate-800 min-h-screen p-6">
+    <h1 class="text-2xl font-bold mb-8 text-purple-400">MetasBoard</h1>
+    
+    <nav class="space-y-4">
+      <button class="block w-full text-left hover:text-purple-400">📊 Dashboard</button>
+      <button class="block w-full text-left hover:text-purple-400">🎯 Metas</button>
+      <button class="block w-full text-left hover:text-purple-400">💰 Receitas</button>
+      <button class="block w-full text-left hover:text-purple-400">💸 Despesas</button>
+    </nav>
+  </aside>
 
-<h2>Adicionar Despesa</h2>
-<input type="number" id="despesa" placeholder="Valor">
-<button onclick="addDespesa()">Salvar</button>
+  <!-- Conteúdo -->
+  <main class="flex-1 p-10">
 
-<h2>Resumo</h2>
-<p>Receitas: <span id="totalReceita">0</span></p>
-<p>Despesas: <span id="totalDespesa">0</span></p>
-<p><strong>Saldo: <span id="saldo">0</span></strong></p>
+    <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
 
-<script type="module">
+    <!-- Cards -->
+    <div class="grid grid-cols-3 gap-6 mb-10">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs }
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+      <div class="bg-gradient-to-r from-green-500 to-emerald-700 p-6 rounded-2xl shadow-xl">
+        <h3 class="text-lg">Receita</h3>
+        <p id="receitaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+      </div>
 
-const firebaseConfig = {
-  apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
-  authDomain: "metasboard.firebaseapp.com",
-  projectId: "metasboard",
-  storageBucket: "metasboard.firebasestorage.app",
-  messagingSenderId: "958671032163",
-  appId: "1:958671032163:web:3d150d966e103ca2e78d56"
-};
+      <div class="bg-gradient-to-r from-red-500 to-rose-700 p-6 rounded-2xl shadow-xl">
+        <h3 class="text-lg">Despesa</h3>
+        <p id="despesaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+      </div>
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+      <div class="bg-gradient-to-r from-purple-500 to-indigo-700 p-6 rounded-2xl shadow-xl">
+        <h3 class="text-lg">Saldo</h3>
+        <p id="saldoTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+      </div>
 
-async function addReceita() {
-  let valor = Number(document.getElementById("receita").value);
-  if (!valor) return;
+    </div>
 
-  await addDoc(collection(db, "receitas"), { valor });
-  location.reload();
-}
+    <!-- Formulário -->
+    <div class="bg-slate-800 p-6 rounded-2xl shadow-lg">
 
-async function addDespesa() {
-  let valor = Number(document.getElementById("despesa").value);
-  if (!valor) return;
+      <h3 class="text-xl mb-4">Adicionar Valor</h3>
 
-  await addDoc(collection(db, "despesas"), { valor });
-  location.reload();
-}
+      <input id="valor" type="number" placeholder="Digite o valor"
+        class="w-full p-3 rounded bg-slate-700 mb-4">
 
-async function calcular() {
-  let receitas = await getDocs(collection(db, "receitas"));
-  let despesas = await getDocs(collection(db, "despesas"));
+      <div class="flex gap-4">
+        <button onclick="adicionarReceita()"
+          class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">
+          + Receita
+        </button>
 
-  let totalR = 0;
-  let totalD = 0;
+        <button onclick="adicionarDespesa()"
+          class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">
+          - Despesa
+        </button>
+      </div>
 
-  receitas.forEach(doc => {
-    totalR += doc.data().valor;
-  });
+    </div>
 
-  despesas.forEach(doc => {
-    totalD += doc.data().valor;
-  });
+  </main>
+</div>
 
-  document.getElementById("totalReceita").innerText = totalR;
-  document.getElementById("totalDespesa").innerText = totalD;
-  document.getElementById("saldo").innerText = totalR - totalD;
-}
-
-calcular();
-
-</script>
+<script type="module" src="app.js"></script>
 
 </body>
 </html>
