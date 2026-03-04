@@ -7,7 +7,7 @@ function atualizarTela() {
   document.getElementById("saldoTotal").innerText = "R$ " + (receita - despesa);
 }
 
-window.adicionarReceita = function() {
+function adicionarReceita() {
   const valor = parseFloat(document.getElementById("valor").value);
   if (!valor) return;
 
@@ -15,7 +15,7 @@ window.adicionarReceita = function() {
   atualizarTela();
 }
 
-window.adicionarDespesa = function() {
+function adicionarDespesa() {
   const valor = parseFloat(document.getElementById("valor").value);
   if (!valor) return;
 
