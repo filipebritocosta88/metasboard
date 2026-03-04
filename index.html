@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MetasBoard</title>
+</head>
+
+<body style="font-family: Arial; background:#f1f5f9; padding:30px;">
+
+<h1>MetasBoard</h1>
+
+<h2>Adicionar Receita</h2>
+<input type="number" id="receita" placeholder="Valor">
+<button onclick="addReceita()">Salvar</button>
+
+<h2>Adicionar Despesa</h2>
+<input type="number" id="despesa" placeholder="Valor">
+<button onclick="addDespesa()">Salvar</button>
+
+<h2>Resumo</h2>
+<p>Receitas: <span id="totalReceita">0</span></p>
+<p>Despesas: <span id="totalDespesa">0</span></p>
+<p><strong>Saldo: <span id="saldo">0</span></strong></p>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
+  authDomain: "metasboard.firebaseapp.com",
+  projectId: "metasboard",
+  storageBucket: "metasboard.firebasestorage.app",
+  messagingSenderId: "958671032163",
+  appId: "1:958671032163:web:3d150d966e103ca2e78d56"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+async function addReceita() {
+  let valor = Number(document.getElementById("receita").value);
+  if (!valor) return;
+
+  await addDoc(collection(db, "receitas"), { valor });
+  location.reload();
+}
+
+async function addDespesa() {
+  let valor = Number(document.getElementById("despesa").value);
+  if (!valor) return;
+
+  await addDoc(collection(db, "despesas"), { valor });
+  location.reload();
+}
+
+async function calcular() {
+  let receitas = await getDocs(collection(db, "receitas"));
+  let despesas = await getDocs(collection(db, "despesas"));
+
+  let totalR = 0;
+  let totalD = 0;
+
+  receitas.forEach(doc => {
+    totalR += doc.data().valor;
+  });
+
+  despesas.forEach(doc => {
+    totalD += doc.data().valor;
+  });
+
+  document.getElementById("totalReceita").innerText = totalR;
+  document.getElementById("totalDespesa").innerText = totalD;
+  document.getElementById("saldo").innerText = totalR - totalD;
+}
+
+calcular();
+
+</script>
+
+</body>
+</html>
