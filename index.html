@@ -8,7 +8,37 @@
 
 <body class="bg-slate-900 text-white min-h-screen">
 
-<div class="flex">
+<!-- TELA DE LOGIN -->
+<div id="loginTela" class="flex items-center justify-center min-h-screen">
+
+  <div class="bg-slate-800 p-8 rounded-2xl shadow-xl w-96">
+
+    <h2 class="text-2xl font-bold mb-6 text-center text-purple-400">
+      Entrar no MetasBoard
+    </h2>
+
+    <input id="email" type="email" placeholder="Email"
+      class="w-full p-3 rounded bg-slate-700 mb-4">
+
+    <input id="senha" type="password" placeholder="Senha"
+      class="w-full p-3 rounded bg-slate-700 mb-4">
+
+    <button onclick="login()"
+      class="w-full bg-green-600 p-3 rounded mb-3 hover:bg-green-700">
+      Login
+    </button>
+
+    <button onclick="registrar()"
+      class="w-full bg-blue-600 p-3 rounded hover:bg-blue-700">
+      Registrar
+    </button>
+
+  </div>
+
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="flex hidden">
 
   <aside class="w-64 bg-slate-800 min-h-screen p-6">
     <h1 class="text-2xl font-bold mb-8 text-purple-400">MetasBoard</h1>
@@ -18,30 +48,13 @@
       <button class="block w-full text-left hover:text-purple-400">🎯 Metas</button>
       <button class="block w-full text-left hover:text-purple-400">💰 Receitas</button>
       <button class="block w-full text-left hover:text-purple-400">💸 Despesas</button>
+      <button onclick="logout()" class="block w-full text-left text-red-400 hover:text-red-500">🚪 Sair</button>
     </nav>
   </aside>
 
   <main class="flex-1 p-10">
 
     <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
-    <div class="mb-6">
-  <input id="email" type="email" placeholder="Email"
-    class="p-2 rounded bg-slate-700 mr-2">
-  <input id="senha" type="password" placeholder="Senha"
-    class="p-2 rounded bg-slate-700 mr-2">
-
-  <button onclick="registrar()" class="bg-blue-600 px-3 py-2 rounded">
-    Registrar
-  </button>
-
-  <button onclick="login()" class="bg-green-600 px-3 py-2 rounded">
-    Login
-  </button>
-
-  <button onclick="logout()" class="bg-red-600 px-3 py-2 rounded">
-    Sair
-  </button>
-</div>
 
     <div class="grid grid-cols-3 gap-6 mb-10">
 
@@ -86,7 +99,7 @@
   </main>
 </div>
 
-<script src="app.js"></script>
+<script type="module" src="app.js"></script>
 
 </body>
 </html>
