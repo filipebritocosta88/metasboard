@@ -1,200 +1,142 @@
-// ======================================================
-// 🚀 METASBOARD - ARQUITETURA ORGANIZADA
-// Firebase SDK v11.0.1
-// ======================================================
-
-
-// ===============================
-// 🔹 IMPORTS FIREBASE
-// ===============================
-import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-
-import {
-  getAuth,
-  onAuthStateChanged,
-  signOut
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  query,
-  where
+import { 
+  getFirestore, 
+  collection, 
+  addDoc, 
+  query, 
+  where, 
+  onSnapshot, 
+  deleteDoc, 
+  doc, 
+  updateDoc, 
+  getDoc 
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-
-// ===============================
-// 🔹 CONFIG FIREBASE (COLE A SUA)
-// ===============================
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "SEU_AUTH_DOMAIN",
-  projectId: "SEU_PROJECT_ID",
-  storageBucket: "SEU_BUCKET",
-  messagingSenderId: "SEU_SENDER",
-  appId: "SEU_APP_ID"
+  apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
+  authDomain: "metasboard.firebaseapp.com",
+  projectId: "metasboard",
+  storageBucket: "metasboard.firebasestorage.app",
+  messagingSenderId: "958671032163",
+  appId: "1:958671032163:web:3d150d966e103ca2e78d56"
 };
 
-
-// ===============================
-// 🔹 INICIALIZAÇÃO SEGURA
-// Evita erro de múltiplas inicializações
-// ===============================
-const app = getApps().length === 0
-  ? initializeApp(firebaseConfig)
-  : getApps()[0];
-
+const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+let usuarioAtual = null;
 
-// ===============================
-// 🔹 ESTADO GLOBAL DA APLICAÇÃO
-// ===============================
-const AppState = {
-  user: null,
+const BRL = (v) =>
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL"
+  }).format(v || 0);
+
+window.registrar = () => {
+  const email = document.getElementById("email").value;
+  const senha = document.getElementById("senha").value;
+  createUserWithEmailAndPassword(auth, email, senha)
+    .catch(e => alert(e.message));
 };
 
-const content = document.getElementById("appContent");
+window.login = () => {
+  const email = document.getElementById("email").value;
+  const senha = document.getElementById("senha").value;
+  signInWithEmailAndPassword(auth, email, senha)
+    .catch(e => alert(e.message));
+};
 
+window.logout = () => signOut(auth);
 
-// ===============================
-// 🔐 CONTROLE DE AUTENTICAÇÃO
-// ===============================
-function initAuth() {
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      AppState.user = user;
-      renderPage("dashboard");
-    } else {
-      AppState.user = null;
-      renderLoginMessage();
-    }
+window.adicionarReceita = () => salvarMovimento("receita");
+window.adicionarDespesa = () => salvarMovimento("despesa");
+
+async function salvarMovimento(tipo) {
+  const valor = Number(document.getElementById("valor").value);
+  const categoria = document.getElementById("categoriaTransacao").value || "Geral";
+
+  if (!valor || valor <= 0) return alert("Valor inválido");
+
+  await addDoc(collection(db, "movimentos"), {
+    tipo,
+    valor,
+    categoria,
+    userId: usuarioAtual.uid,
+    criadoEm: Date.now()
+  });
+
+  document.getElementById("valor").value = "";
+  document.getElementById("categoriaTransacao").value = "";
+}
+
+function carregarMovimentos() {
+  const q = query(collection(db, "movimentos"), where("userId", "==", usuarioAtual.uid));
+
+  onSnapshot(q, snap => {
+    let rec = 0, des = 0;
+    const lista = document.getElementById("listaMovimentos");
+    lista.innerHTML = "";
+
+    let docs = [];
+    snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+    docs.sort((a, b) => b.criadoEm - a.criadoEm);
+
+    docs.forEach(data => {
+      data.tipo === "receita" ? rec += data.valor : des += data.valor;
+
+      const li = document.createElement("li");
+      li.className = "flex justify-between items-center p-4 glass rounded-2xl";
+
+      li.innerHTML = `
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center ${data.tipo === "receita" ? "bg-emerald-500/20 text-emerald-500" : "bg-rose-500/20 text-rose-500"}">
+            <i class="fas ${data.tipo === "receita" ? "fa-plus" : "fa-minus"} text-xs"></i>
+          </div>
+          <div>
+            <p class="font-bold text-sm">${data.categoria}</p>
+            <p class="text-[10px] text-slate-500">${new Date(data.criadoEm).toLocaleDateString()}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 font-black ${data.tipo === "receita" ? "text-emerald-400" : "text-rose-400"}">
+          ${BRL(data.valor)}
+          <button onclick="excluirItem('movimentos','${data.id}')" class="text-slate-700 hover:text-rose-500 ml-2">
+            <i class="fas fa-trash text-xs"></i>
+          </button>
+        </div>
+      `;
+
+      lista.appendChild(li);
+    });
+
+    document.getElementById("receitaTotal").innerText = BRL(rec);
+    document.getElementById("despesaTotal").innerText = BRL(des);
+    document.getElementById("saldoTotal").innerText = BRL(rec - des);
   });
 }
 
-
-// ===============================
-// 🔹 RENDERIZAÇÃO
-// ===============================
-function renderLoginMessage() {
-  content.innerHTML = `
-    <div class="card">
-      <h2>Você precisa estar logado</h2>
-    </div>
-  `;
-}
-
-
-window.showPage = function(page) {
-  renderPage(page);
+window.excluirItem = async (col, id) => {
+  if (confirm("Deseja apagar?")) {
+    await deleteDoc(doc(db, col, id));
+  }
 };
 
-
-function renderPage(page) {
-
-  if (!AppState.user) {
-    renderLoginMessage();
-    return;
+onAuthStateChanged(auth, user => {
+  if (user) {
+    usuarioAtual = user;
+    document.getElementById("loginTela").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
+    carregarMovimentos();
+  } else {
+    document.getElementById("loginTela").classList.remove("hidden");
+    document.getElementById("dashboard").classList.add("hidden");
   }
-
-  switch (page) {
-
-    case "dashboard":
-      loadDashboard();
-      break;
-
-    case "contas":
-      content.innerHTML = `
-        <div class="card">
-          <h2>Contas</h2>
-          <p>Área ativa.</p>
-        </div>
-      `;
-      break;
-
-    case "dividas":
-      content.innerHTML = `
-        <div class="card">
-          <h2>Dívidas</h2>
-          <p>Área ativa.</p>
-        </div>
-      `;
-      break;
-
-    case "metas":
-      content.innerHTML = `
-        <div class="card">
-          <h2>Metas</h2>
-          <p>Área ativa.</p>
-        </div>
-      `;
-      break;
-  }
-}
-
-
-// ===============================
-// 📊 DASHBOARD INTELIGENTE
-// ===============================
-async function loadDashboard() {
-
-  let totalReceita = 0;
-  let totalDespesa = 0;
-
-  const q = query(
-    collection(db, "recorrencias"),
-    where("userId", "==", AppState.user.uid)
-  );
-
-  const snapshot = await getDocs(q);
-
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-
-    if (data.tipo === "receita") {
-      totalReceita += Number(data.valor);
-    }
-
-    if (data.tipo === "despesa") {
-      totalDespesa += Number(data.valor);
-    }
-  });
-
-  const saldo = totalReceita - totalDespesa;
-
-  const statusClass = saldo >= 0 ? "green" : "red";
-  const statusText = saldo >= 0
-    ? "Fluxo saudável ✅"
-    : "🚨 Atenção! Saldo negativo";
-
-  content.innerHTML = `
-    <div class="card">
-      <h2>Resumo Mensal</h2>
-      <p><strong>Receitas:</strong> R$ ${totalReceita.toFixed(2)}</p>
-      <p><strong>Despesas:</strong> R$ ${totalDespesa.toFixed(2)}</p>
-      <p><strong>Saldo Previsto:</strong> R$ ${saldo.toFixed(2)}</p>
-
-      <div class="alert ${statusClass}">
-        ${statusText}
-      </div>
-
-      <button onclick="logout()">Sair</button>
-    </div>
-  `;
-}
-
-
-// ===============================
-// 🔓 LOGOUT
-// ===============================
-window.logout = async function() {
-  await signOut(auth);
-};
-
-
-// ===============================
-// 🚀 INICIALIZAÇÃO DA APP
-// ===============================
-initAuth();
+});
