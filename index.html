@@ -7,81 +7,56 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-
   <style type="text/tailwindcss">
     @layer components {
       body { font-family: 'Inter', sans-serif; }
-      .glass {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255,255,255,0.1);
-      }
-      .menuBtn {
-        @apply w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-white/5 transition-all text-slate-400 hover:text-white;
-      }
-      .cardResumo {
-        @apply glass p-4 rounded-2xl border-l-4;
-      }
+      .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+      .menuBtn { @apply w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-white/5 transition-all text-slate-400 hover:text-white; }
+      .cardResumo { @apply glass p-4 rounded-2xl border-l-4; }
       .cardResumo p { @apply text-xs text-slate-400 uppercase font-bold; }
       .cardResumo h3 { @apply text-xl font-black; }
-      .inputPadrao {
-        @apply w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-500 outline-none transition-all text-white;
-      }
+      .inputPadrao { @apply w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-500 outline-none transition-all text-white; }
       .btnReceita { @apply bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-4 rounded-xl transition-all; }
       .btnDespesa { @apply bg-rose-600 hover:bg-rose-500 text-white font-bold p-4 rounded-xl transition-all; }
-      .btnAzul { @apply bg-blue-600 hover:bg-blue-500 text-white font-bold p-3 rounded-xl transition-all; }
     }
   </style>
 </head>
 <body class="bg-[#0f172a] text-slate-200 min-h-screen">
-
   <div id="loginTela" class="flex items-center justify-center min-h-screen p-4">
     <div class="glass p-8 rounded-3xl w-full max-w-md shadow-2xl">
       <div class="text-center mb-8">
         <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">MetasBoard</h2>
-        <p class="text-slate-400 mt-2 italic">Sua jornada financeira começa aqui.</p>
       </div>
       <div class="space-y-4">
         <input id="email" type="email" placeholder="Email" class="inputPadrao">
         <input id="senha" type="password" placeholder="Senha" class="inputPadrao">
         <button onclick="login()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold p-4 rounded-xl transition-all">Entrar</button>
-        <button onclick="registrar()" class="w-full text-slate-400 hover:text-white text-sm transition-all">Criar conta nova</button>
+        <button onclick="registrar()" class="w-full text-slate-400 hover:text-white text-sm">Criar conta nova</button>
       </div>
     </div>
   </div>
 
   <div id="dashboard" class="hidden flex-col md:flex-row min-h-screen">
     <aside class="w-full md:w-64 glass p-6 flex flex-col gap-8 border-r border-white/5">
-      <h1 class="text-2xl font-black text-purple-500 flex items-center gap-2 italic">
-        <i class="fas fa-rocket"></i> METASBOARD
-      </h1>
+      <h1 class="text-2xl font-black text-purple-500 italic"><i class="fas fa-rocket"></i> METASBOARD</h1>
       <nav class="space-y-2 flex-1">
-        <button onclick="mostrarSecao('secDashboard')" class="menuBtn"><i class="fas fa-chart-line text-purple-400"></i> Resumo</button>
-        <button onclick="mostrarSecao('secContas')" class="menuBtn"><i class="fas fa-university text-blue-400"></i> Bancos</button>
-        <button onclick="mostrarSecao('secDividas')" class="menuBtn"><i class="fas fa-credit-card text-rose-400"></i> Dívidas</button>
-        <button onclick="mostrarSecao('secMetas')" class="menuBtn"><i class="fas fa-bullseye text-emerald-400"></i> Metas</button>
+        <button onclick="mostrarSecao('secDashboard')" class="menuBtn"><i class="fas fa-chart-line"></i> Resumo</button>
       </nav>
-      <button onclick="logout()" class="p-4 text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-3 transition-all font-bold">
-        <i class="fas fa-power-off"></i> Sair
-      </button>
+      <button onclick="logout()" class="p-4 text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-3 font-bold"><i class="fas fa-power-off"></i> Sair</button>
     </aside>
-
     <main class="flex-1 p-6 md:p-10 overflow-y-auto">
       <section id="secDashboard" class="space-y-8">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div class="cardResumo border-emerald-500"><p>Receitas</p><h3 id="receitaTotal">R$ 0,00</h3></div>
           <div class="cardResumo border-rose-500"><p>Despesas</p><h3 id="despesaTotal">R$ 0,00</h3></div>
-          <div class="cardResumo border-purple-500"><p>Saldo Livre</p><h3 id="saldoTotal">R$ 0,00</h3></div>
-          <div class="cardResumo border-blue-500"><p>Bancos</p><h3 id="totalContas">R$ 0,00</h3></div>
-          <div class="cardResumo border-orange-500"><p>Dívidas</p><h3 id="totalDividas">R$ 0,00</h3></div>
+          <div class="cardResumo border-purple-500"><p>Saldo</p><h3 id="saldoTotal">R$ 0,00</h3></div>
         </div>
-
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="glass p-6 rounded-3xl">
-            <h3 class="text-xl font-bold mb-6 italic"><i class="fas fa-plus-circle text-purple-400 mr-2"></i> Nova Entrada</h3>
+            <h3 class="text-xl font-bold mb-6 italic">Nova Entrada</h3>
             <div class="space-y-4">
               <input id="valor" type="number" step="0.01" placeholder="R$ 0,00" class="inputPadrao">
-              <input id="categoriaTransacao" type="text" placeholder="Categoria" class="inputPadrao">
+              <input id="categoriaTransacao" type="text" placeholder="Descrição" class="inputPadrao">
               <div class="grid grid-cols-2 gap-3">
                 <button onclick="adicionarReceita()" class="btnReceita">Receita</button>
                 <button onclick="adicionarDespesa()" class="btnDespesa">Despesa</button>
@@ -89,30 +64,13 @@
             </div>
           </div>
           <div class="lg:col-span-2 glass rounded-3xl flex flex-col min-h-[400px]">
-            <div class="p-6 border-b border-white/5 flex justify-between items-center">
-              <h3 class="text-xl font-bold italic">Fluxo de Caixa</h3>
-              <i class="fas fa-history text-slate-500"></i>
-            </div>
+            <div class="p-6 border-b border-white/5 font-bold italic">Fluxo de Caixa (Recorrências)</div>
             <ul id="listaMovimentos" class="p-4 space-y-3"></ul>
           </div>
         </div>
       </section>
-
-      <section id="secContas" class="hidden space-y-6">
-        <div class="flex justify-between items-center"><h2 class="text-3xl font-black italic">BANCOS 🏦</h2></div>
-        <div id="listaContas" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center p-10 opacity-50">Funcionalidade em breve...</div>
-      </section>
-      <section id="secDividas" class="hidden space-y-6">
-        <div class="flex justify-between items-center"><h2 class="text-3xl font-black italic text-rose-500">DÍVIDAS 💳</h2></div>
-        <div id="listaDividas" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center p-10 opacity-50">Funcionalidade em breve...</div>
-      </section>
-      <section id="secMetas" class="hidden space-y-6">
-        <div class="flex justify-between items-center"><h2 class="text-3xl font-black italic text-emerald-400">METAS 🎯</h2></div>
-        <div id="listaMetas" class="grid grid-cols-1 md:grid-cols-2 gap-8 text-center p-10 opacity-50">Funcionalidade em breve...</div>
-      </section>
     </main>
   </div>
-
   <script type="module" src="app.js"></script>
 </body>
 </html>
