@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -14,95 +14,111 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-let usuarioAtual = null;
+let userUID = null;
 
 const BRL = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
+// NAVEGAÇÃO
+window.navegar = (id) => {
+  document.querySelectorAll('.secao').forEach(s => s.classList.remove('ativa'));
+  document.getElementById(id).classList.add('ativa');
+  document.querySelectorAll('.menuBtn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + id).classList.add('active');
+};
+
+// AUTH
 window.login = () => {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-  signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro: " + e.message));
+  const e = document.getElementById("email").value;
+  const s = document.getElementById("senha").value;
+  signInWithEmailAndPassword(auth, e, s).catch(err => alert("Erro ao entrar: " + err.message));
 };
-
-window.registrar = () => {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-  createUserWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro: " + e.message));
-};
-
 window.logout = () => signOut(auth);
 
-window.adicionarReceita = () => salvarMovimento("receita");
-window.adicionarDespesa = () => salvarMovimento("despesa");
+// ADICIONAR (SALÁRIO / CONTAS)
+window.addMovimento = async () => {
+  const desc = document.getElementById("lan_desc").value;
+  const valor = Number(document.getElementById("lan_valor").value);
+  const dia = document.getElementById("lan_dia").value;
+  const tipo = document.getElementById("lan_tipo").value;
 
-async function salvarMovimento(tipo) {
-  const valor = Number(document.getElementById("valor").value);
-  const desc = document.getElementById("categoriaTransacao").value;
-  if (!valor || valor <= 0) return alert("Insira um valor");
+  if(!valor) return alert("Digite o valor");
 
   await addDoc(collection(db, "recorrencias"), {
-    tipo,
+    descrição: desc,
     valor,
-    descrição: desc || "Geral",
-    userId: usuarioAtual.uid,
+    dia: dia || null,
+    tipo,
+    userId: userUID,
     criadoEm: Date.now()
   });
+  
+  document.getElementById("lan_desc").value = "";
+  document.getElementById("lan_valor").value = "";
+};
 
-  document.getElementById("valor").value = "";
-  document.getElementById("categoriaTransacao").value = "";
-}
-
-function carregarMovimentos() {
-  const q = query(collection(db, "recorrencias"), where("userId", "==", usuarioAtual.uid));
-
-  onSnapshot(q, (snap) => {
-    let rec = 0, des = 0;
-    const lista = document.getElementById("listaMovimentos");
+// CARREGAMENTO EM TEMPO REAL
+function observer() {
+  // Observar Recorrências (Salário e Gastos Fixos)
+  onSnapshot(query(collection(db, "recorrencias"), where("userId", "==", userUID)), snap => {
+    let r = 0, d = 0;
+    const lista = document.getElementById("listaHome");
     lista.innerHTML = "";
-
-    snap.forEach((d) => {
-      const data = d.data();
-      if (data.tipo === "receita") rec += data.valor;
-      else des += data.valor;
-
-      const li = document.createElement("li");
-      li.className = "flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5";
-      li.innerHTML = `
-        <div>
-          <p class="font-bold text-slate-100">${data.descrição || "Sem título"}</p>
-          <p class="text-xs text-slate-500">${new Date(data.criadoEm || Date.now()).toLocaleDateString()}</p>
-        </div>
-        <div class="flex items-center gap-4">
-          <span class="font-bold ${data.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}">
-            ${data.tipo === 'receita' ? '+' : '-'} ${BRL(data.valor)}
-          </span>
-          <button onclick="excluirItem('${d.id}')" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>
-        </div>
-      `;
-      lista.appendChild(li);
+    snap.forEach(doc => {
+      const item = doc.data();
+      if(item.tipo === 'receita') r += item.valor; else d += item.valor;
+      
+      lista.innerHTML += `
+        <li class="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5">
+          <div><p class="font-bold">${item.descrição}</p><p class="text-xs text-slate-500">${item.dia ? 'Dia ' + item.dia : 'Eventual'}</p></div>
+          <span class="font-bold ${item.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}">${BRL(item.valor)}</span>
+        </li>`;
     });
+    document.getElementById("resumoReceita").innerText = BRL(r);
+    document.getElementById("resumoDespesa").innerText = BRL(d);
+    document.getElementById("resumoSaldo").innerText = BRL(r - d);
+  });
 
-    document.getElementById("receitaTotal").innerText = BRL(rec);
-    document.getElementById("despesaTotal").innerText = BRL(des);
-    document.getElementById("saldoTotal").innerText = BRL(rec - des);
+  // Observar Dívidas (Puxando da sua coleção 'dividas')
+  onSnapshot(query(collection(db, "dividas"), where("userId", "==", userUID)), snap => {
+    const box = document.getElementById("listaDividas");
+    box.innerHTML = "";
+    snap.forEach(doc => {
+      const item = doc.data();
+      box.innerHTML += `
+        <div class="glass p-4 rounded-2xl border-l-4 border-rose-500">
+          <p class="font-bold">${item.nome || 'Dívida'}</p>
+          <p class="text-xl font-black text-rose-400">${BRL(item.valor)}</p>
+        </div>`;
+    });
+  });
+
+  // Observar Metas (Puxando da sua coleção 'metas')
+  onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
+    const box = document.getElementById("listaMetas");
+    box.innerHTML = "";
+    snap.forEach(doc => {
+      const item = doc.data();
+      const perc = Math.min((item.atual / item.alvo) * 100, 100).toFixed(0);
+      box.innerHTML += `
+        <div class="glass p-5 rounded-3xl">
+          <div class="flex justify-between font-bold mb-2"><span>${item.nome}</span><span>${perc}%</span></div>
+          <div class="w-full bg-slate-900 h-3 rounded-full overflow-hidden">
+            <div class="bg-gradient-to-r from-purple-500 to-emerald-500 h-full" style="width: ${perc}%"></div>
+          </div>
+          <p class="text-xs mt-2 text-slate-500">Alvo: ${BRL(item.alvo)} | Atual: ${BRL(item.atual)}</p>
+        </div>`;
+    });
   });
 }
 
-window.excluirItem = async (id) => {
-  if (confirm("Apagar?")) await deleteDoc(doc(db, "recorrencias", id));
-};
-
-onAuthStateChanged(auth, (user) => {
-  const loginTela = document.getElementById("loginTela");
-  const dashboard = document.getElementById("dashboard");
-
+onAuthStateChanged(auth, user => {
   if (user) {
-    usuarioAtual = user;
-    loginTela.classList.add("hidden");
-    dashboard.style.display = "flex";
-    carregarMovimentos();
+    userUID = user.uid;
+    document.getElementById("loginTela").classList.add("hidden");
+    document.getElementById("dashboard").style.display = "flex";
+    observer();
   } else {
-    loginTela.classList.remove("hidden");
-    dashboard.style.display = "none";
+    document.getElementById("loginTela").classList.remove("hidden");
+    document.getElementById("dashboard").style.display = "none";
   }
 });
