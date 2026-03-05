@@ -1,21 +1,30 @@
-// 🔥 Firebase SDK 11.0.1
+// ======================================================
+// 🔥 METASBOARD - FIREBASE SDK 11.0.1
+// Estrutura limpa com Auth + Firestore + Dashboard
+// ======================================================
+
+// 🔹 Import Firebase v11.0.1 (Modular)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-import { 
-  getAuth, 
-  onAuthStateChanged, 
-  signOut 
+
+import {
+  getAuth,
+  onAuthStateChanged,
+  signOut
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
 
-import { 
-  getFirestore, 
-  collection, 
-  getDocs, 
-  query, 
-  where 
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  query,
+  where
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 
-// 🔴 COLE SUA CONFIG DO FIREBASE AQUI
+// ======================================================
+// 🔴 CONFIGURAÇÃO FIREBASE (COLE A SUA AQUI)
+// ======================================================
+
 const firebaseConfig = {
   apiKey: "SUA_API_KEY",
   authDomain: "SEU_AUTH_DOMAIN",
@@ -25,6 +34,11 @@ const firebaseConfig = {
   appId: "SEU_APP_ID"
 };
 
+
+// ======================================================
+// 🔥 INICIALIZAÇÃO
+// ======================================================
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -32,9 +46,13 @@ const db = getFirestore(app);
 const content = document.getElementById("appContent");
 
 
-// 🔐 CONTROLE DE LOGIN
-onAuthStateChanged(auth, async (user) => {
+// ======================================================
+// 🔐 CONTROLE DE AUTENTICAÇÃO
+// ======================================================
+
+onAuthStateChanged(auth, (user) => {
   if (user) {
+    // Salva UID globalmente
     window.currentUserId = user.uid;
     showPage("dashboard");
   } else {
@@ -47,67 +65,91 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 
-// 📌 NAVEGAÇÃO
-window.showPage = function(page) {
+// ======================================================
+// 📌 CONTROLE DE PÁGINAS (MENU LATERAL)
+// ======================================================
+
+window.showPage = function (page) {
 
   if (page === "dashboard") {
     loadDashboard();
   }
 
   if (page === "contas") {
-    content.innerHTML = "<div class='card'><h2>Contas</h2></div>";
+    content.innerHTML = `
+      <div class="card">
+        <h2>Contas</h2>
+        <p>Área de contas ativa.</p>
+      </div>
+    `;
   }
 
   if (page === "dividas") {
-    content.innerHTML = "<div class='card'><h2>Dívidas</h2></div>";
+    content.innerHTML = `
+      <div class="card">
+        <h2>Dívidas</h2>
+        <p>Área de dívidas ativa.</p>
+      </div>
+    `;
   }
 
   if (page === "metas") {
-    content.innerHTML = "<div class='card'><h2>Metas</h2></div>";
+    content.innerHTML = `
+      <div class="card">
+        <h2>Metas</h2>
+        <p>Área de metas ativa.</p>
+      </div>
+    `;
   }
 };
 
 
-// 📊 DASHBOARD INTELIGENTE
+// ======================================================
+// 📊 DASHBOARD - RESUMO INTELIGENTE
+// ======================================================
+
 async function loadDashboard() {
 
   if (!window.currentUserId) return;
 
-  let receita = 0;
-  let despesa = 0;
+  let totalReceita = 0;
+  let totalDespesa = 0;
 
+  // 🔎 Busca apenas dados do usuário logado
   const q = query(
     collection(db, "recorrencias"),
     where("userId", "==", window.currentUserId)
   );
 
-  const querySnapshot = await getDocs(q);
+  const snapshot = await getDocs(q);
 
-  querySnapshot.forEach((doc) => {
+  snapshot.forEach((doc) => {
     const data = doc.data();
 
     if (data.tipo === "receita") {
-      receita += Number(data.valor);
+      totalReceita += Number(data.valor);
     }
 
     if (data.tipo === "despesa") {
-      despesa += Number(data.valor);
+      totalDespesa += Number(data.valor);
     }
   });
 
-  const saldo = receita - despesa;
+  const saldoFinal = totalReceita - totalDespesa;
 
-  let statusClass = saldo >= 0 ? "green" : "red";
-  let statusText = saldo >= 0 
-    ? "Fluxo saudável" 
-    : "🚨 Atenção! Saldo negativo";
+  const statusClass = saldoFinal >= 0 ? "green" : "red";
+  const statusText =
+    saldoFinal >= 0
+      ? "Fluxo saudável este mês ✅"
+      : "🚨 Atenção! Você ficará negativo";
 
   content.innerHTML = `
     <div class="card">
       <h2>Resumo Mensal</h2>
-      <p><strong>Receitas:</strong> R$ ${receita.toFixed(2)}</p>
-      <p><strong>Despesas:</strong> R$ ${despesa.toFixed(2)}</p>
-      <p><strong>Saldo Previsto:</strong> R$ ${saldo.toFixed(2)}</p>
+
+      <p><strong>Receitas:</strong> R$ ${totalReceita.toFixed(2)}</p>
+      <p><strong>Despesas:</strong> R$ ${totalDespesa.toFixed(2)}</p>
+      <p><strong>Saldo Previsto:</strong> R$ ${saldoFinal.toFixed(2)}</p>
 
       <div class="alert ${statusClass}">
         ${statusText}
@@ -119,7 +161,10 @@ async function loadDashboard() {
 }
 
 
+// ======================================================
 // 🔓 LOGOUT
-window.logout = async function() {
+// ======================================================
+
+window.logout = async function () {
   await signOut(auth);
 };
