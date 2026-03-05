@@ -1,4 +1,4 @@
-// 🔥 Firebase SDK v11 (atual)
+// 🔥 Firebase SDK 11.0.1
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { 
   getAuth, 
@@ -15,7 +15,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 
-// 🔴 COLE SUA CONFIG REAL AQUI
+// 🔴 COLE SUA CONFIG DO FIREBASE AQUI
 const firebaseConfig = {
   apiKey: "SUA_API_KEY",
   authDomain: "SEU_AUTH_DOMAIN",
@@ -32,7 +32,7 @@ const db = getFirestore(app);
 const content = document.getElementById("appContent");
 
 
-// 🔥 CONTROLE DE LOGIN
+// 🔐 CONTROLE DE LOGIN
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     window.currentUserId = user.uid;
@@ -47,8 +47,9 @@ onAuthStateChanged(auth, async (user) => {
 });
 
 
-// 🔥 NAVEGAÇÃO
-window.showPage = async function(page) {
+// 📌 NAVEGAÇÃO
+window.showPage = function(page) {
+
   if (page === "dashboard") {
     loadDashboard();
   }
@@ -67,8 +68,9 @@ window.showPage = async function(page) {
 };
 
 
-// 🔥 DASHBOARD INTELIGENTE
+// 📊 DASHBOARD INTELIGENTE
 async function loadDashboard() {
+
   if (!window.currentUserId) return;
 
   let receita = 0;
@@ -98,7 +100,7 @@ async function loadDashboard() {
   let statusClass = saldo >= 0 ? "green" : "red";
   let statusText = saldo >= 0 
     ? "Fluxo saudável" 
-    : "🚨 Atenção! Você ficará negativo este mês";
+    : "🚨 Atenção! Saldo negativo";
 
   content.innerHTML = `
     <div class="card">
@@ -117,7 +119,7 @@ async function loadDashboard() {
 }
 
 
-// 🔥 LOGOUT
+// 🔓 LOGOUT
 window.logout = async function() {
   await signOut(auth);
 };
