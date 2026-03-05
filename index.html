@@ -13,8 +13,6 @@
       .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
       .menuBtn { @apply w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-white/5 transition-all text-slate-400 hover:text-white; }
       .cardResumo { @apply glass p-4 rounded-2xl border-l-4; }
-      .cardResumo p { @apply text-xs text-slate-400 uppercase font-bold; }
-      .cardResumo h3 { @apply text-xl font-black; }
       .inputPadrao { @apply w-full p-4 rounded-xl bg-slate-900 border border-slate-700 focus:border-purple-500 outline-none transition-all text-white; }
       .btnReceita { @apply bg-emerald-600 hover:bg-emerald-500 text-white font-bold p-4 rounded-xl transition-all; }
       .btnDespesa { @apply bg-rose-600 hover:bg-rose-500 text-white font-bold p-4 rounded-xl transition-all; }
@@ -30,7 +28,7 @@
       <div class="space-y-4">
         <input id="email" type="email" placeholder="Email" class="inputPadrao">
         <input id="senha" type="password" placeholder="Senha" class="inputPadrao">
-        <button onclick="login()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold p-4 rounded-xl transition-all">Entrar</button>
+        <button onclick="login()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold p-4 rounded-xl">Entrar</button>
         <button onclick="registrar()" class="w-full text-slate-400 hover:text-white text-sm">Criar conta nova</button>
       </div>
     </div>
@@ -40,23 +38,27 @@
     <aside class="w-full md:w-64 glass p-6 flex flex-col gap-8 border-r border-white/5">
       <h1 class="text-2xl font-black text-purple-500 italic"><i class="fas fa-rocket"></i> METASBOARD</h1>
       <nav class="space-y-2 flex-1">
-        <button onclick="mostrarSecao('secDashboard')" class="menuBtn"><i class="fas fa-chart-line"></i> Resumo</button>
+        <button onclick="mostrarSecao('secDashboard')" class="menuBtn"><i class="fas fa-chart-line text-purple-400"></i> Resumo</button>
       </nav>
-      <button onclick="logout()" class="p-4 text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-3 font-bold"><i class="fas fa-power-off"></i> Sair</button>
+      <button onclick="logout()" class="p-4 text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-3 font-bold">
+        <i class="fas fa-power-off"></i> Sair
+      </button>
     </aside>
+
     <main class="flex-1 p-6 md:p-10 overflow-y-auto">
       <section id="secDashboard" class="space-y-8">
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div class="cardResumo border-emerald-500"><p>Receitas</p><h3 id="receitaTotal">R$ 0,00</h3></div>
-          <div class="cardResumo border-rose-500"><p>Despesas</p><h3 id="despesaTotal">R$ 0,00</h3></div>
-          <div class="cardResumo border-purple-500"><p>Saldo</p><h3 id="saldoTotal">R$ 0,00</h3></div>
+          <div class="cardResumo border-emerald-500"><p class="text-xs uppercase font-bold text-slate-400">Receitas</p><h3 id="receitaTotal" class="text-xl font-black">R$ 0,00</h3></div>
+          <div class="cardResumo border-rose-500"><p class="text-xs uppercase font-bold text-slate-400">Despesas</p><h3 id="despesaTotal" class="text-xl font-black">R$ 0,00</h3></div>
+          <div class="cardResumo border-purple-500"><p class="text-xs uppercase font-bold text-slate-400">Saldo</p><h3 id="saldoTotal" class="text-xl font-black">R$ 0,00</h3></div>
         </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div class="glass p-6 rounded-3xl">
             <h3 class="text-xl font-bold mb-6 italic">Nova Entrada</h3>
             <div class="space-y-4">
               <input id="valor" type="number" step="0.01" placeholder="R$ 0,00" class="inputPadrao">
-              <input id="categoriaTransacao" type="text" placeholder="Descrição" class="inputPadrao">
+              <input id="categoriaTransacao" type="text" placeholder="Descrição (Ex: Salário)" class="inputPadrao">
               <div class="grid grid-cols-2 gap-3">
                 <button onclick="adicionarReceita()" class="btnReceita">Receita</button>
                 <button onclick="adicionarDespesa()" class="btnDespesa">Despesa</button>
@@ -64,7 +66,7 @@
             </div>
           </div>
           <div class="lg:col-span-2 glass rounded-3xl flex flex-col min-h-[400px]">
-            <div class="p-6 border-b border-white/5 font-bold italic">Fluxo de Caixa (Recorrências)</div>
+            <div class="p-6 border-b border-white/5 font-bold italic text-slate-400">Fluxo de Caixa</div>
             <ul id="listaMovimentos" class="p-4 space-y-3"></ul>
           </div>
         </div>
