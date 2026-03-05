@@ -24,11 +24,21 @@
   <div id="loginTela" class="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-[#0f172a] to-[#1e1b4b]">
     <div class="glass p-10 rounded-[2.5rem] w-full max-w-md text-center border-t-4 border-purple-500">
       <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-2">MetasBoard</h2>
-      <p class="text-slate-400 text-sm mb-10 italic">Seu controle financeiro inteligente</p>
+      <p id="subtituloLogin" class="text-slate-400 text-sm mb-10 italic">Seu controle financeiro inteligente</p>
+      
       <div class="space-y-4">
         <input id="email" type="email" placeholder="Seu e-mail" class="inputPadrao">
         <input id="senha" type="password" placeholder="Sua senha" class="inputPadrao">
-        <button onclick="login()" class="btnAcao bg-gradient-to-r from-purple-600 to-indigo-600">Acessar Painel</button>
+        
+        <div id="botoesLogin">
+          <button onclick="login()" class="btnAcao bg-gradient-to-r from-purple-600 to-indigo-600 mb-4">Acessar Painel</button>
+          <p class="text-xs text-slate-500">Novo por aqui? <span onclick="alternarTela(true)" class="text-purple-400 cursor-pointer hover:underline">Crie sua conta</span></p>
+        </div>
+
+        <div id="botoesCadastro" class="hidden">
+          <button onclick="registrar()" class="btnAcao bg-gradient-to-r from-emerald-600 to-teal-600 mb-4">Criar Minha Conta</button>
+          <p class="text-xs text-slate-500">Já tem cadastro? <span onclick="alternarTela(false)" class="text-purple-400 cursor-pointer hover:underline">Fazer Login</span></p>
+        </div>
       </div>
     </div>
   </div>
@@ -48,7 +58,6 @@
     </aside>
 
     <main class="flex-1 p-6 md:p-12 overflow-y-auto">
-      
       <section id="secHome" class="secao ativa">
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
             <div class="glass p-6 rounded-[2rem] border-l-4 border-emerald-500">
@@ -82,10 +91,9 @@
                 </div>
                 <ul id="listaGanhos" class="mt-8 space-y-4"></ul>
             </div>
-
             <div class="glass p-10 rounded-[2.5rem] border-t-4 border-indigo-500">
                 <h3 class="text-xl font-bold mb-4 flex items-center gap-3"><i class="fas fa-shield-alt text-indigo-400"></i> Reserva de Emergência</h3>
-                <p class="text-xs text-slate-400 mb-8 italic">O sistema sugere guardar 10% do seu saldo livre mensal.</p>
+                <p class="text-xs text-slate-400 mb-8 italic">O sistema sugere guardar 10% do seu saldo livre.</p>
                 <div class="p-8 bg-slate-900/60 rounded-3xl border border-white/5">
                     <p class="text-[10px] font-bold text-indigo-400 uppercase mb-1">Acumulado</p>
                     <h2 id="totalReserva" class="text-4xl font-black italic mb-6">R$ 0,00</h2>
