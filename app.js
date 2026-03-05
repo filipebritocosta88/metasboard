@@ -1,27 +1,10 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { 
-  getAuth, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  onSnapshot, 
-  deleteDoc, 
-  doc, 
-  updateDoc, 
-  getDoc 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
+// COLOQUE SUA API KEY ABAIXO
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY_AQUI",
+  apiKey: "COLE_AQUI_SUA_API_KEY", 
   authDomain: "metasboard.firebaseapp.com",
   projectId: "metasboard",
   storageBucket: "metasboard.firebasestorage.app",
@@ -32,50 +15,44 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 let usuarioAtual = null;
 
-const BRL = (v) =>
-  new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format(v || 0);
+const BRL = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-// ================= AUTH =================
+// EXPOR FUNÇÕES PARA O HTML (Obrigatório para type="module")
+window.login = () => {
+  const email = document.getElementById("email").value;
+  const senha = document.getElementById("senha").value;
+  signInWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro ao entrar: " + e.message));
+};
 
 window.registrar = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
-
-  createUserWithEmailAndPassword(auth, email, senha)
-    .catch(e => alert(e.message));
-};
-
-window.login = () => {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-
-  signInWithEmailAndPassword(auth, email, senha)
-    .catch(e => alert(e.message));
+  createUserWithEmailAndPassword(auth, email, senha).catch(e => alert("Erro ao criar conta: " + e.message));
 };
 
 window.logout = () => signOut(auth);
 
-// ================= MOVIMENTOS =================
+window.mostrarSecao = (id) => {
+  ['secDashboard','secContas','secDividas','secMetas'].forEach(s => {
+    document.getElementById(s).classList.add('hidden');
+  });
+  document.getElementById(id).classList.remove('hidden');
+};
 
 window.adicionarReceita = () => salvarMovimento("receita");
 window.adicionarDespesa = () => salvarMovimento("despesa");
 
 async function salvarMovimento(tipo) {
   const valor = Number(document.getElementById("valor").value);
-  const categoria = document.getElementById("categoriaTransacao").value;
+  const descricao = document.getElementById("categoriaTransacao").value;
+  if (!valor || valor <= 0) return alert("Insira um valor válido");
 
-  if (!valor || valor <= 0) return alert("Valor inválido");
-
-  await addDoc(collection(db, "movimentos"), {
+  await addDoc(collection(db, "recorrencias"), {
     tipo,
     valor,
-    categoria: categoria || "Geral",
+    descrição: descricao || "Geral",
     userId: usuarioAtual.uid,
     criadoEm: Date.now()
   });
@@ -85,15 +62,10 @@ async function salvarMovimento(tipo) {
 }
 
 function carregarMovimentos() {
-  const q = query(
-    collection(db, "movimentos"),
-    where("userId", "==", usuarioAtual.uid)
-  );
+  const q = query(collection(db, "recorrencias"), where("userId", "==", usuarioAtual.uid));
 
   onSnapshot(q, snap => {
-    let rec = 0;
-    let des = 0;
-
+    let rec = 0, des = 0;
     const lista = document.getElementById("listaMovimentos");
     lista.innerHTML = "";
 
@@ -106,20 +78,21 @@ function carregarMovimentos() {
       else des += data.valor;
 
       const li = document.createElement("li");
-
+      li.className = "flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/5";
       li.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-          <div>
-            <strong>${data.categoria}</strong><br>
-            <small>${new Date(data.criadoEm).toLocaleDateString()}</small>
-          </div>
-          <div>
-            ${BRL(data.valor)}
-            <button onclick="excluirItem('movimentos','${data.id}')">🗑</button>
-          </div>
+        <div>
+          <p class="font-bold text-slate-100">${data.descrição || "Sem nome"}</p>
+          <p class="text-xs text-slate-500">${new Date(data.criadoEm).toLocaleDateString()}</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span class="font-bold ${data.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}">
+            ${data.tipo === 'receita' ? '+' : '-'} ${BRL(data.valor)}
+          </span>
+          <button onclick="excluirItem('recorrencias','${data.id}')" class="text-slate-600 hover:text-rose-500 transition-colors">
+            <i class="fas fa-trash"></i>
+          </button>
         </div>
       `;
-
       lista.appendChild(li);
     });
 
@@ -129,26 +102,25 @@ function carregarMovimentos() {
   });
 }
 
-// ================= EXCLUIR =================
-
 window.excluirItem = async (col, id) => {
-  if (confirm("Deseja apagar?")) {
+  if (confirm("Deseja apagar este item?")) {
     await deleteDoc(doc(db, col, id));
   }
 };
 
-// ================= AUTH STATE =================
-
 onAuthStateChanged(auth, user => {
+  const loginTela = document.getElementById("loginTela");
+  const dashboard = document.getElementById("dashboard");
+
   if (user) {
     usuarioAtual = user;
-
-    document.getElementById("loginTela").style.display = "none";
-    document.getElementById("dashboard").style.display = "block";
-
+    loginTela.classList.add("hidden");
+    loginTela.classList.remove("flex");
+    dashboard.style.display = "flex"; 
     carregarMovimentos();
   } else {
-    document.getElementById("loginTela").style.display = "block";
-    document.getElementById("dashboard").style.display = "none";
+    loginTela.classList.remove("hidden");
+    loginTela.classList.add("flex");
+    dashboard.style.display = "none";
   }
 });
