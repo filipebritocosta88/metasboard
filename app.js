@@ -1,138 +1,74 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+// 🔥 COLOQUE SUA CONFIG DO FIREBASE AQUI
 const firebaseConfig = {
-  apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
-  authDomain: "metasboard.firebaseapp.com",
-  projectId: "metasboard",
-  storageBucket: "metasboard.firebasestorage.app",
-  messagingSenderId: "958671032163",
-  appId: "1:958671032163:web:3d150d966e103ca2e78d56"
+  apiKey: "SUA_API_KEY",
+  authDomain: "SEU_AUTH_DOMAIN",
+  projectId: "SEU_PROJECT_ID",
+  storageBucket: "SEU_BUCKET",
+  messagingSenderId: "SEU_SENDER",
+  appId: "SEU_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
-let usuarioAtual = null;
 
-const BRL = (v) =>
-  new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format(v || 0);
+const content = document.getElementById("appContent");
 
-/* =========================
-   AUTH
-========================= */
+window.showPage = async function(page) {
+  if (page === "dashboard") {
+    loadDashboard();
+  }
 
-window.registrar = async () => {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-  await createUserWithEmailAndPassword(auth, email, senha);
+  if (page === "contas") {
+    content.innerHTML = "<div class='card'><h2>Contas</h2><p>Área de contas funcionando.</p></div>";
+  }
+
+  if (page === "dividas") {
+    content.innerHTML = "<div class='card'><h2>Dívidas</h2><p>Área de dívidas funcionando.</p></div>";
+  }
+
+  if (page === "metas") {
+    content.innerHTML = "<div class='card'><h2>Metas</h2><p>Área de metas funcionando.</p></div>";
+  }
 };
 
-window.login = async () => {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-  await signInWithEmailAndPassword(auth, email, senha);
-};
+async function loadDashboard() {
+  let receita = 0;
+  let despesa = 0;
 
-window.logout = () => signOut(auth);
+  const querySnapshot = await getDocs(collection(db, "recorrencias"));
 
-/* =========================
-   EXECUTAR RECORRÊNCIAS
-========================= */
-
-async function executarRecorrencias() {
-  const hoje = new Date();
-  const mes = hoje.getMonth();
-  const ano = hoje.getFullYear();
-
-  const q = query(
-    collection(db, "recorrencias"),
-    where("userId", "==", usuarioAtual.uid)
-  );
-
-  const snap = await getDocs(q);
-
-  let eventos = [];
-
-  snap.forEach((doc) => {
+  querySnapshot.forEach((doc) => {
     const data = doc.data();
-    const dataEvento = new Date(ano, mes, data.dia).getTime();
 
-    eventos.push({
-      descricao: data.descricao,
-      tipo: data.tipo,
-      valor: data.valor,
-      data: dataEvento
-    });
+    if (data.tipo === "receita") {
+      receita += Number(data.valor);
+    }
+
+    if (data.tipo === "despesa") {
+      despesa += Number(data.valor);
+    }
   });
 
-  eventos.sort((a, b) => a.data - b.data);
+  const saldo = receita - despesa;
 
-  let saldo = 0;
-  let receitaTotal = 0;
-  let despesaTotal = 0;
-  let alerta = null;
+  let statusClass = saldo >= 0 ? "green" : "red";
+  let statusText = saldo >= 0 ? "Fluxo saudável" : "Alerta! Saldo negativo";
 
-  for (let ev of eventos) {
-    if (ev.tipo === "receita") {
-      saldo += ev.valor;
-      receitaTotal += ev.valor;
-    } else {
-      saldo -= ev.valor;
-      despesaTotal += ev.valor;
-    }
+  content.innerHTML = `
+    <div class="card">
+      <h2>Resumo Mensal</h2>
+      <p><strong>Receitas:</strong> R$ ${receita.toFixed(2)}</p>
+      <p><strong>Despesas:</strong> R$ ${despesa.toFixed(2)}</p>
+      <p><strong>Saldo Previsto:</strong> R$ ${saldo.toFixed(2)}</p>
 
-    if (saldo < 0 && !alerta) {
-      alerta = {
-        descricao: ev.descricao,
-        saldo
-      };
-    }
-  }
-
-  document.getElementById("receitaTotal").innerText = BRL(receitaTotal);
-  document.getElementById("despesaTotal").innerText = BRL(despesaTotal);
-  document.getElementById("saldoTotal").innerText = BRL(saldo);
-
-  const alertaBox = document.getElementById("alertaFinanceiro");
-  const mensagem = document.getElementById("mensagemAlerta");
-
-  alertaBox.classList.remove("hidden");
-
-  if (alerta) {
-    alertaBox.classList.remove("border-yellow-500");
-    alertaBox.classList.add("border-rose-500");
-    mensagem.innerText =
-      "🚨 Atenção! Você ficará negativo após: " +
-      alerta.descricao +
-      " | Saldo previsto: " +
-      BRL(alerta.saldo);
-  } else {
-    alertaBox.classList.remove("border-rose-500");
-    alertaBox.classList.add("border-emerald-500");
-    mensagem.innerText =
-      "✅ Fluxo saudável! Após todas as contas, saldo previsto: " +
-      BRL(saldo);
-  }
+      <div class="alert ${statusClass}">
+        ${statusText}
+      </div>
+    </div>
+  `;
 }
 
-/* =========================
-   LOGIN STATE
-========================= */
-
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    usuarioAtual = user;
-    document.getElementById("loginTela").classList.add("hidden");
-    document.getElementById("dashboard").classList.remove("hidden");
-
-    await executarRecorrencias();
-  } else {
-    document.getElementById("loginTela").classList.remove("hidden");
-    document.getElementById("dashboard").classList.add("hidden");
-  }
-});
+showPage("dashboard");
