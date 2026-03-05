@@ -3,134 +3,159 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MetasBoard | Elite Finance</title>
+  <title>MetasBoard | Inteligência Financeira</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <style type="text/tailwindcss">
     @layer components {
-      body { @apply bg-[#0f172a] text-slate-200 font-sans; }
-      .glass { @apply bg-slate-800/60 backdrop-blur-lg border border-white/10 shadow-2xl; }
+      body { @apply bg-[#0f172a] text-slate-200 font-sans overflow-x-hidden; }
+      .glass { @apply bg-[#1e293b]/60 backdrop-blur-xl border border-white/10 shadow-2xl; }
       .menuBtn { @apply w-full flex items-center gap-3 p-4 rounded-2xl hover:bg-white/5 transition-all text-slate-400 hover:text-white font-semibold; }
       .menuBtn.active { @apply bg-purple-600/20 text-purple-400 border border-purple-500/30; }
-      .cardResumo { @apply glass p-5 rounded-2xl border-l-4 shadow-xl; }
-      .inputPadrao { @apply w-full p-3 rounded-xl bg-slate-900/50 border border-slate-700 focus:border-purple-500 outline-none text-white; }
-      .btnAcao { @apply w-full font-bold p-3 rounded-xl transition-all text-white active:scale-95 hover:brightness-110; }
-      .secao { @apply hidden flex-col gap-6 opacity-0 transition-opacity duration-300; }
+      .inputPadrao { @apply w-full p-4 rounded-2xl bg-slate-900/50 border border-slate-700 focus:border-purple-500 outline-none text-white transition-all; }
+      .btnAcao { @apply w-full font-bold p-4 rounded-2xl transition-all text-white active:scale-95 hover:brightness-110 shadow-lg; }
+      .secao { @apply hidden flex-col gap-8 opacity-0 transition-opacity duration-500; }
       .secao.ativa { @apply flex opacity-100; }
+      .card-stats { @apply glass p-6 rounded-[2rem] border-l-4 shadow-2xl; }
     }
   </style>
 </head>
-<body class="min-h-screen">
+<body>
 
-  <div id="loginTela" class="flex items-center justify-center min-h-screen p-4">
-    <div class="glass p-10 rounded-3xl w-full max-w-md text-center">
-      <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-8">MetasBoard</h2>
+  <div id="loginTela" class="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-[#0f172a] to-[#1e1b4b]">
+    <div class="glass p-10 rounded-[2.5rem] w-full max-w-md text-center border-t-4 border-purple-500">
+      <h2 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500 mb-2">MetasBoard</h2>
+      <p class="text-slate-400 text-sm mb-10 italic">Seu controle financeiro inteligente</p>
       <div class="space-y-4">
-        <input id="email" type="email" placeholder="Email" class="inputPadrao">
-        <input id="senha" type="password" placeholder="Senha" class="inputPadrao">
-        <button onclick="login()" class="btnAcao bg-purple-600">Entrar</button>
-        <button onclick="registrar()" class="text-slate-500 text-xs">Criar nova conta</button>
+        <input id="email" type="email" placeholder="Seu e-mail" class="inputPadrao">
+        <input id="senha" type="password" placeholder="Sua senha" class="inputPadrao">
+        <button onclick="login()" class="btnAcao bg-gradient-to-r from-purple-600 to-indigo-600">Acessar Painel</button>
+        <button onclick="registrar()" class="text-slate-500 text-xs hover:text-purple-400 transition-colors">Não tem conta? Registre-se</button>
       </div>
     </div>
   </div>
 
   <div id="dashboard" class="hidden flex-col md:flex-row min-h-screen">
-    <aside class="w-full md:w-72 glass p-6 flex flex-col gap-8 border-r border-white/5">
-      <h1 class="text-xl font-black text-white italic px-2"><i class="fas fa-rocket text-purple-500 mr-2"></i>METASBOARD</h1>
-      <nav class="flex md:flex-col gap-2 overflow-x-auto">
-        <button onclick="navegar('secHome')" id="btn-secHome" class="menuBtn active"><i class="fas fa-chart-pie w-5"></i> Dashboard</button>
-        <button onclick="navegar('secDividas')" id="btn-secDividas" class="menuBtn"><i class="fas fa-calendar-alt w-5"></i> Vencimentos</button>
-        <button onclick="navegar('secMetas')" id="btn-secMetas" class="menuBtn"><i class="fas fa-bullseye w-5"></i> Metas</button>
+    <aside class="w-full md:w-80 glass p-8 flex flex-col gap-10 border-r border-white/5 h-screen sticky top-0">
+      <div class="flex items-center gap-3 px-2">
+        <div class="p-3 bg-purple-600 rounded-2xl shadow-purple-500/20 shadow-xl"><i class="fas fa-rocket text-white text-xl"></i></div>
+        <h1 class="text-2xl font-black text-white tracking-tighter italic">METASBOARD</h1>
+      </div>
+
+      <nav class="flex md:flex-col gap-3">
+        <button onclick="navegar('secHome')" id="btn-secHome" class="menuBtn active"><i class="fas fa-th-large w-6 text-center text-lg"></i> Dashboard</button>
+        <button onclick="navegar('secDividas')" id="btn-secDividas" class="menuBtn"><i class="fas fa-calendar-check w-6 text-center text-lg"></i> Vencimentos</button>
+        <button onclick="navegar('secMetas')" id="btn-secMetas" class="menuBtn"><i class="fas fa-bullseye w-6 text-center text-lg"></i> Metas e Sonhos</button>
       </nav>
-      <button onclick="logout()" class="mt-auto menuBtn text-rose-400"><i class="fas fa-power-off w-5"></i> Sair</button>
+
+      <div class="mt-auto">
+        <button onclick="logout()" class="menuBtn text-rose-400 hover:bg-rose-500/10"><i class="fas fa-power-off w-6 text-center"></i> Sair</button>
+      </div>
     </aside>
 
-    <main class="flex-1 p-6 md:p-10 overflow-y-auto">
+    <main class="flex-1 p-6 md:p-12 overflow-y-auto">
       
       <section id="secHome" class="secao ativa">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="cardResumo border-emerald-500 bg-emerald-500/5">
-                <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Receitas</p>
-                <h3 id="resumoReceita" class="text-xl font-black italic">R$ 0,00</h3>
-            </div>
-            <div class="cardResumo border-rose-500 bg-rose-500/5">
-                <p class="text-[10px] font-bold text-rose-400 uppercase tracking-widest">Dívidas</p>
-                <h3 id="resumoDividas" class="text-xl font-black italic">R$ 0,00</h3>
-            </div>
-            <div class="cardResumo border-purple-500 bg-purple-500/5">
-                <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest">Saldo Livre</p>
-                <h3 id="resumoSaldo" class="text-xl font-black italic">R$ 0,00</h3>
-            </div>
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div class="card-stats border-emerald-500 bg-emerald-500/5">
+            <p class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-1">Receitas</p>
+            <h3 id="resumoReceita" class="text-2xl font-black italic">R$ 0,00</h3>
           </div>
-
-          <div class="glass p-5 rounded-2xl flex flex-col justify-center">
-            <div class="flex justify-between text-xs font-bold mb-2">
-                <span class="text-slate-400">TERMÔMETRO DE SAÚDE</span>
-                <span id="txtSaude">Excelente</span>
+          <div class="card-stats border-rose-500 bg-rose-500/5">
+            <p class="text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-1">Dívidas</p>
+            <h3 id="resumoDividas" class="text-2xl font-black italic">R$ 0,00</h3>
+          </div>
+          <div class="card-stats border-purple-500 bg-purple-500/5">
+            <p class="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1">Saldo Livre</p>
+            <h3 id="resumoSaldo" class="text-2xl font-black italic">R$ 0,00</h3>
+          </div>
+          <div class="glass p-6 rounded-[2rem] flex flex-col justify-center">
+            <div class="flex justify-between text-[10px] font-black mb-2 tracking-widest">
+                <span class="text-slate-400 uppercase">Saúde Financeira</span>
+                <span id="txtSaude" class="text-emerald-400">Excelente</span>
             </div>
-            <div class="w-full bg-slate-900 h-4 rounded-full overflow-hidden border border-white/5">
-                <div id="barSaude" class="h-full transition-all duration-1000" style="width: 0%"></div>
-            </div>
+            <div class="w-full bg-slate-900 h-3 rounded-full overflow-hidden shadow-inner"><div id="barSaude" class="h-full transition-all duration-1000" style="width: 10%"></div></div>
           </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div class="glass p-8 rounded-3xl border-t-4 border-emerald-500">
-            <h3 class="font-bold mb-6 flex items-center gap-2"><i class="fas fa-coins text-emerald-400"></i> Cadastrar Ganhos</h3>
-            <div class="space-y-4">
-              <input id="rec_desc" placeholder="Ex: Salário Mensal" class="inputPadrao">
-              <input id="rec_valor" type="number" step="0.01" placeholder="Valor R$" class="inputPadrao">
-              <button onclick="addRecorrencia()" class="btnAcao bg-emerald-600">Salvar Receita</button>
-            </div>
-            <ul id="listaGanhos" class="mt-6 space-y-3"></ul>
-          </div>
-
-          <div class="glass p-8 rounded-3xl border-t-4 border-indigo-500 bg-indigo-500/5">
-            <h3 class="font-bold mb-2 flex items-center gap-2"><i class="fas fa-shield-alt text-indigo-400"></i> Reserva de Emergência</h3>
-            <p class="text-xs text-slate-400 mb-6 italic">O sistema sugere guardar 10% do seu saldo livre.</p>
-            <div class="flex justify-between items-end">
-                <div>
-                    <p class="text-xs font-bold text-indigo-300 uppercase">Acumulado</p>
-                    <h2 id="totalReserva" class="text-3xl font-black text-white">R$ 0,00</h2>
+            <div class="glass p-10 rounded-[2.5rem] border-t-4 border-emerald-500">
+                <h3 class="text-xl font-bold mb-8 flex items-center gap-3"><i class="fas fa-money-check-alt text-emerald-400"></i> Cadastrar Ganhos</h3>
+                <div class="space-y-4">
+                    <input id="rec_desc" placeholder="Ex: Salário Mensal" class="inputPadrao">
+                    <input id="rec_valor" type="number" placeholder="Valor R$" class="inputPadrao">
+                    <button onclick="addRecorrencia()" class="btnAcao bg-emerald-600">Salvar Receita</button>
                 </div>
-                <button onclick="sugerirReserva()" class="btnAcao bg-indigo-600 !w-auto px-6">Guardar Agora</button>
+                <ul id="listaGanhos" class="mt-8 space-y-4"></ul>
             </div>
-          </div>
+
+            <div class="glass p-10 rounded-[2.5rem] border-t-4 border-indigo-500 bg-indigo-500/5">
+                <h3 class="text-xl font-bold mb-4 flex items-center gap-3"><i class="fas fa-shield-alt text-indigo-400"></i> Reserva de Emergência</h3>
+                <p class="text-xs text-slate-400 mb-8 italic">O sistema sugere guardar 10% do seu saldo livre mensal.</p>
+                <div class="flex justify-between items-end p-6 bg-slate-900/60 rounded-3xl border border-white/5">
+                    <div>
+                        <p class="text-[10px] font-bold text-indigo-400 uppercase mb-1">Acumulado</p>
+                        <h2 id="totalReserva" class="text-3xl font-black italic">R$ 0,00</h2>
+                    </div>
+                    <button onclick="sugerirReserva()" class="p-4 bg-indigo-600 rounded-2xl text-xs font-black shadow-lg shadow-indigo-500/20 hover:scale-105 transition-all">Guardar Agora</button>
+                </div>
+            </div>
         </div>
       </section>
 
       <section id="secDividas" class="secao">
-        <div class="flex flex-col lg:flex-row gap-8">
-            <div class="lg:w-1/3 glass p-8 rounded-3xl border-t-4 border-rose-500 h-fit">
-                <h3 class="text-lg font-bold mb-6 italic">Novo Vencimento</h3>
+        <div class="flex flex-col lg:flex-row gap-10">
+            <div class="lg:w-[400px] glass p-10 rounded-[2.5rem] border-t-4 border-rose-500 h-fit sticky top-12">
+                <h3 class="text-xl font-bold mb-8">Novo Agendamento</h3>
                 <div class="space-y-4">
-                    <input id="div_nome" placeholder="Nome (Ex: Aluguel)" class="inputPadrao">
-                    <input id="div_valor" type="number" step="0.01" placeholder="Valor R$" class="inputPadrao">
+                    <input id="div_nome" placeholder="Descrição da Dívida" class="inputPadrao">
+                    <input id="div_valor" type="number" placeholder="Valor R$" class="inputPadrao">
                     <input id="div_data" type="date" class="inputPadrao">
-                    <button onclick="addDivida()" class="btnAcao bg-rose-600">Agendar Pagamento</button>
+                    <button onclick="addDivida()" class="btnAcao bg-rose-600">Registrar Vencimento</button>
                 </div>
             </div>
-            <div class="lg:w-2/3 grid grid-cols-1 sm:grid-cols-2 gap-4" id="listaDividasGrid"></div>
+            <div class="flex-1 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" id="listaDividasGrid"></div>
         </div>
       </section>
 
       <section id="secMetas" class="secao">
-        <div class="flex flex-col lg:flex-row gap-8">
-            <div class="lg:w-1/3 glass p-8 rounded-3xl border-t-4 border-purple-500 h-fit">
-                <h3 class="text-lg font-bold mb-6 italic">Nova Meta</h3>
+        <div class="flex flex-col lg:flex-row gap-10">
+            <div class="lg:w-[400px] glass p-10 rounded-[2.5rem] border-t-4 border-purple-500 h-fit sticky top-12">
+                <h3 class="text-xl font-bold mb-8 italic">Configurar Meta</h3>
                 <div class="space-y-4">
-                    <input id="meta_nome" placeholder="O que deseja conquistar?" class="inputPadrao">
-                    <input id="meta_alvo" type="number" placeholder="Valor Total R$" class="inputPadrao">
-                    <button onclick="addMeta()" class="btnAcao bg-purple-600">Criar Meta</button>
+                    <input id="meta_nome" placeholder="Nome do seu sonho" class="inputPadrao">
+                    <input id="meta_alvo" type="number" placeholder="Valor do Objetivo R$" class="inputPadrao">
+                    <button onclick="addMeta()" class="btnAcao bg-purple-600">Lançar Meta</button>
                 </div>
             </div>
-            <div class="lg:w-2/3 space-y-6" id="listaMetasGrid"></div>
+            <div class="flex-1 space-y-6" id="listaMetasGrid"></div>
         </div>
       </section>
-
     </main>
   </div>
+
+  <div id="chatIA" class="fixed bottom-8 right-8 z-50 flex flex-col items-end gap-4">
+    <div id="boxChat" class="hidden w-80 md:w-96 glass h-[500px] rounded-[2rem] flex flex-col shadow-3xl border-t-4 border-purple-500 overflow-hidden">
+        <div class="p-5 bg-slate-900/50 border-b border-white/5 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span class="font-black italic text-sm">Consultor IA</span>
+            </div>
+            <button onclick="toggleChat()" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="chatMensagens" class="flex-1 p-5 overflow-y-auto space-y-4 text-sm scrollbar-hide italic">
+            <div class="bg-purple-600/20 p-3 rounded-2xl rounded-tl-none border border-purple-500/30">Olá Filipe! Sou sua IA financeira. Pergunte-me sobre suas dívidas ou se vale a pena guardar dinheiro hoje!</div>
+        </div>
+        <div class="p-4 bg-slate-900/50 flex gap-2">
+            <input id="inputIA" placeholder="Sua dúvida..." class="flex-1 bg-slate-800 border-none rounded-xl p-3 text-xs outline-none focus:ring-1 ring-purple-500">
+            <button onclick="perguntarIA()" class="bg-purple-600 w-10 h-10 rounded-xl flex items-center justify-center"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </div>
+    <button onclick="toggleChat()" class="w-16 h-16 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-full shadow-2xl flex items-center justify-center text-2xl hover:scale-110 transition-all border-4 border-white/10">
+        <i class="fas fa-comment-dots text-white"></i>
+    </button>
+  </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>
