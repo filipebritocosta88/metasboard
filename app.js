@@ -1,11 +1,11 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 import { 
   getFirestore, 
@@ -18,10 +18,10 @@ import {
   doc, 
   updateDoc, 
   getDoc 
-} from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
+  apiKey: "SUA_API_KEY_AQUI",
   authDomain: "metasboard.firebaseapp.com",
   projectId: "metasboard",
   storageBucket: "metasboard.firebasestorage.app",
@@ -41,9 +41,12 @@ const BRL = (v) =>
     currency: "BRL"
   }).format(v || 0);
 
+// ================= AUTH =================
+
 window.registrar = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
+
   createUserWithEmailAndPassword(auth, email, senha)
     .catch(e => alert(e.message));
 };
@@ -51,25 +54,28 @@ window.registrar = () => {
 window.login = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
+
   signInWithEmailAndPassword(auth, email, senha)
     .catch(e => alert(e.message));
 };
 
 window.logout = () => signOut(auth);
 
+// ================= MOVIMENTOS =================
+
 window.adicionarReceita = () => salvarMovimento("receita");
 window.adicionarDespesa = () => salvarMovimento("despesa");
 
 async function salvarMovimento(tipo) {
   const valor = Number(document.getElementById("valor").value);
-  const categoria = document.getElementById("categoriaTransacao").value || "Geral";
+  const categoria = document.getElementById("categoriaTransacao").value;
 
   if (!valor || valor <= 0) return alert("Valor inválido");
 
   await addDoc(collection(db, "movimentos"), {
     tipo,
     valor,
-    categoria,
+    categoria: categoria || "Geral",
     userId: usuarioAtual.uid,
     criadoEm: Date.now()
   });
@@ -79,10 +85,15 @@ async function salvarMovimento(tipo) {
 }
 
 function carregarMovimentos() {
-  const q = query(collection(db, "movimentos"), where("userId", "==", usuarioAtual.uid));
+  const q = query(
+    collection(db, "movimentos"),
+    where("userId", "==", usuarioAtual.uid)
+  );
 
   onSnapshot(q, snap => {
-    let rec = 0, des = 0;
+    let rec = 0;
+    let des = 0;
+
     const lista = document.getElementById("listaMovimentos");
     lista.innerHTML = "";
 
@@ -91,26 +102,21 @@ function carregarMovimentos() {
     docs.sort((a, b) => b.criadoEm - a.criadoEm);
 
     docs.forEach(data => {
-      data.tipo === "receita" ? rec += data.valor : des += data.valor;
+      if (data.tipo === "receita") rec += data.valor;
+      else des += data.valor;
 
       const li = document.createElement("li");
-      li.className = "flex justify-between items-center p-4 glass rounded-2xl";
 
       li.innerHTML = `
-        <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center ${data.tipo === "receita" ? "bg-emerald-500/20 text-emerald-500" : "bg-rose-500/20 text-rose-500"}">
-            <i class="fas ${data.tipo === "receita" ? "fa-plus" : "fa-minus"} text-xs"></i>
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <strong>${data.categoria}</strong><br>
+            <small>${new Date(data.criadoEm).toLocaleDateString()}</small>
           </div>
           <div>
-            <p class="font-bold text-sm">${data.categoria}</p>
-            <p class="text-[10px] text-slate-500">${new Date(data.criadoEm).toLocaleDateString()}</p>
+            ${BRL(data.valor)}
+            <button onclick="excluirItem('movimentos','${data.id}')">🗑</button>
           </div>
-        </div>
-        <div class="flex items-center gap-4 font-black ${data.tipo === "receita" ? "text-emerald-400" : "text-rose-400"}">
-          ${BRL(data.valor)}
-          <button onclick="excluirItem('movimentos','${data.id}')" class="text-slate-700 hover:text-rose-500 ml-2">
-            <i class="fas fa-trash text-xs"></i>
-          </button>
         </div>
       `;
 
@@ -123,20 +129,26 @@ function carregarMovimentos() {
   });
 }
 
+// ================= EXCLUIR =================
+
 window.excluirItem = async (col, id) => {
   if (confirm("Deseja apagar?")) {
     await deleteDoc(doc(db, col, id));
   }
 };
 
+// ================= AUTH STATE =================
+
 onAuthStateChanged(auth, user => {
   if (user) {
     usuarioAtual = user;
-    document.getElementById("loginTela").classList.add("hidden");
-    document.getElementById("dashboard").classList.remove("hidden");
+
+    document.getElementById("loginTela").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+
     carregarMovimentos();
   } else {
-    document.getElementById("loginTela").classList.remove("hidden");
-    document.getElementById("dashboard").classList.add("hidden");
+    document.getElementById("loginTela").style.display = "block";
+    document.getElementById("dashboard").style.display = "none";
   }
 });
