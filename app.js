@@ -2,9 +2,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// !!! ATENÇÃO: SUBSTITUA O VALOR ABAIXO PELA SUA CHAVE QUE VOCÊ SALVOU NO PASSO 1 !!!
 const firebaseConfig = {
-  apiKey: "COLE_SUA_API_KEY_AQUI", 
+  // COLE SUA CHAVE ABAIXO ENTRE AS ASPAS
+  apiKey: "COLE_AQUI_SUA_API_KEY", 
   authDomain: "metasboard.firebaseapp.com",
   projectId: "metasboard",
   storageBucket: "metasboard.firebasestorage.app",
@@ -19,7 +19,7 @@ let usuarioAtual = null;
 
 const BRL = (v) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 
-// FUNÇÕES GLOBAIS
+// EXPOSIÇÃO PARA O HTML
 window.login = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
@@ -35,7 +35,8 @@ window.registrar = () => {
 window.logout = () => signOut(auth);
 
 window.mostrarSecao = (id) => {
-  document.getElementById('secDashboard').classList.remove('hidden'); // Simplificado para este exemplo
+  // Como temos apenas o resumo por enquanto, esta função apenas garante que ele apareça
+  document.getElementById('secDashboard').classList.remove('hidden');
 };
 
 window.adicionarReceita = () => salvarMovimento("receita");
@@ -43,13 +44,14 @@ window.adicionarDespesa = () => salvarMovimento("despesa");
 
 async function salvarMovimento(tipo) {
   const valor = Number(document.getElementById("valor").value);
-  const descricao = document.getElementById("categoriaTransacao").value;
-  if (!valor || valor <= 0) return alert("Valor inválido");
+  const desc = document.getElementById("categoriaTransacao").value;
+  if (!valor || valor <= 0) return alert("Insira um valor válido");
 
+  // Uso de 'recorrencias' e 'descrição' conforme o seu print do banco de dados
   await addDoc(collection(db, "recorrencias"), {
     tipo,
     valor,
-    descrição: descricao || "Geral",
+    descrição: desc || "Geral",
     userId: usuarioAtual.uid,
     criadoEm: Date.now()
   });
@@ -75,14 +77,16 @@ function carregarMovimentos() {
       li.className = "flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5";
       li.innerHTML = `
         <div>
-          <p class="font-bold">${data.descrição || "Sem título"}</p>
-          <p class="text-xs text-slate-500">${new Date(data.criadoEm).toLocaleDateString()}</p>
+          <p class="font-bold text-slate-100">${data.descrição || "Sem nome"}</p>
+          <p class="text-xs text-slate-500">${data.dia ? 'Dia ' + data.dia : 'Recent'}</p>
         </div>
         <div class="flex items-center gap-4">
-          <span class="${data.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'} font-bold">
-            ${BRL(data.valor)}
+          <span class="font-bold ${data.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}">
+            ${data.tipo === 'receita' ? '+' : '-'} ${BRL(data.valor)}
           </span>
-          <button onclick="excluirItem('recorrencias','${d.id}')" class="text-slate-600 hover:text-rose-500"><i class="fas fa-trash"></i></button>
+          <button onclick="excluirItem('recorrencias','${d.id}')" class="text-slate-600 hover:text-rose-500 transition-colors">
+            <i class="fas fa-trash"></i>
+          </button>
         </div>
       `;
       lista.appendChild(li);
@@ -95,17 +99,22 @@ function carregarMovimentos() {
 }
 
 window.excluirItem = async (col, id) => {
-  if (confirm("Apagar item?")) await deleteDoc(doc(db, col, id));
+  if (confirm("Deseja apagar permanentemente?")) {
+    await deleteDoc(doc(db, col, id));
+  }
 };
 
 onAuthStateChanged(auth, user => {
+  const loginTela = document.getElementById("loginTela");
+  const dashboard = document.getElementById("dashboard");
+
   if (user) {
     usuarioAtual = user;
-    document.getElementById("loginTela").classList.add("hidden");
-    document.getElementById("dashboard").style.display = "flex";
+    loginTela.classList.add("hidden");
+    dashboard.style.display = "flex"; 
     carregarMovimentos();
   } else {
-    document.getElementById("loginTela").classList.remove("hidden");
-    document.getElementById("dashboard").style.display = "none";
+    loginTela.classList.remove("hidden");
+    dashboard.style.display = "none";
   }
 });
