@@ -3,7 +3,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
 getAuth,
 signInWithEmailAndPassword,
-createUserWithEmailAndPassword
+createUserWithEmailAndPassword,
+onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 
@@ -23,6 +24,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 
+// LOGIN
+
 window.login = () => {
 
 const email = document.getElementById("email").value;
@@ -39,6 +42,9 @@ signInWithEmailAndPassword(auth,email,senha)
 
 alert("Login realizado com sucesso");
 
+// REDIRECIONAMENTO
+window.location.href = "dashboard.html";
+
 })
 
 .catch(err=>{
@@ -50,6 +56,7 @@ alert(err.message);
 };
 
 
+// REGISTRO
 
 window.registrar = () => {
 
@@ -78,6 +85,7 @@ alert(err.message);
 };
 
 
+// FECHAR MODAL
 
 window.fecharBoasVindas = ()=>{
 
@@ -86,6 +94,7 @@ document.getElementById("modalBoasVindas").style.display="none";
 };
 
 
+// DICAS FINANCEIRAS
 
 function gerarDica(){
 
@@ -105,10 +114,25 @@ const dicas = [
 
 const aleatoria = dicas[Math.floor(Math.random()*dicas.length)];
 
-document.getElementById("dicaFinanceira").innerText = aleatoria;
+const el = document.getElementById("dicaFinanceira");
+
+if(el){
+el.innerText = aleatoria;
+}
 
 }
 
 setInterval(gerarDica,8000);
 
 gerarDica();
+
+
+// VERIFICA SE USUÁRIO ESTÁ LOGADO
+
+onAuthStateChanged(auth,(user)=>{
+
+if(user){
+console.log("Usuário logado:",user.email);
+}
+
+});
