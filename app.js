@@ -1,27 +1,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { 
-  getAuth, 
-  createUserWithEmailAndPassword, 
-  signInWithEmailAndPassword, 
-  signOut, 
-  onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  onSnapshot, 
-  deleteDoc, 
-  doc, 
-  updateDoc, 
-  getDoc 
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "SUA_API_KEY_AQUI",
+  apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
   authDomain: "metasboard.firebaseapp.com",
   projectId: "metasboard",
   storageBucket: "metasboard.firebasestorage.app",
@@ -32,7 +14,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-
 let usuarioAtual = null;
 
 const BRL = (v) =>
@@ -41,114 +22,117 @@ const BRL = (v) =>
     currency: "BRL"
   }).format(v || 0);
 
-// ================= AUTH =================
+/* =========================
+   AUTH
+========================= */
 
-window.registrar = () => {
+window.registrar = async () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
-
-  createUserWithEmailAndPassword(auth, email, senha)
-    .catch(e => alert(e.message));
+  await createUserWithEmailAndPassword(auth, email, senha);
 };
 
-window.login = () => {
+window.login = async () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
-
-  signInWithEmailAndPassword(auth, email, senha)
-    .catch(e => alert(e.message));
+  await signInWithEmailAndPassword(auth, email, senha);
 };
 
 window.logout = () => signOut(auth);
 
-// ================= MOVIMENTOS =================
+/* =========================
+   EXECUTAR RECORRÊNCIAS
+========================= */
 
-window.adicionarReceita = () => salvarMovimento("receita");
-window.adicionarDespesa = () => salvarMovimento("despesa");
+async function executarRecorrencias() {
+  const hoje = new Date();
+  const mes = hoje.getMonth();
+  const ano = hoje.getFullYear();
 
-async function salvarMovimento(tipo) {
-  const valor = Number(document.getElementById("valor").value);
-  const categoria = document.getElementById("categoriaTransacao").value;
-
-  if (!valor || valor <= 0) return alert("Valor inválido");
-
-  await addDoc(collection(db, "movimentos"), {
-    tipo,
-    valor,
-    categoria: categoria || "Geral",
-    userId: usuarioAtual.uid,
-    criadoEm: Date.now()
-  });
-
-  document.getElementById("valor").value = "";
-  document.getElementById("categoriaTransacao").value = "";
-}
-
-function carregarMovimentos() {
   const q = query(
-    collection(db, "movimentos"),
+    collection(db, "recorrencias"),
     where("userId", "==", usuarioAtual.uid)
   );
 
-  onSnapshot(q, snap => {
-    let rec = 0;
-    let des = 0;
+  const snap = await getDocs(q);
 
-    const lista = document.getElementById("listaMovimentos");
-    lista.innerHTML = "";
+  let eventos = [];
 
-    let docs = [];
-    snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
-    docs.sort((a, b) => b.criadoEm - a.criadoEm);
+  snap.forEach((doc) => {
+    const data = doc.data();
+    const dataEvento = new Date(ano, mes, data.dia).getTime();
 
-    docs.forEach(data => {
-      if (data.tipo === "receita") rec += data.valor;
-      else des += data.valor;
-
-      const li = document.createElement("li");
-
-      li.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
-          <div>
-            <strong>${data.categoria}</strong><br>
-            <small>${new Date(data.criadoEm).toLocaleDateString()}</small>
-          </div>
-          <div>
-            ${BRL(data.valor)}
-            <button onclick="excluirItem('movimentos','${data.id}')">🗑</button>
-          </div>
-        </div>
-      `;
-
-      lista.appendChild(li);
+    eventos.push({
+      descricao: data.descricao,
+      tipo: data.tipo,
+      valor: data.valor,
+      data: dataEvento
     });
-
-    document.getElementById("receitaTotal").innerText = BRL(rec);
-    document.getElementById("despesaTotal").innerText = BRL(des);
-    document.getElementById("saldoTotal").innerText = BRL(rec - des);
   });
+
+  eventos.sort((a, b) => a.data - b.data);
+
+  let saldo = 0;
+  let receitaTotal = 0;
+  let despesaTotal = 0;
+  let alerta = null;
+
+  for (let ev of eventos) {
+    if (ev.tipo === "receita") {
+      saldo += ev.valor;
+      receitaTotal += ev.valor;
+    } else {
+      saldo -= ev.valor;
+      despesaTotal += ev.valor;
+    }
+
+    if (saldo < 0 && !alerta) {
+      alerta = {
+        descricao: ev.descricao,
+        saldo
+      };
+    }
+  }
+
+  document.getElementById("receitaTotal").innerText = BRL(receitaTotal);
+  document.getElementById("despesaTotal").innerText = BRL(despesaTotal);
+  document.getElementById("saldoTotal").innerText = BRL(saldo);
+
+  const alertaBox = document.getElementById("alertaFinanceiro");
+  const mensagem = document.getElementById("mensagemAlerta");
+
+  alertaBox.classList.remove("hidden");
+
+  if (alerta) {
+    alertaBox.classList.remove("border-yellow-500");
+    alertaBox.classList.add("border-rose-500");
+    mensagem.innerText =
+      "🚨 Atenção! Você ficará negativo após: " +
+      alerta.descricao +
+      " | Saldo previsto: " +
+      BRL(alerta.saldo);
+  } else {
+    alertaBox.classList.remove("border-rose-500");
+    alertaBox.classList.add("border-emerald-500");
+    mensagem.innerText =
+      "✅ Fluxo saudável! Após todas as contas, saldo previsto: " +
+      BRL(saldo);
+  }
 }
 
-// ================= EXCLUIR =================
+/* =========================
+   LOGIN STATE
+========================= */
 
-window.excluirItem = async (col, id) => {
-  if (confirm("Deseja apagar?")) {
-    await deleteDoc(doc(db, col, id));
-  }
-};
-
-// ================= AUTH STATE =================
-
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async (user) => {
   if (user) {
     usuarioAtual = user;
+    document.getElementById("loginTela").classList.add("hidden");
+    document.getElementById("dashboard").classList.remove("hidden");
 
-    document.getElementById("loginTela").style.display = "none";
-    document.getElementById("dashboard").style.display = "block";
-
-    carregarMovimentos();
+    await executarRecorrencias();
   } else {
-    document.getElementById("loginTela").style.display = "block";
-    document.getElementById("dashboard").style.display = "none";
+    document.getElementById("loginTela").classList.remove("hidden");
+    document.getElementById("dashboard").classList.add("hidden");
   }
 });
