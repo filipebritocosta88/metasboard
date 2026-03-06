@@ -5,9 +5,9 @@
   <title>MetasBoard</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-
 <body class="bg-slate-900 text-white min-h-screen">
 
+<!-- ----- TELA DE LOGIN ----- -->
 <div id="loginTela" class="flex items-center justify-center min-h-screen">
   <div class="bg-slate-800 p-8 rounded-2xl shadow-xl w-96">
     <h2 class="text-2xl font-bold mb-6 text-center text-purple-400">
@@ -32,66 +32,101 @@
   </div>
 </div>
 
+<!-- ----- DASHBOARD ----- -->
 <div id="dashboard" class="flex hidden">
 
+  <!-- MENU LATERAL -->
   <aside class="w-64 bg-slate-800 min-h-screen p-6">
     <h1 class="text-2xl font-bold mb-8 text-purple-400">MetasBoard</h1>
     
     <nav class="space-y-4">
-      <button class="block w-full text-left hover:text-purple-400">📊 Dashboard</button>
+      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarDashboard()">📊 Dashboard</button>
+      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarContas()">🏦 Contas</button>
+      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarDividas()">💳 Dívidas</button>
       <button onclick="logout()" class="block w-full text-left text-red-400 hover:text-red-500">🚪 Sair</button>
     </nav>
   </aside>
 
-  <main class="flex-1 p-10">
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="flex-1 p-10 space-y-10">
 
-    <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
+    <!-- DASHBOARD -->
+    <section id="secDashboard">
+      <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
 
-    <div class="grid grid-cols-3 gap-6 mb-10">
-      <div class="bg-gradient-to-r from-green-500 to-emerald-700 p-6 rounded-2xl shadow-xl">
-        <h3 class="text-lg">Receita</h3>
-        <p id="receitaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+      <div class="grid grid-cols-3 gap-6 mb-10">
+        <div class="bg-gradient-to-r from-green-500 to-emerald-700 p-6 rounded-2xl shadow-xl">
+          <h3 class="text-lg">Receita</h3>
+          <p id="receitaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+        </div>
+        <div class="bg-gradient-to-r from-red-500 to-rose-700 p-6 rounded-2xl shadow-xl">
+          <h3 class="text-lg">Despesa</h3>
+          <p id="despesaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+        </div>
+        <div class="bg-gradient-to-r from-purple-500 to-indigo-700 p-6 rounded-2xl shadow-xl">
+          <h3 class="text-lg">Saldo</h3>
+          <p id="saldoTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+        </div>
       </div>
 
-      <div class="bg-gradient-to-r from-red-500 to-rose-700 p-6 rounded-2xl shadow-xl">
-        <h3 class="text-lg">Despesa</h3>
-        <p id="despesaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+      <div class="bg-slate-800 p-6 rounded-2xl shadow-lg">
+        <h3 class="text-xl mb-4">Adicionar Valor</h3>
+        <input id="valor" type="number" placeholder="Digite o valor"
+          class="w-full p-3 rounded bg-slate-700 mb-4">
+        <div class="flex gap-4">
+          <button onclick="adicionarReceita()" class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">+ Receita</button>
+          <button onclick="adicionarDespesa()" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">- Despesa</button>
+        </div>
       </div>
 
-      <div class="bg-gradient-to-r from-purple-500 to-indigo-700 p-6 rounded-2xl shadow-xl">
-        <h3 class="text-lg">Saldo</h3>
-        <p id="saldoTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+      <div class="bg-slate-800 p-6 rounded-2xl shadow-lg mt-8">
+        <h3 class="text-xl mb-4">Histórico</h3>
+        <ul id="listaMovimentos" class="space-y-2"></ul>
       </div>
-    </div>
+    </section>
 
-    <div class="bg-slate-800 p-6 rounded-2xl shadow-lg">
-      <h3 class="text-xl mb-4">Adicionar Valor</h3>
+    <!-- CONTAS -->
+    <section id="secContas" class="hidden space-y-6">
+      <h2 class="text-3xl font-bold mb-4">Contas</h2>
+      <button onclick="adicionarConta()" class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">+ Adicionar Conta</button>
+      <ul id="listaContas" class="space-y-2"></ul>
+    </section>
 
-      <input id="valor" type="number" placeholder="Digite o valor"
-        class="w-full p-3 rounded bg-slate-700 mb-4">
-
-      <div class="flex gap-4">
-        <button onclick="adicionarReceita()"
-          class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">
-          + Receita
-        </button>
-
-        <button onclick="adicionarDespesa()"
-          class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">
-          - Despesa
-        </button>
-      </div>
-    </div>
-
-    <div class="bg-slate-800 p-6 rounded-2xl shadow-lg mt-8">
-      <h3 class="text-xl mb-4">Histórico</h3>
-      <ul id="listaMovimentos" class="space-y-2"></ul>
-    </div>
+    <!-- DÍVIDAS -->
+    <section id="secDividas" class="hidden space-y-6">
+      <h2 class="text-3xl font-bold mb-4">Dívidas</h2>
+      <button onclick="adicionarDivida()" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">+ Adicionar Dívida</button>
+      <ul id="listaDividas" class="space-y-2"></ul>
+    </section>
 
   </main>
 </div>
 
 <script type="module" src="app.js"></script>
+
+<script>
+  // FUNÇÕES PARA TROCAR SEÇÕES
+  function mostrarDashboard(){
+    document.getElementById("secDashboard").classList.remove("hidden");
+    document.getElementById("secContas").classList.add("hidden");
+    document.getElementById("secDividas").classList.add("hidden");
+    carregarMovimentos(); // Atualiza o dashboard
+  }
+
+  function mostrarContas(){
+    document.getElementById("secDashboard").classList.add("hidden");
+    document.getElementById("secContas").classList.remove("hidden");
+    document.getElementById("secDividas").classList.add("hidden");
+    carregarContas();
+  }
+
+  function mostrarDividas(){
+    document.getElementById("secDashboard").classList.add("hidden");
+    document.getElementById("secContas").classList.add("hidden");
+    document.getElementById("secDividas").classList.remove("hidden");
+    carregarDividas();
+  }
+</script>
 
 </body>
 </html>
