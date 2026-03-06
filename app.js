@@ -16,144 +16,87 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 let usuarioAtual = null;
 
+// Formatação BRL
+const formatar = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
 // ----- LOGIN / REGISTRO -----
 window.registrar = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
-  createUserWithEmailAndPassword(auth,email,senha).catch(e=>alert(e.message));
+  createUserWithEmailAndPassword(auth, email, senha).catch(e => alert(e.message));
 };
 
 window.login = () => {
   const email = document.getElementById("email").value;
   const senha = document.getElementById("senha").value;
-  signInWithEmailAndPassword(auth,email,senha).catch(e=>alert(e.message));
+  signInWithEmailAndPassword(auth, email, senha).catch(e => alert(e.message));
 };
 
 window.logout = () => signOut(auth);
 
 // ----- MOVIMENTOS -----
 window.adicionarReceita = async () => salvarMovimento("receita");
-window.adicionarDespesa = async () => salvarMovimento("despesa");
 
-async function salvarMovimento(tipo){
+async function salvarMovimento(tipo) {
+  const desc = document.getElementById("desc").value;
   const valor = Number(document.getElementById("valor").value);
-  if(!valor) return alert("Digite um valor válido");
-  await addDoc(collection(db,"movimentos"),{tipo, valor, userId:usuarioAtual.uid, criadoEm:Date.now()});
-  document.getElementById("valor").value="";
-}
-
-// ----- CONTAS -----
-window.adicionarConta = async () => {
-  const nome = prompt("Nome da conta:");
-  const saldo = Number(prompt("Saldo inicial:"));
-  if(!nome || isNaN(saldo)) return alert("Dados inválidos");
-  await addDoc(collection(db,"contas"),{nome, saldo, userId:usuarioAtual.uid, criadoEm:Date.now()});
-};
-
-// ----- DÍVIDAS -----
-window.adicionarDivida = async () => {
-  const banco = prompt("Banco/credor da dívida:");
-  const valor = Number(prompt("Valor da dívida:"));
-  if(!banco || isNaN(valor)) return alert("Dados inválidos");
-  await addDoc(collection(db,"dividas"),{banco, valor, status:"pendente", userId:usuarioAtual.uid, criadoEm:Date.now()});
-};
-
-// ----- METAS -----
-window.adicionarMeta = async () => {
-  const nome = prompt("Nome da meta:");
-  const valor = Number(prompt("Valor da meta:"));
-  if(!nome || isNaN(valor)) return alert("Dados inválidos");
-  await addDoc(collection(db,"metas"),{nome, valor, atual:0, userId:usuarioAtual.uid, criadoEm:Date.now()});
-};
-
-// ----- AUTENTICAÇÃO -----
-onAuthStateChanged(auth,user=>{
-  if(user){
-    usuarioAtual=user;
-    document.getElementById("loginTela").classList.add("hidden");
-    document.getElementById("dashboard").classList.remove("hidden");
-    carregarMovimentos();
-    carregarContas();
-    carregarDividas();
-    carregarMetas();
-  } else {
-    document.getElementById("loginTela").classList.remove("hidden");
-    document.getElementById("dashboard").classList.add("hidden");
-  }
-});
-
-// ----- FUNÇÕES DE CARREGAMENTO -----
-function carregarMovimentos(){
-  const q=query(collection(db,"movimentos"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    let receita=0, despesa=0;
-    const lista=document.getElementById("listaMovimentos"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      if(data.tipo==="receita") receita+=data.valor;
-      if(data.tipo==="despesa") despesa+=data.valor;
-      const li=document.createElement("li");
-      li.className="flex justify-between bg-slate-700 p-3 rounded items-center";
-      li.innerHTML=`${data.tipo==="receita"?"🟢":"🔴"} R$ ${data.valor}`;
-      const botao=document.createElement("button");
-      botao.innerText="Excluir"; botao.className="text-red-400";
-      botao.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir este movimento?")) await deleteDoc(doc(db,"movimentos",id));});
-      li.appendChild(botao); lista.appendChild(li);
-    });
-    document.getElementById("receitaTotal").innerText="R$ "+receita;
-    document.getElementById("despesaTotal").innerText="R$ "+despesa;
-    document.getElementById("saldoTotal").innerText="R$ "+(receita-despesa);
+  if (!valor || !desc) return alert("Preencha descrição e valor");
+  
+  await addDoc(collection(db, "movimentos"), {
+    desc, tipo, valor, userId: usuarioAtual.uid, criadoEm: Date.now()
   });
+  document.getElementById("desc").value = "";
+  document.getElementById("valor").value = "";
 }
 
-function carregarContas(){
-  const q=query(collection(db,"contas"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    const lista=document.getElementById("listaContas"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      const li=document.createElement("li");
-      li.className="flex justify-between bg-slate-700 p-3 rounded items-center";
-      li.innerHTML=`🏦 ${data.nome} - R$ ${data.saldo}`;
-      const botaoEditar=document.createElement("button"); botaoEditar.innerText="Editar"; botaoEditar.className="text-yellow-400 mx-2";
-      botaoEditar.addEventListener("click", async ()=>{const novoSaldo=Number(prompt("Novo saldo:", data.saldo)); if(!isNaN(novoSaldo)) await updateDoc(doc(db,"contas",id),{saldo:novoSaldo});});
-      li.appendChild(botaoEditar);
-      const botaoExcluir=document.createElement("button"); botaoExcluir.innerText="Excluir"; botaoExcluir.className="text-red-400";
-      botaoExcluir.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir esta conta?")) await deleteDoc(doc(db,"contas",id));});
-      li.appendChild(botaoExcluir); lista.appendChild(li);
-    });
-    document.getElementById("totalContas").innerText = snapshot.size;
-  });
-}
+// ----- CARREGAR DADOS -----
+function carregarDashboard() {
+  const q = query(collection(db, "movimentos"), where("userId", "==", usuarioAtual.uid));
+  onSnapshot(q, snap => {
+    let rec = 0, des = 0;
+    const lista = document.getElementById("listaMovimentos");
+    lista.innerHTML = "";
 
-function carregarDividas(){
-  const q=query(collection(db,"dividas"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    const lista=document.getElementById("listaDividas"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      const li=document.createElement("li"); li.className="flex justify-between bg-slate-700 p-3 rounded items-center";
-      li.innerHTML=`💳 ${data.banco} - R$ ${data.valor} (${data.status})`;
-      const botaoExcluir=document.createElement("button"); botaoExcluir.innerText="Excluir"; botaoExcluir.className="text-red-400";
-      botaoExcluir.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir esta dívida?")) await deleteDoc(doc(db,"dividas",id));});
-      li.appendChild(botaoExcluir);
+    snap.forEach(d => {
+      const item = d.data();
+      if (item.tipo === "receita") rec += item.valor; else des += item.valor;
+      
+      const li = document.createElement("li");
+      li.className = "flex justify-between bg-[#0b0e14] p-3 rounded-xl border border-slate-800 text-sm";
+      li.innerHTML = `<span>${item.desc}</span> <span class="font-bold ${item.tipo === 'receita' ? 'text-emerald-400' : 'text-rose-400'}">${formatar(item.valor)}</span>`;
       lista.appendChild(li);
     });
-    document.getElementById("totalDividas").innerText = snapshot.size;
+
+    const saldo = rec - des;
+    document.getElementById("receitaTotal").innerText = formatar(rec);
+    document.getElementById("despesaTotal").innerText = formatar(des);
+    document.getElementById("saldoTotal").innerText = formatar(saldo);
+    
+    // Termômetro
+    const perc = rec > 0 ? Math.max(0, 100 - (des/rec * 100)) : 100;
+    const barra = document.getElementById("barraProgresso");
+    const txtStatus = document.getElementById("statusTexto");
+    barra.style.width = perc + "%";
+    
+    if(perc < 30) { 
+        barra.className = "progress-fill bg-rose-500 h-full"; 
+        txtStatus.innerText = "CRÍTICO"; txtStatus.className = "text-[10px] font-black text-rose-500";
+    } else {
+        barra.className = "progress-fill bg-emerald-500 h-full";
+        txtStatus.innerText = "SAUDÁVEL"; txtStatus.className = "text-[10px] font-black text-emerald-500";
+    }
   });
 }
 
-function carregarMetas(){
-  const q=query(collection(db,"metas"), where("userId","==",usuarioAtual.uid));
-  onSnapshot(q,snapshot=>{
-    const lista=document.getElementById("listaMetas"); lista.innerHTML="";
-    snapshot.forEach(docSnap=>{
-      const data=docSnap.data(); const id=docSnap.id;
-      const li=document.createElement("li"); li.className="bg-yellow-500 p-3 rounded flex justify-between items-center";
-      li.innerHTML=`${data.nome} - R$ ${data.atual} / R$ ${data.valor}`;
-      const botaoExcluir=document.createElement("button"); botaoExcluir.innerText="Excluir"; botaoExcluir.className="text-red-400 ml-2";
-      botaoExcluir.addEventListener("click", async ()=>{if(confirm("Deseja realmente excluir esta meta?")) await deleteDoc(doc(db,"metas",id));});
-      li.appendChild(botaoExcluir); lista.appendChild(li);
-    });
-  });
-}
+// ----- OBSERVER -----
+onAuthStateChanged(auth, user => {
+  if (user) {
+    usuarioAtual = user;
+    document.getElementById("loginTela").classList.add("hidden");
+    document.getElementById("dashboard").classList.replace("hidden", "flex");
+    carregarDashboard();
+  } else {
+    document.getElementById("loginTela").classList.remove("hidden");
+    document.getElementById("dashboard").classList.replace("flex", "hidden");
+  }
+});
