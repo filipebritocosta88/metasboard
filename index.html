@@ -3,114 +3,157 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MetasBoard - Premium Dashboard</title>
+  <title>MetasBoard - Gestão Financeira Inteligente</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
   <style>
-    body { background-color: #0b0e14; color: white; font-family: 'Inter', sans-serif; }
-    .glass-card { background: #161b30; border: 1px solid rgba(255,255,255,0.05); }
-    .progress-fill { transition: width 0.5s ease-in-out; }
-    input::placeholder { color: #4b5563; }
+    body { background-color: #0b0e14; color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
+    .glass-card { background: #161b30; border: 1px solid rgba(255,255,255,0.05); transition: all 0.3s ease; }
+    .glass-card:hover { border-color: rgba(255,255,255,0.1); }
+    .progress-fill { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
   </style>
 </head>
 <body>
 
+<div id="modalBoasVindas" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] hidden flex items-center justify-center p-6">
+  <div class="glass-card max-w-lg p-10 rounded-[40px] border-t-4 border-purple-500 text-center shadow-2xl">
+    <div class="text-5xl mb-6">🚀</div>
+    <h2 class="text-3xl font-black mb-4 tracking-tighter text-white">BEM-VINDO AO METASBOARD</h2>
+    <p class="text-slate-400 mb-8 leading-relaxed">
+      Sua jornada para a liberdade financeira começa aqui. O **MetasBoard** não é apenas uma planilha, é o seu mapa para sair das dívidas e construir sua reserva. <br><br>
+      <span class="text-purple-400 font-bold italic">"O que não é medido, não é gerenciado."</span>
+    </p>
+    <button onclick="fecharModal()" class="w-full bg-purple-600 py-4 rounded-2xl font-black text-white hover:bg-purple-500 transition-all transform hover:scale-105">VAMOS COMEÇAR</button>
+  </div>
+</div>
+
 <div id="loginTela" class="flex items-center justify-center min-h-screen">
-  <div class="glass-card p-8 rounded-3xl shadow-2xl w-96 border-t-4 border-purple-600">
-    <h2 class="text-2xl font-black mb-6 text-center tracking-tighter">🚀 METASBOARD</h2>
-    <input id="email" type="email" placeholder="Seu e-mail" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-4 focus:border-purple-500 outline-none">
-    <input id="senha" type="password" placeholder="Sua senha" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-4 focus:border-purple-500 outline-none">
-    <button onclick="login()" class="w-full bg-emerald-600 p-4 rounded-xl font-bold hover:bg-emerald-500 transition mb-3">Entrar</button>
-    <button onclick="registrar()" class="w-full border border-slate-700 p-4 rounded-xl font-bold hover:bg-slate-800 transition">Criar Conta</button>
+  <div class="glass-card p-10 rounded-[32px] shadow-2xl w-full max-w-md mx-4">
+    <h1 class="text-3xl font-black mb-8 text-center tracking-tighter">🚀 METASBOARD</h1>
+    <div class="space-y-4">
+      <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 focus:border-purple-500 outline-none transition">
+      <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 focus:border-purple-500 outline-none transition">
+      <button onclick="login()" class="w-full bg-emerald-600 p-4 rounded-2xl font-black hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/20">ENTRAR NO PAINEL</button>
+      <button onclick="registrar()" class="w-full border border-slate-700 p-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-800 transition">CRIAR CONTA GRATUITA</button>
+    </div>
   </div>
 </div>
 
 <div id="dashboard" class="hidden min-h-screen">
   
-  <aside class="w-64 border-r border-slate-800 p-6 flex flex-col">
-    <h1 class="text-xl font-black mb-10 tracking-tighter">🚀 METASBOARD</h1>
-    <nav class="space-y-2 flex-1">
-      <button onclick="mostrarSecao('secDashboard')" class="flex items-center gap-3 w-full p-3 rounded-xl bg-purple-900/20 text-purple-400 font-bold transition">📊 Dashboard</button>
-      <button onclick="mostrarSecao('secContas')" class="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-slate-800 text-slate-400 transition">🏦 Contas</button>
-      <button onclick="mostrarSecao('secDividas')" class="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-slate-800 text-slate-400 transition">💳 Dívidas</button>
-      <button onclick="mostrarSecao('secMetas')" class="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-slate-800 text-slate-400 transition">🎯 Metas</button>
+  <aside class="w-72 border-r border-slate-800 p-8 flex flex-col hidden md:flex">
+    <h1 class="text-2xl font-black mb-12 tracking-tighter">🚀 METASBOARD</h1>
+    <nav class="space-y-3 flex-1">
+      <button onclick="mostrarSecao('secDashboard')" class="flex items-center gap-4 w-full p-4 rounded-2xl bg-purple-900/20 text-purple-400 font-black">📊 Dashboard</button>
+      <button onclick="mostrarSecao('secContas')" class="flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-slate-800 text-slate-400 transition">🏦 Minhas Contas</button>
+      <button onclick="mostrarSecao('secDividas')" class="flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-slate-800 text-slate-400 transition">💳 Gestão de Dívidas</button>
+      <button onclick="mostrarSecao('secMetas')" class="flex items-center gap-4 w-full p-4 rounded-2xl hover:bg-slate-800 text-slate-400 transition">🎯 Minhas Metas</button>
     </nav>
-    <button onclick="logout()" class="text-red-500 font-bold p-3 hover:bg-red-900/10 rounded-xl transition text-left">🚪 Sair</button>
+    <button onclick="logout()" class="mt-auto text-red-500 font-black p-4 hover:bg-red-900/10 rounded-2xl transition text-left flex items-center gap-2"><span>🚪</span> Sair</button>
   </aside>
 
-  <main class="flex-1 p-8 overflow-y-auto">
+  <main class="flex-1 p-8 overflow-y-auto bg-[#0b0e14]">
     
-    <section id="secDashboard" class="space-y-6">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
-          <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Receitas</p>
-          <h3 id="receitaTotal" class="text-2xl font-black mt-1">R$ 0,00</h3>
+    <section id="secDashboard" class="max-w-6xl mx-auto space-y-8">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="glass-card p-6 rounded-[24px] border-l-4 border-emerald-500 shadow-xl shadow-emerald-900/5">
+          <p class="text-xs font-black text-emerald-500 uppercase tracking-widest mb-1">Receitas</p>
+          <h3 id="receitaTotal" class="text-3xl font-black">R$ 0,00</h3>
         </div>
-        <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500">
-          <p class="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Dívidas</p>
-          <h3 id="despesaTotal" class="text-2xl font-black mt-1">R$ 0,00</h3>
+        <div class="glass-card p-6 rounded-[24px] border-l-4 border-rose-500 shadow-xl shadow-rose-900/5">
+          <p class="text-xs font-black text-rose-500 uppercase tracking-widest mb-1">Dívidas</p>
+          <h3 id="despesaTotal" class="text-3xl font-black">R$ 0,00</h3>
         </div>
-        <div class="glass-card p-5 rounded-2xl border-l-4 border-purple-500">
-          <p class="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Saldo Livre</p>
-          <h3 id="saldoTotal" class="text-2xl font-black mt-1">R$ 0,00</h3>
+        <div class="glass-card p-6 rounded-[24px] border-l-4 border-purple-500 shadow-xl shadow-purple-900/5">
+          <p class="text-xs font-black text-purple-500 uppercase tracking-widest mb-1">Saldo Livre</p>
+          <h3 id="saldoTotal" class="text-3xl font-black">R$ 0,00</h3>
         </div>
-        <div class="glass-card p-5 rounded-2xl">
-          <div class="flex justify-between items-center mb-2">
-            <p class="text-[10px] font-bold text-slate-400 uppercase">Saúde Financeira</p>
-            <span id="statusTexto" class="text-[10px] font-bold text-emerald-500 font-black">EXCELENTE</span>
+        <div class="glass-card p-6 rounded-[24px] flex flex-col justify-center">
+          <div class="flex justify-between items-center mb-3">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Saúde Financeira</p>
+            <span id="statusTexto" class="text-[10px] font-black text-emerald-500">EXCELENTE</span>
           </div>
-          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
             <div id="barraProgresso" class="progress-fill bg-emerald-500 h-full" style="width: 100%"></div>
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="glass-card p-6 rounded-3xl border border-emerald-500/20">
-          <h3 class="font-bold mb-4 flex items-center gap-2">🟢 Cadastrar Ganhos</h3>
-          <input id="desc" type="text" placeholder="Ex: Salário Mensal" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-3 outline-none focus:border-emerald-500">
-          <input id="valor" type="number" placeholder="Valor R$" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-4 outline-none focus:border-emerald-500">
-          <button onclick="adicionarReceita()" class="w-full bg-emerald-600 py-4 rounded-xl font-bold hover:bg-emerald-500 transition shadow-lg shadow-emerald-900/20">Salvar Receita</button>
-          
-          <div class="mt-6 space-y-2">
-            <p class="text-xs font-bold text-slate-500 uppercase">Últimos Lançamentos</p>
-            <ul id="listaMovimentos" class="space-y-2"></ul>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="glass-card p-8 rounded-[32px] border border-emerald-500/20">
+          <h3 class="text-xl font-black mb-6 flex items-center gap-3">💰 Cadastrar Ganhos</h3>
+          <div class="space-y-4">
+            <input id="desc" type="text" placeholder="Descrição (Ex: Salário)" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 focus:border-emerald-500 outline-none">
+            <input id="valor" type="number" placeholder="Valor R$" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 focus:border-emerald-500 outline-none">
+            <button onclick="adicionarReceita()" class="w-full bg-emerald-600 py-4 rounded-2xl font-black hover:bg-emerald-500 transition shadow-xl">Salvar Receita</button>
+          </div>
+          <div class="mt-8">
+            <p class="text-xs font-black text-slate-500 uppercase mb-4 tracking-widest">Atividade Recente</p>
+            <ul id="listaMovimentos" class="space-y-3"></ul>
           </div>
         </div>
 
-        <div class="glass-card p-6 rounded-3xl border border-blue-500/20 flex flex-col justify-between">
-          <div>
-            <h3 class="font-bold mb-2 flex items-center gap-2">🛡️ Reserva de Emergência</h3>
-            <p class="text-sm text-slate-400">O sistema sugere guardar 10% do seu saldo livre mensalmente.</p>
+        <div class="glass-card p-8 rounded-[32px] border border-blue-500/20 flex flex-col">
+          <div class="mb-10">
+            <h3 class="text-xl font-black mb-3 flex items-center gap-3">🛡️ Reserva de Emergência</h3>
+            <p class="text-slate-400 leading-relaxed">O sistema sugere guardar **10%** do seu saldo livre para emergências.</p>
           </div>
-          <div class="mt-10 flex justify-between items-end">
+          <div class="mt-auto pt-10 border-t border-slate-800 flex justify-between items-end">
             <div>
-              <p class="text-[10px] font-bold text-slate-500 uppercase">Acumulado</p>
-              <h2 id="acumuladoReserva" class="text-4xl font-black">R$ 0,00</h2>
+              <p class="text-xs font-black text-slate-500 uppercase tracking-widest">Acumulado</p>
+              <h2 id="acumuladoReserva" class="text-5xl font-black tracking-tighter">R$ 0,00</h2>
             </div>
-            <button class="bg-indigo-600 px-8 py-4 rounded-xl font-bold hover:bg-indigo-500 transition">Guardar Agora</button>
+            <button onclick="guardarReserva()" class="bg-blue-600 px-8 py-4 rounded-2xl font-black hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/30">GUARDAR AGORA</button>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="secContas" class="hidden glass-card p-8 rounded-3xl">
-        <h2 class="text-2xl font-bold mb-4">Minhas Contas 🏦</h2>
-        <button onclick="adicionarConta()" class="bg-purple-600 px-6 py-2 rounded-lg font-bold mb-4">+ Nova Conta</button>
-        <ul id="listaContas" class="space-y-3"></ul>
+    <section id="secContas" class="hidden max-w-4xl mx-auto glass-card p-10 rounded-[32px]">
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-3xl font-black tracking-tighter italic text-purple-400 underline">Minhas Contas 🏦</h2>
+            <button onclick="adicionarConta()" class="bg-emerald-600 px-6 py-3 rounded-2xl font-black">+ NOVA CONTA</button>
+        </div>
+        <ul id="listaContas" class="space-y-4"></ul>
     </section>
     
-    <section id="secDividas" class="hidden glass-card p-8 rounded-3xl">
-        <h2 class="text-2xl font-bold mb-4">Minhas Dívidas 💳</h2>
-        <button onclick="adicionarDivida()" class="bg-rose-600 px-6 py-2 rounded-lg font-bold mb-4">+ Nova Dívida</button>
-        <ul id="listaDividas" class="space-y-3"></ul>
+    <section id="secDividas" class="hidden max-w-4xl mx-auto glass-card p-10 rounded-[32px]">
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-3xl font-black tracking-tighter italic text-rose-500 underline">Gestão de Dívidas 💳</h2>
+            <button onclick="adicionarDivida()" class="bg-rose-600 px-6 py-3 rounded-2xl font-black">+ NOVA DÍVIDA</button>
+        </div>
+        <ul id="listaDividas" class="space-y-4"></ul>
     </section>
 
-    <section id="secMetas" class="hidden glass-card p-8 rounded-3xl">
-        <h2 class="text-2xl font-bold mb-4">Minhas Metas 🎯</h2>
-        <button onclick="adicionarMeta()" class="bg-yellow-600 px-6 py-2 rounded-lg font-bold mb-4">+ Nova Meta</button>
-        <ul id="listaMetas" class="space-y-3"></ul>
+    <section id="secMetas" class="hidden max-w-4xl mx-auto glass-card p-10 rounded-[32px]">
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-3xl font-black tracking-tighter italic text-yellow-500 underline">Minhas Metas 🎯</h2>
+            <button onclick="adicionarMeta()" class="bg-yellow-600 px-6 py-3 rounded-2xl font-black text-black">+ NOVA META</button>
+        </div>
+        <ul id="listaMetas" class="space-y-4"></ul>
     </section>
   </main>
+</div>
+
+<div id="chatIA" class="fixed bottom-6 right-6 z-[200]">
+    <div id="janelaChat" class="hidden glass-card w-80 sm:w-96 h-[500px] rounded-[32px] border border-blue-500/30 mb-4 flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-5">
+      <div class="bg-blue-600 p-6 font-black flex justify-between items-center">
+        <span class="flex items-center gap-2">🤖 MENTOR IA</span>
+        <button onclick="toggleChat()" class="opacity-70 hover:opacity-100">✕</button>
+      </div>
+      <div id="chatConteudo" class="flex-1 p-6 overflow-y-auto space-y-4 bg-[#0b0e14] text-sm">
+        <div class="bg-slate-800 p-4 rounded-2xl text-slate-300 border-l-4 border-blue-500">
+          Olá! Sou seu Mentor IA. Posso te dar dicas sobre reserva, metas ou como economizar. O que vamos conquistar hoje?
+        </div>
+      </div>
+      <div class="p-4 bg-slate-900/50 flex gap-2">
+        <input id="inputChat" type="text" placeholder="Digite sua dúvida..." class="flex-1 bg-[#0b0e14] p-4 rounded-xl outline-none text-xs border border-slate-800 focus:border-blue-500">
+        <button onclick="perguntaIA()" class="bg-blue-600 w-12 rounded-xl font-black transition active:scale-95">></button>
+      </div>
+    </div>
+    <button onclick="toggleChat()" class="bg-blue-600 w-16 h-16 rounded-full shadow-2xl hover:scale-110 transition-all flex items-center justify-center text-3xl border-4 border-[#0b0e14]">🤖</button>
 </div>
 
 <script type="module" src="app.js"></script>
