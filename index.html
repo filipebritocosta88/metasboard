@@ -2,89 +2,96 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MetasBoard | Premium Finance</title>
+  <title>MetasBoard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
-    .progress-glow { box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
-  </style>
 </head>
-<body class="bg-[#0f172a] text-slate-200 min-h-screen">
 
-<div id="loginTela" class="flex items-center justify-center min-h-screen p-4">
-  <div class="glass p-8 rounded-3xl w-full max-w-md shadow-2xl">
-    <div class="text-center mb-8">
-      <h2 class="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">MetasBoard</h2>
-      <p class="text-slate-400 mt-2 italic">Sua jornada financeira começa aqui.</p>
-    </div>
-    <div class="space-y-4">
-      <input id="email" type="email" placeholder="Email" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 outline-none">
-      <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-xl bg-slate-900 border border-slate-700 outline-none">
-      <button onclick="login()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold p-4 rounded-xl">Entrar</button>
-      <button onclick="registrar()" class="w-full text-slate-400 hover:text-white text-sm">Criar conta nova</button>
-    </div>
+<body class="bg-slate-900 text-white min-h-screen">
+
+<div id="loginTela" class="flex items-center justify-center min-h-screen">
+  <div class="bg-slate-800 p-8 rounded-2xl shadow-xl w-96">
+    <h2 class="text-2xl font-bold mb-6 text-center text-purple-400">
+      Entrar no MetasBoard
+    </h2>
+
+    <input id="email" type="email" placeholder="Email"
+      class="w-full p-3 rounded bg-slate-700 mb-4">
+
+    <input id="senha" type="password" placeholder="Senha"
+      class="w-full p-3 rounded bg-slate-700 mb-4">
+
+    <button onclick="login()"
+      class="w-full bg-green-600 p-3 rounded mb-3 hover:bg-green-700">
+      Login
+    </button>
+
+    <button onclick="registrar()"
+      class="w-full bg-blue-600 p-3 rounded hover:bg-blue-700">
+      Registrar
+    </button>
   </div>
 </div>
 
-<div id="dashboard" class="hidden flex flex-col md:flex-row min-h-screen">
-  <aside class="w-full md:w-64 glass p-6 flex flex-col gap-8 border-r border-white/5">
-    <h1 class="text-2xl font-black text-purple-500 flex items-center gap-2 italic">
-      <i class="fas fa-rocket"></i> METASBOARD
-    </h1>
-    <nav class="space-y-2 flex-1">
-      <button onclick="mostrarSecao('secDashboard')" class="w-full text-left p-4 rounded-xl hover:bg-white/5 flex items-center gap-3 font-semibold">
-        <i class="fas fa-chart-line text-purple-400"></i> Resumo
-      </button>
+<div id="dashboard" class="flex hidden">
+
+  <aside class="w-64 bg-slate-800 min-h-screen p-6">
+    <h1 class="text-2xl font-bold mb-8 text-purple-400">MetasBoard</h1>
+    
+    <nav class="space-y-4">
+      <button class="block w-full text-left hover:text-purple-400">📊 Dashboard</button>
+      <button onclick="logout()" class="block w-full text-left text-red-400 hover:text-red-500">🚪 Sair</button>
     </nav>
-    <button onclick="logout()" class="p-4 text-rose-400 hover:bg-rose-500/10 rounded-xl flex items-center gap-3 font-bold">
-      <i class="fas fa-power-off"></i> Sair
-    </button>
   </aside>
 
-  <main class="flex-1 p-6 md:p-10 overflow-y-auto">
+  <main class="flex-1 p-10">
 
-    <section id="secDashboard" class="space-y-8">
+    <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
 
-      <!-- ALERTA INTELIGENTE -->
-      <div id="alertaFinanceiro" class="glass p-5 rounded-2xl border-l-4 border-yellow-500 hidden">
-        <p class="text-xs font-bold uppercase tracking-widest text-yellow-400">Análise Inteligente</p>
-        <p id="mensagemAlerta" class="text-sm font-semibold mt-2"></p>
+    <div class="grid grid-cols-3 gap-6 mb-10">
+      <div class="bg-gradient-to-r from-green-500 to-emerald-700 p-6 rounded-2xl shadow-xl">
+        <h3 class="text-lg">Receita</h3>
+        <p id="receitaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
       </div>
 
-      <!-- CARDS PRINCIPAIS -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div class="glass p-6 rounded-2xl border-l-4 border-emerald-500">
-          <p class="text-xs text-slate-400 uppercase">Receitas</p>
-          <p id="receitaTotal" class="text-xl font-black mt-1">R$ 0,00</p>
-        </div>
-        <div class="glass p-6 rounded-2xl border-l-4 border-rose-500">
-          <p class="text-xs text-slate-400 uppercase">Despesas</p>
-          <p id="despesaTotal" class="text-xl font-black mt-1">R$ 0,00</p>
-        </div>
-        <div class="glass p-6 rounded-2xl border-l-4 border-purple-500">
-          <p class="text-xs text-slate-400 uppercase">Saldo Livre</p>
-          <p id="saldoTotal" class="text-xl font-black mt-1">R$ 0,00</p>
-        </div>
+      <div class="bg-gradient-to-r from-red-500 to-rose-700 p-6 rounded-2xl shadow-xl">
+        <h3 class="text-lg">Despesa</h3>
+        <p id="despesaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
       </div>
 
-    </section>
+      <div class="bg-gradient-to-r from-purple-500 to-indigo-700 p-6 rounded-2xl shadow-xl">
+        <h3 class="text-lg">Saldo</h3>
+        <p id="saldoTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+      </div>
+    </div>
+
+    <div class="bg-slate-800 p-6 rounded-2xl shadow-lg">
+      <h3 class="text-xl mb-4">Adicionar Valor</h3>
+
+      <input id="valor" type="number" placeholder="Digite o valor"
+        class="w-full p-3 rounded bg-slate-700 mb-4">
+
+      <div class="flex gap-4">
+        <button onclick="adicionarReceita()"
+          class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">
+          + Receita
+        </button>
+
+        <button onclick="adicionarDespesa()"
+          class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">
+          - Despesa
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-slate-800 p-6 rounded-2xl shadow-lg mt-8">
+      <h3 class="text-xl mb-4">Histórico</h3>
+      <ul id="listaMovimentos" class="space-y-2"></ul>
+    </div>
 
   </main>
 </div>
 
 <script type="module" src="app.js"></script>
-
-<script>
-function mostrarSecao(id) {
-  document.getElementById(id).classList.remove('hidden');
-}
-</script>
 
 </body>
 </html>
