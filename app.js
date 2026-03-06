@@ -1,6 +1,22 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+import { 
+  getFirestore,
+  collection,
+  addDoc,
+  query,
+  where,
+  onSnapshot,
+  deleteDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
@@ -14,125 +30,93 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
 let usuarioAtual = null;
 
-const BRL = (v) =>
-  new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL"
-  }).format(v || 0);
-
-/* =========================
-   AUTH
-========================= */
-
-window.registrar = async () => {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-  await createUserWithEmailAndPassword(auth, email, senha);
+window.registrar = ( ) => {
+  const email = emailInput();
+  const senha = senhaInput();
+  createUserWithEmailAndPassword(auth, email, senha)
+    .catch(error => alert(error.message));
 };
 
-window.login = async () => {
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-  await signInWithEmailAndPassword(auth, email, senha);
+window.login = ( ) => {
+  const email = emailInput();
+  const senha = senhaInput();
+  signInWithEmailAndPassword(auth, email, senha)
+    .catch(error => alert(error.message));
 };
 
-window.logout = () => signOut(auth);
+window.logout = ( ) => signOut(auth);
 
-/* =========================
-   EXECUTAR RECORRÊNCIAS
-========================= */
+window.adicionarReceita = async () => salvarMovimento("receita");
+window.adicionarDespesa = async () => salvarMovimento("despesa");
 
-async function executarRecorrencias() {
-  const hoje = new Date();
-  const mes = hoje.getMonth();
-  const ano = hoje.getFullYear();
+function emailInput(){ return document.getElementById("email").value }
+function senhaInput(){ return document.getElementById("senha").value }
 
-  const q = query(
-    collection(db, "recorrencias"),
-    where("userId", "==", usuarioAtual.uid)
-  );
+async function salvarMovimento(tipo){
+  const valor = Number(document.getElementById("valor").value);
+  if(!valor) return alert("Digite um valor válido");
 
-  const snap = await getDocs(q);
-
-  let eventos = [];
-
-  snap.forEach((doc) => {
-    const data = doc.data();
-    const dataEvento = new Date(ano, mes, data.dia).getTime();
-
-    eventos.push({
-      descricao: data.descricao,
-      tipo: data.tipo,
-      valor: data.valor,
-      data: dataEvento
-    });
+  await addDoc(collection(db,"movimentos"),{
+    tipo,
+    valor,
+    userId: usuarioAtual.uid,
+    criadoEm: Date.now()
   });
 
-  eventos.sort((a, b) => a.data - b.data);
-
-  let saldo = 0;
-  let receitaTotal = 0;
-  let despesaTotal = 0;
-  let alerta = null;
-
-  for (let ev of eventos) {
-    if (ev.tipo === "receita") {
-      saldo += ev.valor;
-      receitaTotal += ev.valor;
-    } else {
-      saldo -= ev.valor;
-      despesaTotal += ev.valor;
-    }
-
-    if (saldo < 0 && !alerta) {
-      alerta = {
-        descricao: ev.descricao,
-        saldo
-      };
-    }
-  }
-
-  document.getElementById("receitaTotal").innerText = BRL(receitaTotal);
-  document.getElementById("despesaTotal").innerText = BRL(despesaTotal);
-  document.getElementById("saldoTotal").innerText = BRL(saldo);
-
-  const alertaBox = document.getElementById("alertaFinanceiro");
-  const mensagem = document.getElementById("mensagemAlerta");
-
-  alertaBox.classList.remove("hidden");
-
-  if (alerta) {
-    alertaBox.classList.remove("border-yellow-500");
-    alertaBox.classList.add("border-rose-500");
-    mensagem.innerText =
-      "🚨 Atenção! Você ficará negativo após: " +
-      alerta.descricao +
-      " | Saldo previsto: " +
-      BRL(alerta.saldo);
-  } else {
-    alertaBox.classList.remove("border-rose-500");
-    alertaBox.classList.add("border-emerald-500");
-    mensagem.innerText =
-      "✅ Fluxo saudável! Após todas as contas, saldo previsto: " +
-      BRL(saldo);
-  }
+  document.getElementById("valor").value="";
 }
 
-/* =========================
-   LOGIN STATE
-========================= */
-
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    usuarioAtual = user;
+onAuthStateChanged(auth,(user)=>{
+  if(user){
+    usuarioAtual=user;
     document.getElementById("loginTela").classList.add("hidden");
     document.getElementById("dashboard").classList.remove("hidden");
-
-    await executarRecorrencias();
-  } else {
+    carregarDados();
+  }else{
     document.getElementById("loginTela").classList.remove("hidden");
     document.getElementById("dashboard").classList.add("hidden");
   }
 });
+
+function carregarDados(){
+  const q=query(
+    collection(db,"movimentos"),
+    where("userId","==",usuarioAtual.uid)
+  );
+
+  onSnapshot(q,(snapshot)=>{
+    let receita=0;
+    let despesa=0;
+    const lista=document.getElementById("listaMovimentos");
+    lista.innerHTML="";
+
+    snapshot.forEach(docSnap=>{
+      const data=docSnap.data();
+      const id=docSnap.id;
+
+      if(data.tipo==="receita") receita+=data.valor;
+      if(data.tipo==="despesa") despesa+=data.valor;
+
+      const li=document.createElement("li");
+      li.className="flex justify-between bg-slate-700 p-3 rounded";
+
+      li.innerHTML=`
+        <span>${data.tipo==="receita"?"🟢":"🔴"} R$ ${data.valor}</span>
+        <button onclick="excluirMovimento('${id}')" class="text-red-400">Excluir</button>
+      `;
+
+      lista.appendChild(li);
+    });
+
+    document.getElementById("receitaTotal").innerText="R$ "+receita;
+    document.getElementById("despesaTotal").innerText="R$ "+despesa;
+    document.getElementById("saldoTotal").innerText="R$ "+(receita-despesa);
+  });
+}
+
+window.excluirMovimento=async(id)=>{
+  await deleteDoc(doc(db,"movimentos",id));
+};
