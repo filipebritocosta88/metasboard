@@ -2,140 +2,123 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <title>MetasBoard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetasBoard - Premium Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0b0e14; color: white; font-family: 'Inter', sans-serif; }
+    .glass-card { background: #161b30; border: 1px solid rgba(255,255,255,0.05); }
+    .progress-fill { transition: width 0.5s ease-in-out; }
+    input::placeholder { color: #4b5563; }
+  </style>
 </head>
-<body class="bg-slate-900 text-white min-h-screen">
+<body>
 
-<!-- ----- TELA DE LOGIN ----- -->
 <div id="loginTela" class="flex items-center justify-center min-h-screen">
-  <div class="bg-slate-800 p-8 rounded-2xl shadow-xl w-96">
-    <h2 class="text-2xl font-bold mb-6 text-center text-purple-400">Entrar no MetasBoard</h2>
-    <input id="email" type="email" placeholder="Email" class="w-full p-3 rounded bg-slate-700 mb-4">
-    <input id="senha" type="password" placeholder="Senha" class="w-full p-3 rounded bg-slate-700 mb-4">
-    <button onclick="login()" class="w-full bg-green-600 p-3 rounded mb-3 hover:bg-green-700">Login</button>
-    <button onclick="registrar()" class="w-full bg-blue-600 p-3 rounded hover:bg-blue-700">Registrar</button>
+  <div class="glass-card p-8 rounded-3xl shadow-2xl w-96 border-t-4 border-purple-600">
+    <h2 class="text-2xl font-black mb-6 text-center tracking-tighter">🚀 METASBOARD</h2>
+    <input id="email" type="email" placeholder="Seu e-mail" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-4 focus:border-purple-500 outline-none">
+    <input id="senha" type="password" placeholder="Sua senha" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-4 focus:border-purple-500 outline-none">
+    <button onclick="login()" class="w-full bg-emerald-600 p-4 rounded-xl font-bold hover:bg-emerald-500 transition mb-3">Entrar</button>
+    <button onclick="registrar()" class="w-full border border-slate-700 p-4 rounded-xl font-bold hover:bg-slate-800 transition">Criar Conta</button>
   </div>
 </div>
 
-<!-- ----- DASHBOARD ----- -->
-<div id="dashboard" class="flex hidden">
-
-  <!-- MENU LATERAL -->
-  <aside class="w-64 bg-slate-800 min-h-screen p-6">
-    <h1 class="text-2xl font-bold mb-8 text-purple-400">MetasBoard</h1>
-    <nav class="space-y-4">
-      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarDashboard()">📊 Dashboard</button>
-      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarContas()">🏦 Contas</button>
-      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarDividas()">💳 Dívidas</button>
-      <button class="block w-full text-left hover:text-purple-400" onclick="mostrarMetas()">🎯 Metas</button>
-      <button onclick="logout()" class="block w-full text-left text-red-400 hover:text-red-500">🚪 Sair</button>
+<div id="dashboard" class="hidden min-h-screen">
+  
+  <aside class="w-64 border-r border-slate-800 p-6 flex flex-col">
+    <h1 class="text-xl font-black mb-10 tracking-tighter">🚀 METASBOARD</h1>
+    <nav class="space-y-2 flex-1">
+      <button onclick="mostrarSecao('secDashboard')" class="flex items-center gap-3 w-full p-3 rounded-xl bg-purple-900/20 text-purple-400 font-bold transition">📊 Dashboard</button>
+      <button onclick="mostrarSecao('secContas')" class="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-slate-800 text-slate-400 transition">🏦 Contas</button>
+      <button onclick="mostrarSecao('secDividas')" class="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-slate-800 text-slate-400 transition">💳 Dívidas</button>
+      <button onclick="mostrarSecao('secMetas')" class="flex items-center gap-3 w-full p-3 rounded-xl hover:bg-slate-800 text-slate-400 transition">🎯 Metas</button>
     </nav>
+    <button onclick="logout()" class="text-red-500 font-bold p-3 hover:bg-red-900/10 rounded-xl transition text-left">🚪 Sair</button>
   </aside>
 
-  <!-- CONTEÚDO PRINCIPAL -->
-  <main class="flex-1 p-10 space-y-10">
-
-    <!-- DASHBOARD -->
-    <section id="secDashboard">
-      <h2 class="text-3xl font-bold mb-8">Dashboard</h2>
-      <div class="grid grid-cols-5 gap-6 mb-10">
-        <div class="bg-gradient-to-r from-green-500 to-emerald-700 p-6 rounded-2xl shadow-xl text-center">
-          <h3 class="text-lg">Receita 🟢</h3>
-          <p id="receitaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+  <main class="flex-1 p-8 overflow-y-auto">
+    
+    <section id="secDashboard" class="space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
+          <p class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Receitas</p>
+          <h3 id="receitaTotal" class="text-2xl font-black mt-1">R$ 0,00</h3>
         </div>
-        <div class="bg-gradient-to-r from-red-500 to-rose-700 p-6 rounded-2xl shadow-xl text-center">
-          <h3 class="text-lg">Despesa 🔴</h3>
-          <p id="despesaTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+        <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500">
+          <p class="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Dívidas</p>
+          <h3 id="despesaTotal" class="text-2xl font-black mt-1">R$ 0,00</h3>
         </div>
-        <div class="bg-gradient-to-r from-purple-500 to-indigo-700 p-6 rounded-2xl shadow-xl text-center">
-          <h3 class="text-lg">Saldo 💜</h3>
-          <p id="saldoTotal" class="text-3xl font-bold mt-2">R$ 0</p>
+        <div class="glass-card p-5 rounded-2xl border-l-4 border-purple-500">
+          <p class="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Saldo Livre</p>
+          <h3 id="saldoTotal" class="text-2xl font-black mt-1">R$ 0,00</h3>
         </div>
-        <div class="bg-gradient-to-r from-blue-500 to-cyan-700 p-6 rounded-2xl shadow-xl text-center">
-          <h3 class="text-lg">Contas 🏦</h3>
-          <p id="totalContas" class="text-3xl font-bold mt-2">0</p>
-        </div>
-        <div class="bg-gradient-to-r from-orange-500 to-rose-600 p-6 rounded-2xl shadow-xl text-center">
-          <h3 class="text-lg">Dívidas 💳</h3>
-          <p id="totalDividas" class="text-3xl font-bold mt-2">0</p>
+        <div class="glass-card p-5 rounded-2xl">
+          <div class="flex justify-between items-center mb-2">
+            <p class="text-[10px] font-bold text-slate-400 uppercase">Saúde Financeira</p>
+            <span id="statusTexto" class="text-[10px] font-bold text-emerald-500 font-black">EXCELENTE</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div id="barraProgresso" class="progress-fill bg-emerald-500 h-full" style="width: 100%"></div>
+          </div>
         </div>
       </div>
 
-      <div class="bg-slate-800 p-6 rounded-2xl shadow-lg">
-        <h3 class="text-xl mb-4">Adicionar Valor</h3>
-        <input id="valor" type="number" placeholder="Digite o valor" class="w-full p-3 rounded bg-slate-700 mb-4">
-        <div class="flex gap-4">
-          <button onclick="adicionarReceita()" class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">+ Receita</button>
-          <button onclick="adicionarDespesa()" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">- Despesa</button>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-card p-6 rounded-3xl border border-emerald-500/20">
+          <h3 class="font-bold mb-4 flex items-center gap-2">🟢 Cadastrar Ganhos</h3>
+          <input id="desc" type="text" placeholder="Ex: Salário Mensal" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-3 outline-none focus:border-emerald-500">
+          <input id="valor" type="number" placeholder="Valor R$" class="w-full p-4 rounded-xl bg-[#0b0e14] border border-slate-700 mb-4 outline-none focus:border-emerald-500">
+          <button onclick="adicionarReceita()" class="w-full bg-emerald-600 py-4 rounded-xl font-bold hover:bg-emerald-500 transition shadow-lg shadow-emerald-900/20">Salvar Receita</button>
+          
+          <div class="mt-6 space-y-2">
+            <p class="text-xs font-bold text-slate-500 uppercase">Últimos Lançamentos</p>
+            <ul id="listaMovimentos" class="space-y-2"></ul>
+          </div>
+        </div>
+
+        <div class="glass-card p-6 rounded-3xl border border-blue-500/20 flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold mb-2 flex items-center gap-2">🛡️ Reserva de Emergência</h3>
+            <p class="text-sm text-slate-400">O sistema sugere guardar 10% do seu saldo livre mensalmente.</p>
+          </div>
+          <div class="mt-10 flex justify-between items-end">
+            <div>
+              <p class="text-[10px] font-bold text-slate-500 uppercase">Acumulado</p>
+              <h2 id="acumuladoReserva" class="text-4xl font-black">R$ 0,00</h2>
+            </div>
+            <button class="bg-indigo-600 px-8 py-4 rounded-xl font-bold hover:bg-indigo-500 transition">Guardar Agora</button>
+          </div>
         </div>
       </div>
-
-      <div class="bg-slate-800 p-6 rounded-2xl shadow-lg mt-8">
-        <h3 class="text-xl mb-4">Histórico</h3>
-        <ul id="listaMovimentos" class="space-y-2"></ul>
-      </div>
     </section>
 
-    <!-- CONTAS -->
-    <section id="secContas" class="hidden space-y-6">
-      <h2 class="text-3xl font-bold mb-4">Contas 🏦</h2>
-      <button onclick="adicionarConta()" class="bg-green-600 px-4 py-2 rounded hover:bg-green-700">+ Adicionar Conta</button>
-      <ul id="listaContas" class="space-y-2"></ul>
+    <section id="secContas" class="hidden glass-card p-8 rounded-3xl">
+        <h2 class="text-2xl font-bold mb-4">Minhas Contas 🏦</h2>
+        <button onclick="adicionarConta()" class="bg-purple-600 px-6 py-2 rounded-lg font-bold mb-4">+ Nova Conta</button>
+        <ul id="listaContas" class="space-y-3"></ul>
+    </section>
+    
+    <section id="secDividas" class="hidden glass-card p-8 rounded-3xl">
+        <h2 class="text-2xl font-bold mb-4">Minhas Dívidas 💳</h2>
+        <button onclick="adicionarDivida()" class="bg-rose-600 px-6 py-2 rounded-lg font-bold mb-4">+ Nova Dívida</button>
+        <ul id="listaDividas" class="space-y-3"></ul>
     </section>
 
-    <!-- DÍVIDAS -->
-    <section id="secDividas" class="hidden space-y-6">
-      <h2 class="text-3xl font-bold mb-4">Dívidas 💳</h2>
-      <button onclick="adicionarDivida()" class="bg-red-600 px-4 py-2 rounded hover:bg-red-700">+ Adicionar Dívida</button>
-      <ul id="listaDividas" class="space-y-2"></ul>
+    <section id="secMetas" class="hidden glass-card p-8 rounded-3xl">
+        <h2 class="text-2xl font-bold mb-4">Minhas Metas 🎯</h2>
+        <button onclick="adicionarMeta()" class="bg-yellow-600 px-6 py-2 rounded-lg font-bold mb-4">+ Nova Meta</button>
+        <ul id="listaMetas" class="space-y-3"></ul>
     </section>
-
-    <!-- METAS -->
-    <section id="secMetas" class="hidden space-y-6">
-      <h2 class="text-3xl font-bold mb-4">Metas 🎯</h2>
-      <button onclick="adicionarMeta()" class="bg-yellow-500 px-4 py-2 rounded hover:bg-yellow-600">+ Adicionar Meta</button>
-      <ul id="listaMetas" class="space-y-2"></ul>
-    </section>
-
   </main>
 </div>
 
 <script type="module" src="app.js"></script>
-
 <script>
-  function mostrarDashboard(){
-    document.getElementById("secDashboard").classList.remove("hidden");
-    document.getElementById("secContas").classList.add("hidden");
-    document.getElementById("secDividas").classList.add("hidden");
-    document.getElementById("secMetas").classList.add("hidden");
-    carregarMovimentos();
-    carregarContas();
-    carregarDividas();
-  }
-
-  function mostrarContas(){
-    document.getElementById("secDashboard").classList.add("hidden");
-    document.getElementById("secContas").classList.remove("hidden");
-    document.getElementById("secDividas").classList.add("hidden");
-    document.getElementById("secMetas").classList.add("hidden");
-    carregarContas();
-  }
-
-  function mostrarDividas(){
-    document.getElementById("secDashboard").classList.add("hidden");
-    document.getElementById("secContas").classList.add("hidden");
-    document.getElementById("secDividas").classList.remove("hidden");
-    document.getElementById("secMetas").classList.add("hidden");
-    carregarDividas();
-  }
-
-  function mostrarMetas(){
-    document.getElementById("secDashboard").classList.add("hidden");
-    document.getElementById("secContas").classList.add("hidden");
-    document.getElementById("secDividas").classList.add("hidden");
-    document.getElementById("secMetas").classList.remove("hidden");
-    carregarMetas();
+  function mostrarSecao(id) {
+    const secoes = ['secDashboard', 'secContas', 'secDividas', 'secMetas'];
+    secoes.forEach(s => document.getElementById(s).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
   }
 </script>
 </body>
