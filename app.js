@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
@@ -27,7 +27,7 @@ onAuthStateChanged(auth, user => {
         document.getElementById("loginTela").classList.add("hidden");
         document.getElementById("dashboard").classList.remove("hidden");
         inicializarListeners();
-        definirDesafioSemanal();
+        carregarHistoricoAnual();
     } else {
         document.getElementById("loginTela").classList.remove("hidden");
         document.getElementById("dashboard").classList.add("hidden");
@@ -37,21 +37,16 @@ onAuthStateChanged(auth, user => {
 window.login = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("senha").value);
 window.logout = () => signOut(auth);
 
-// --- NAVIGATION MOBILE FRIENDLY ---
+// --- NAVIGATION ---
 window.mostrarSecao = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
-    
-    // UI Desktop
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-purple-500'));
-    // UI Mobile
-    document.querySelectorAll('.nav-btn-m').forEach(b => b.classList.remove('active', 'text-purple-500'));
-    
+    document.querySelectorAll('.nav-btn, .nav-btn-m').forEach(b => b.classList.remove('active', 'text-purple-500'));
     btn.classList.add('active', 'text-purple-500');
     if(id === 'secDividas') setTimeout(renderizarGraficoDividas, 100);
 };
 
-// --- DATA ---
+// --- CORE DATA ---
 function inicializarListeners() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let g = 0; let d = 0;
@@ -63,183 +58,219 @@ function inicializarListeners() {
         });
         financeiro.ganhos = g; financeiro.dividas = d; financeiro.saldo = g - d;
         atualizarDashboard();
-        atualizarVencimentos();
+        salvarNoHistoricoMensal();
     });
 
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
         const grid = document.getElementById("rankingGrid"); grid.innerHTML = "";
         let metasArr = [];
         snap.forEach(d => metasArr.push({ ...d.data(), id: d.id }));
-        
-        // Ranking Sofisticado
         metasArr.sort((a,b) => (b.atual/b.alvo) - (a.atual/a.alvo));
         financeiro.metas = metasArr;
 
         metasArr.forEach((m, idx) => {
             const perc = Math.min(100, (m.atual / m.alvo) * 100).toFixed(1);
             grid.innerHTML += `
-                <div class="ranking-item glass-card p-6 relative border-t-4 ${idx === 0 ? 'border-yellow-500' : 'border-purple-600/30'}">
+                <div class="glass-card p-6 relative border-t-4 ${idx === 0 ? 'border-yellow-500' : 'border-purple-600/30'}">
                     <div class="flex justify-between items-start mb-4">
-                        <span class="text-xs font-black bg-white/5 px-2 py-1 rounded text-slate-400">#${idx + 1} LUGAR</span>
+                        <span class="text-[9px] font-black bg-white/5 px-2 py-1 rounded">RANKING #${idx + 1}</span>
                         <div class="text-right">
-                            <p class="text-[9px] text-slate-500 font-bold uppercase">Meta de Valor</p>
-                            <p class="text-sm font-black text-white italic">${BRL(m.alvo)}</p>
+                            <p class="text-[9px] text-slate-500 font-black">ALVO SOFISTICADO</p>
+                            <p class="text-sm font-black italic">${BRL(m.alvo)}</p>
                         </div>
                     </div>
-                    <h4 class="text-xl font-black mb-4 truncate uppercase tracking-tighter">${m.nome}</h4>
-                    <div class="meta-bar bg-black/40 mb-2">
-                        <div class="meta-bar-fill bg-gradient-to-r from-purple-600 to-yellow-400" style="width: ${perc}%"></div>
+                    <h4 class="text-lg font-black mb-4 truncate uppercase">${m.nome}</h4>
+                    <div class="h-2 bg-black/40 rounded-full mb-2 overflow-hidden">
+                        <div class="meta-bar-fill h-full bg-gradient-to-r from-purple-600 to-yellow-500" style="width: ${perc}%"></div>
                     </div>
-                    <div class="flex justify-between text-xs font-bold mb-6">
-                        <span class="text-purple-400">${BRL(m.atual)}</span>
+                    <div class="flex justify-between text-[10px] font-black mb-6">
+                        <span class="text-purple-400">POUPADO: ${BRL(m.atual)}</span>
                         <span class="text-yellow-500">${perc}%</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="ajustarMeta('${m.id}', ${m.atual}, 'add')" class="bg-purple-600 py-3 rounded-xl text-xs font-black">+ APORTAR</button>
-                        <button onclick="editarMeta('${m.id}', ${m.alvo})" class="bg-white/5 py-3 rounded-xl text-xs font-black">EDITAR</button>
+                        <button onclick="ajustarMeta('${m.id}', ${m.atual}, 'add')" class="bg-purple-600 p-3 rounded-xl text-[10px] font-black uppercase">+ APORTAR</button>
+                        <button onclick="gerenciarMetaCompleta('${m.id}', '${m.nome}', ${m.alvo})" class="bg-white/5 p-3 rounded-xl text-[10px] font-black uppercase">EDITAR META</button>
                     </div>
                 </div>`;
         });
     });
 }
 
-// --- ACTIONS ---
-window.adicionarFluxo = async () => {
-    const nome = document.getElementById("fluxoNome").value;
-    const valor = Number(document.getElementById("fluxoValor").value);
-    const dia = Number(document.getElementById("fluxoDia").value) || 1;
-    const tipo = document.getElementById("fluxoTipo").value;
-    if(nome && valor) {
-        await addDoc(collection(db, "fluxo"), { nome, valor, dia, tipo, userId: userUID });
-        Swal.fire({ icon: 'success', title: 'Salvo!', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+// --- BANCO DE DADOS HISTÓRICO ---
+async function salvarNoHistoricoMensal() {
+    const data = new Date();
+    const mesAno = `${data.getMonth() + 1}-${data.getFullYear()}`;
+    await setDoc(doc(db, "historico", `${userUID}_${mesAno}`), {
+        userId: userUID,
+        mes: data.getMonth() + 1,
+        ano: data.getFullYear(),
+        saldo: financeiro.saldo,
+        status: financeiro.saldo >= 0 ? 'positivo' : 'negativo'
+    });
+    carregarHistoricoAnual();
+}
+
+async function carregarHistoricoAnual() {
+    const q = query(collection(db, "historico"), where("userId", "==", userUID));
+    const snap = await getDocs(q);
+    const grid = document.getElementById("gridHistorico");
+    grid.innerHTML = "";
+    snap.forEach(d => {
+        const h = d.data();
+        grid.innerHTML += `
+            <div class="min-w-[80px] p-3 glass-card text-center border ${h.status === 'positivo' ? 'border-emerald-500/30' : 'border-rose-500/30'}">
+                <p class="text-[9px] font-black text-slate-500">${h.mes}/${h.ano}</p>
+                <p class="text-xs font-black ${h.status === 'positivo' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(h.saldo)}</p>
+            </div>`;
+    });
+}
+
+// --- GESTÃO DE DÍVIDAS (QUITAR / PARCELAR) ---
+window.gerenciarDivida = async (id, nome, valor) => {
+    const { value: acao } = await Swal.fire({
+        title: `GESTÃO: ${nome}`,
+        input: 'select',
+        inputOptions: {
+            quitar: 'Quitar Totalmente',
+            amortizar: 'Pagar Valor Parcial',
+            parcelar: 'Parcelar Dívida'
+        },
+        showCancelButton: true,
+        confirmButtonText: 'Prosseguir'
+    });
+
+    if (acao === 'quitar') {
+        await deleteDoc(doc(db, "fluxo", id));
+        Swal.fire('Quitado!', 'Dívida eliminada com sucesso.', 'success');
+    } else if (acao === 'amortizar') {
+        const { value: pague } = await Swal.fire({ title: 'Quanto vai pagar?', input: 'number' });
+        if(pague) await updateDoc(doc(db, "fluxo", id), { valor: valor - Number(pague) });
+    } else if (acao === 'parcelar') {
+        const { value: parc } = await Swal.fire({ title: 'Quantas parcelas?', input: 'number' });
+        if(parc) await updateDoc(doc(db, "fluxo", id), { valor: valor / Number(parc), nome: `${nome} (Parc. 1/${parc})` });
     }
 };
 
+// --- DASHBOARD & DESAFIO ---
 function atualizarDashboard() {
     document.getElementById("receitaTotal").innerText = BRL(financeiro.ganhos);
     document.getElementById("despesaTotal").innerText = BRL(financeiro.dividas);
     document.getElementById("saldoTotal").innerText = BRL(financeiro.saldo);
     document.getElementById("saldoInvestLabel").innerText = BRL(financeiro.saldo);
 
-    const msg = document.getElementById("iaTexto");
-    const divCritica = financeiro.listaFluxo.filter(f => f.tipo === 'divida').sort((a,b) => b.valor - a.valor)[0];
-    
-    if(financeiro.saldo < 0) {
-        msg.innerHTML = `⚠️ <b>SUGESTÃO DE CORTE:</b> Sua conta "${divCritica.nome}" de ${BRL(divCritica.valor)} é seu maior peso. Reduzir 15% aqui te daria ${BRL(divCritica.valor*0.15)} extras por mês!`;
+    // Desafio da Semana Inteligente
+    const tDesafio = document.getElementById("txtDesafio");
+    if(financeiro.saldo <= 0) {
+        tDesafio.innerText = "🚨 FOCO: Você está no vermelho. Desafio: Venda 1 item parado hoje ou faça 1 bico de R$ 50.";
+    } else if(financeiro.saldo < 500) {
+        tDesafio.innerText = "🌱 RETENÇÃO: Não gaste com lanches/delivery esta semana. Destine essa sobra para sua meta líder.";
     } else {
-        msg.innerHTML = `✅ <b>MENTORIA:</b> Você está retendo ${((financeiro.saldo / financeiro.ganhos)*100).toFixed(0)}% da sua renda. O segredo é chegar nos 30%. Evite gastos emocionais hoje!`;
+        tDesafio.innerText = "💎 MULTIPLICAÇÃO: Tente economizar 10% do seu saldo livre e invista em conhecimento.";
     }
+
+    // Mentoria e Vencimentos
+    const tIA = document.getElementById("iaTexto");
+    const prox = financeiro.listaFluxo.filter(f => f.tipo === 'divida').sort((a,b) => a.dia - b.dia)[0];
+    document.getElementById("txtVencimento").innerText = prox ? `${prox.nome} vence dia ${prox.dia}` : "Tudo em dia!";
+    tIA.innerText = financeiro.saldo < 0 ? "⚠️ Seu estilo de vida custa mais do que você ganha. Hora de cortar o supérfluo!" : "🚀 Você tem oxigênio financeiro. Mantenha a disciplina!";
 }
 
-function atualizarVencimentos() {
-    const hoje = new Date().getDate();
-    const proximas = financeiro.listaFluxo
-        .filter(f => f.tipo === 'divida' && f.dia >= hoje)
-        .sort((a,b) => a.dia - b.dia)[0];
-    
-    document.getElementById("txtVencimento").innerText = proximas 
-        ? `${proximas.nome} vence dia ${proximas.dia}` 
-        : "Sem contas pendentes p/ este mês.";
-}
+// --- HISTÓRICO DE FLUXO (!) ---
+window.verHistoricoFluxo = async () => {
+    let html = `<div class="text-left space-y-2 max-h-64 overflow-y-auto no-scrollbar">`;
+    financeiro.listaFluxo.forEach(f => {
+        html += `<div class="flex justify-between p-2 border-b border-white/5 text-[11px]">
+                    <span>${f.nome} (Dia ${f.dia})</span>
+                    <b class="${f.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(f.valor)}</b>
+                    <button onclick="excluirItem('fluxo','${f.id}')" class="ml-2 text-red-500">✕</button>
+                 </div>`;
+    });
+    html += `</div>`;
+    Swal.fire({ title: 'HISTÓRICO DE REGISTROS', html: html, showConfirmButton: false });
+};
 
-function definirDesafioSemanal() {
-    const desafios = [
-        "Sem Delivery: Cozinhe em casa e guarde R$ 50.",
-        "Desapego: Venda algo parado no Marketplace hoje.",
-        "Transporte: Tente usar menos app de carona esta semana.",
-        "Sem Supérfluos: Não compre nada que não seja comida hoje."
-    ];
-    document.getElementById("txtDesafio").innerText = desafios[Math.floor(Math.random() * desafios.length)];
-}
-
-// --- GRÁFICO PROFISSIONAL ---
+// --- GRÁFICO E LISTA ---
 function renderizarGraficoDividas() {
     const ctx = document.getElementById('chartDividas');
     if(chartInstance) chartInstance.destroy();
-    
     const divData = financeiro.listaFluxo.filter(f => f.tipo === 'divida');
-    const labels = divData.map(d => d.nome);
-    const valores = divData.map(d => d.valor);
-    
     document.getElementById("chartTotalLabel").innerText = BRL(financeiro.dividas);
 
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: labels,
+            labels: divData.map(d => d.nome),
             datasets: [{
-                data: valores,
-                backgroundColor: ['#ef4444', '#f97316', '#eab308', '#8b5cf6', '#ec4899', '#06b6d4'],
-                hoverOffset: 10,
+                data: divData.map(d => d.valor),
+                backgroundColor: ['#ef4444', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4'],
                 borderWidth: 0
             }]
         },
-        options: {
-            cutout: '80%',
-            plugins: { legend: { display: false } }
-        }
+        options: { cutout: '80%', plugins: { legend: { display: false } } }
     });
 
     const lista = document.getElementById("listaDividasDetalhada");
     lista.innerHTML = "";
     divData.forEach((d, i) => {
-        const perc = ((d.valor / financeiro.dividas) * 100).toFixed(1);
+        const p = ((d.valor/financeiro.dividas)*100).toFixed(0);
         lista.innerHTML += `
-            <div class="flex justify-between items-center p-4 bg-white/5 rounded-2xl border-l-4" style="border-color: ${chartInstance.data.datasets[0].backgroundColor[i]}">
-                <div><b class="text-xs uppercase">${d.nome}</b><p class="text-[10px] text-slate-500">${perc}% do total</p></div>
-                <b class="text-sm">${BRL(d.valor)}</b>
+            <div class="flex justify-between items-center p-4 glass-card border-r-4" style="border-color: ${chartInstance.data.datasets[0].backgroundColor[i]}">
+                <div><b class="text-sm uppercase">${d.nome}</b><p class="text-[9px] text-slate-500">${p}% do peso total</p></div>
+                <div class="flex gap-3">
+                    <b class="text-sm">${BRL(d.valor)}</b>
+                    <button onclick="gerenciarDivida('${d.id}', '${d.nome}', ${d.valor})" class="bg-rose-600/20 text-rose-500 px-3 py-1 rounded-lg text-[10px] font-black">GERENCIAR</button>
+                </div>
             </div>`;
     });
 }
 
-// --- IA DE INVESTIMENTOS CRIATIVA ---
-window.analisarInvestimentoIA = () => {
-    const box = document.getElementById("boxResultadoInvest");
-    const texto = document.getElementById("textoInvestIA");
-    const saldo = financeiro.saldo;
-    
-    box.classList.remove("hidden");
-    let r = "";
-
-    if (saldo <= 0) {
-        r = `
-            <h4 class="text-rose-500 font-black">🚨 PLANO DE EMERGÊNCIA</h4>
-            <p>Seu saldo está no vermelho. Não há o que investir agora, precisamos <b>GERAR</b> caixa.</p>
-            <div class="grid grid-cols-1 gap-3">
-                <div class="bg-white/5 p-4 rounded-xl"><b>Opção 1: Desapego Flash</b><br>Tire foto de 3 itens parados na sua casa e poste agora. Objetivo: Levantar R$ 150 em 24h.</div>
-                <div class="bg-white/5 p-4 rounded-xl"><b>Opção 2: Freelance Express</b><br>Ofereça serviços de limpeza, passeio com cães ou suporte técnico para vizinhos.</div>
-            </div>`;
-    } else if (saldo < 100) {
-        r = `
-            <h4 class="text-yellow-500 font-black">🌱 FASE DE ACUMULAÇÃO</h4>
-            <p>Você tem ${BRL(saldo)}. É pouco para o mercado financeiro, mas ótimo para o <b>Empreendedorismo de Rua</b>.</p>
-            <div class="bg-white/5 p-4 rounded-xl">
-                <b>Dica de Ouro: O Doce Lucrativo</b><br>
-                Compre um pacote de paçoca ou faça geladinhos gourmet. O custo unitário é baixo (R$ 0,50) e a venda é alta (R$ 2,50). Seus R$ ${saldo.toFixed(0)} podem virar R$ ${ (saldo*4).toFixed(0) } até o fim da semana.
-            </div>`;
-    } else {
-        r = `
-            <h4 class="text-emerald-500 font-black">🚀 MULTIPLICAÇÃO ATIVA</h4>
-            <p>Com ${BRL(saldo)}, você já pode diversificar.</p>
-            <div class="space-y-4">
-                <div class="bg-white/5 p-4 rounded-xl"><b>Estratégia 50/50:</b><br>Coloque 50% em um CDB de liquidez diária (Reserva) e use 50% para comprar produtos de revenda (Ex: Acessórios de celular na Shopee para revender no bairro).</div>
-                <div class="bg-white/5 p-4 rounded-xl"><b>Educação:</b><br>Invista R$ 50 em um livro de vendas ou tráfego pago. O conhecimento vai te fazer ganhar 10x mais esse saldo.</div>
-            </div>`;
+// --- AÇÕES METAS ---
+window.gerenciarMetaCompleta = async (id, nome, alvo) => {
+    const { value: acao } = await Swal.fire({
+        title: `EDITAR: ${nome}`,
+        input: 'select',
+        inputOptions: { editar: 'Mudar Nome/Valor', excluir: 'Apagar Meta' },
+        showCancelButton: true
+    });
+    if(acao === 'excluir') {
+        if(confirm("Apagar meta?")) await deleteDoc(doc(db, "metas", id));
+    } else if(acao === 'editar') {
+        const { value: f } = await Swal.fire({
+            title: 'Novos Dados',
+            html: `<input id="en" class="swal2-input" value="${nome}"><input id="ev" type="number" class="swal2-input" value="${alvo}">`,
+            preConfirm: () => [document.getElementById('en').value, document.getElementById('ev').value]
+        });
+        if(f) await updateDoc(doc(db, "metas", id), { nome: f[0], alvo: Number(f[1]) });
     }
-    texto.innerHTML = r;
 };
 
-// --- CRUD METAS ---
-window.abrirModalMeta = async () => {
-    const { value: f } = await Swal.fire({
-        title: 'NOVA META',
-        html: '<input id="sw-n" class="swal2-input" placeholder="Nome"><input id="sw-v" type="number" class="swal2-input" placeholder="Alvo R$">',
-        preConfirm: () => [document.getElementById('sw-n').value, document.getElementById('sw-v').value]
-    });
-    if(f) await addDoc(collection(db, "metas"), { nome: f[0], alvo: Number(f[1]), atual: 0, userId: userUID });
+window.adicionarFluxo = async () => {
+    const n = document.getElementById("fluxoNome").value;
+    const v = Number(document.getElementById("fluxoValor").value);
+    const d = Number(document.getElementById("fluxoDia").value) || 1;
+    const t = document.getElementById("fluxoTipo").value;
+    if(n && v) {
+        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, dia: d, tipo: t, userId: userUID });
+        document.getElementById("fluxoNome").value = ""; document.getElementById("fluxoValor").value = "";
+        Swal.fire({ icon: 'success', title: 'Registrado!', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+    }
+};
+
+window.excluirItem = async (col, id) => {
+    await deleteDoc(doc(db, col, id));
+    Swal.close();
 };
 
 window.ajustarMeta = async (id, atual, acao) => {
-    const { value: v } = await Swal.fire({ title: 'Valor:', input: 'number' });
+    const { value: v } = await Swal.fire({ title: 'Quanto quer aportar?', input: 'number' });
     if(v) await updateDoc(doc(db, "metas", id), { atual: atual + Number(v) });
+};
+
+window.abrirModalMeta = async () => {
+    const { value: f } = await Swal.fire({
+        title: 'NOVA META',
+        html: '<input id="sw-n" class="swal2-input" placeholder="O que vai conquistar?"><input id="sw-v" type="number" class="swal2-input" placeholder="Preço do Sonho R$">',
+        preConfirm: () => [document.getElementById('sw-n').value, document.getElementById('sw-v').value]
+    });
+    if(f) await addDoc(collection(db, "metas"), { nome: f[0], alvo: Number(f[1]), atual: 0, userId: userUID });
 };
