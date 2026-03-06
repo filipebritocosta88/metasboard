@@ -27,7 +27,6 @@ onAuthStateChanged(auth, user => {
         document.getElementById("loginTela").classList.add("hidden");
         document.getElementById("dashboard").classList.remove("hidden");
         inicializarListeners();
-        carregarHistoricoAnual();
     } else {
         document.getElementById("loginTela").classList.remove("hidden");
         document.getElementById("dashboard").classList.add("hidden");
@@ -37,7 +36,7 @@ onAuthStateChanged(auth, user => {
 window.login = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("senha").value);
 window.logout = () => signOut(auth);
 
-// --- NAVIGATION ---
+// --- NAVEGAÇÃO ---
 window.mostrarSecao = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -46,8 +45,9 @@ window.mostrarSecao = (id, btn) => {
     if(id === 'secDividas') setTimeout(renderizarGraficoDividas, 100);
 };
 
-// --- CORE DATA ---
+// --- LISTENERS E DADOS ---
 function inicializarListeners() {
+    // Fluxo financeiro
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let g = 0; let d = 0;
         financeiro.listaFluxo = [];
@@ -58,9 +58,10 @@ function inicializarListeners() {
         });
         financeiro.ganhos = g; financeiro.dividas = d; financeiro.saldo = g - d;
         atualizarDashboard();
-        salvarNoHistoricoMensal();
+        salvarHistoricoMensal();
     });
 
+    // Metas
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
         const grid = document.getElementById("rankingGrid"); grid.innerHTML = "";
         let metasArr = [];
@@ -71,179 +72,151 @@ function inicializarListeners() {
         metasArr.forEach((m, idx) => {
             const perc = Math.min(100, (m.atual / m.alvo) * 100).toFixed(1);
             grid.innerHTML += `
-                <div class="glass-card p-6 relative border-t-4 ${idx === 0 ? 'border-yellow-500' : 'border-purple-600/30'}">
-                    <div class="flex justify-between items-start mb-4">
+                <div class="glass-card p-5 border-t-4 ${idx === 0 ? 'border-yellow-500' : 'border-purple-600/30'}">
+                    <div class="flex justify-between items-start mb-3">
                         <span class="text-[9px] font-black bg-white/5 px-2 py-1 rounded">RANKING #${idx + 1}</span>
-                        <div class="text-right">
-                            <p class="text-[9px] text-slate-500 font-black">ALVO SOFISTICADO</p>
-                            <p class="text-sm font-black italic">${BRL(m.alvo)}</p>
-                        </div>
+                        <p class="text-xs font-black">${BRL(m.alvo)}</p>
                     </div>
-                    <h4 class="text-lg font-black mb-4 truncate uppercase">${m.nome}</h4>
+                    <h4 class="text-sm font-black mb-3 truncate uppercase">${m.nome}</h4>
                     <div class="h-2 bg-black/40 rounded-full mb-2 overflow-hidden">
                         <div class="meta-bar-fill h-full bg-gradient-to-r from-purple-600 to-yellow-500" style="width: ${perc}%"></div>
                     </div>
-                    <div class="flex justify-between text-[10px] font-black mb-6">
-                        <span class="text-purple-400">POUPADO: ${BRL(m.atual)}</span>
+                    <div class="flex justify-between text-[10px] font-black mb-4">
+                        <span class="text-purple-400">${BRL(m.atual)}</span>
                         <span class="text-yellow-500">${perc}%</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2">
-                        <button onclick="ajustarMeta('${m.id}', ${m.atual}, 'add')" class="bg-purple-600 p-3 rounded-xl text-[10px] font-black uppercase">+ APORTAR</button>
-                        <button onclick="gerenciarMetaCompleta('${m.id}', '${m.nome}', ${m.alvo})" class="bg-white/5 p-3 rounded-xl text-[10px] font-black uppercase">EDITAR META</button>
+                        <button onclick="ajustarMeta('${m.id}', ${m.atual})" class="bg-purple-600 py-2 rounded-lg text-[10px] font-black uppercase">+ Aporte</button>
+                        <button onclick="gerenciarMeta('${m.id}', '${m.nome}', ${m.alvo})" class="bg-white/5 py-2 rounded-lg text-[10px] font-black uppercase italic">Editar</button>
                     </div>
                 </div>`;
         });
     });
 }
 
-// --- BANCO DE DADOS HISTÓRICO ---
-async function salvarNoHistoricoMensal() {
-    const data = new Date();
-    const mesAno = `${data.getMonth() + 1}-${data.getFullYear()}`;
-    await setDoc(doc(db, "historico", `${userUID}_${mesAno}`), {
-        userId: userUID,
-        mes: data.getMonth() + 1,
-        ano: data.getFullYear(),
-        saldo: financeiro.saldo,
-        status: financeiro.saldo >= 0 ? 'positivo' : 'negativo'
+// --- HISTÓRICO (!) ---
+window.verHistoricoFluxo = () => {
+    if (financeiro.listaFluxo.length === 0) {
+        Swal.fire({ title: 'Sem registros', text: 'Adicione um ganho ou dívida primeiro.', icon: 'info', background: '#161b30', color: '#fff' });
+        return;
+    }
+    let h = `<div class="text-left space-y-2 max-h-64 overflow-y-auto no-scrollbar pr-2">`;
+    financeiro.listaFluxo.forEach(f => {
+        h += `<div class="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5 mb-2">
+                <div class="text-[11px]"><b class="uppercase text-white">${f.nome}</b><br><span class="opacity-50">Dia ${f.dia}</span></div>
+                <div class="flex items-center gap-3">
+                    <b class="text-xs ${f.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${f.tipo === 'ganho' ? '+' : '-'} ${BRL(f.valor)}</b>
+                    <button onclick="excluirRegistroGeral('${f.id}')" class="text-rose-500 font-bold p-2">✕</button>
+                </div>
+              </div>`;
     });
-    carregarHistoricoAnual();
-}
+    Swal.fire({ title: 'HISTÓRICO', html: h + `</div>`, showConfirmButton: false, background: '#161b30', color: '#fff' });
+};
 
-async function carregarHistoricoAnual() {
-    const q = query(collection(db, "historico"), where("userId", "==", userUID));
-    const snap = await getDocs(q);
-    const grid = document.getElementById("gridHistorico");
-    grid.innerHTML = "";
-    snap.forEach(d => {
-        const h = d.data();
-        grid.innerHTML += `
-            <div class="min-w-[80px] p-3 glass-card text-center border ${h.status === 'positivo' ? 'border-emerald-500/30' : 'border-rose-500/30'}">
-                <p class="text-[9px] font-black text-slate-500">${h.mes}/${h.ano}</p>
-                <p class="text-xs font-black ${h.status === 'positivo' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(h.saldo)}</p>
-            </div>`;
-    });
-}
-
-// --- GESTÃO DE DÍVIDAS (QUITAR / PARCELAR) ---
-window.gerenciarDivida = async (id, nome, valor) => {
-    const { value: acao } = await Swal.fire({
-        title: `GESTÃO: ${nome}`,
-        input: 'select',
-        inputOptions: {
-            quitar: 'Quitar Totalmente',
-            amortizar: 'Pagar Valor Parcial',
-            parcelar: 'Parcelar Dívida'
-        },
-        showCancelButton: true,
-        confirmButtonText: 'Prosseguir'
-    });
-
-    if (acao === 'quitar') {
+window.excluirRegistroGeral = async (id) => {
+    const res = await Swal.fire({ title: 'Excluir?', text: "Remover este registro permanentemente?", icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', background: '#161b30', color: '#fff' });
+    if (res.isConfirmed) {
         await deleteDoc(doc(db, "fluxo", id));
-        Swal.fire('Quitado!', 'Dívida eliminada com sucesso.', 'success');
-    } else if (acao === 'amortizar') {
-        const { value: pague } = await Swal.fire({ title: 'Quanto vai pagar?', input: 'number' });
-        if(pague) await updateDoc(doc(db, "fluxo", id), { valor: valor - Number(pague) });
-    } else if (acao === 'parcelar') {
-        const { value: parc } = await Swal.fire({ title: 'Quantas parcelas?', input: 'number' });
-        if(parc) await updateDoc(doc(db, "fluxo", id), { valor: valor / Number(parc), nome: `${nome} (Parc. 1/${parc})` });
+        Swal.close();
     }
 };
 
-// --- DASHBOARD & DESAFIO ---
+// --- GESTÃO DE DÍVIDAS ---
+window.gerenciarDivida = async (id, nome, valor) => {
+    const { value: acao } = await Swal.fire({
+        title: nome, input: 'select', background: '#161b30', color: '#fff',
+        inputOptions: { quitar: 'Quitar Total', amortizar: 'Pagar Parte', parcelar: 'Parcelar' },
+        showCancelButton: true
+    });
+    if (acao === 'quitar') await deleteDoc(doc(db, "fluxo", id));
+    if (acao === 'amortizar') {
+        const { value: v } = await Swal.fire({ title: 'Quanto pagar?', input: 'number', background: '#161b30', color: '#fff' });
+        if (v) await updateDoc(doc(db, "fluxo", id), { valor: valor - Number(v) });
+    }
+    if (acao === 'parcelar') {
+        const { value: p } = await Swal.fire({ title: 'Nº de Parcelas?', input: 'number', background: '#161b30', color: '#fff' });
+        if (p) await updateDoc(doc(db, "fluxo", id), { valor: valor / Number(p), nome: `${nome} (1/${p})` });
+    }
+};
+
+// --- DASHBOARD E INVESTIMENTO ---
 function atualizarDashboard() {
     document.getElementById("receitaTotal").innerText = BRL(financeiro.ganhos);
     document.getElementById("despesaTotal").innerText = BRL(financeiro.dividas);
     document.getElementById("saldoTotal").innerText = BRL(financeiro.saldo);
     document.getElementById("saldoInvestLabel").innerText = BRL(financeiro.saldo);
 
-    // Desafio da Semana Inteligente
-    const tDesafio = document.getElementById("txtDesafio");
-    if(financeiro.saldo <= 0) {
-        tDesafio.innerText = "🚨 FOCO: Você está no vermelho. Desafio: Venda 1 item parado hoje ou faça 1 bico de R$ 50.";
-    } else if(financeiro.saldo < 500) {
-        tDesafio.innerText = "🌱 RETENÇÃO: Não gaste com lanches/delivery esta semana. Destine essa sobra para sua meta líder.";
-    } else {
-        tDesafio.innerText = "💎 MULTIPLICAÇÃO: Tente economizar 10% do seu saldo livre e invista em conhecimento.";
-    }
+    const txtD = document.getElementById("txtDesafio");
+    if(financeiro.saldo <= 0) txtD.innerText = "🔥 Missão: Venda 1 item parado para sair do vermelho.";
+    else if(financeiro.saldo < 300) txtD.innerText = "🍕 Missão: Não peça delivery hoje e salve R$ 50.";
+    else txtD.innerText = "📈 Missão: Aporte 10% deste saldo na sua meta principal.";
 
-    // Mentoria e Vencimentos
-    const tIA = document.getElementById("iaTexto");
     const prox = financeiro.listaFluxo.filter(f => f.tipo === 'divida').sort((a,b) => a.dia - b.dia)[0];
-    document.getElementById("txtVencimento").innerText = prox ? `${prox.nome} vence dia ${prox.dia}` : "Tudo em dia!";
-    tIA.innerText = financeiro.saldo < 0 ? "⚠️ Seu estilo de vida custa mais do que você ganha. Hora de cortar o supérfluo!" : "🚀 Você tem oxigênio financeiro. Mantenha a disciplina!";
+    document.getElementById("txtVencimento").innerText = prox ? `${prox.nome} (Dia ${prox.dia})` : "Tudo limpo!";
+    document.getElementById("iaTexto").innerText = financeiro.saldo < 0 ? "⚠️ Cuidado! Suas dívidas estão drenando sua paz. Hora de gerar renda extra urgente." : "✅ Você tem oxigênio financeiro. Mantenha a disciplina nas metas!";
 }
 
-// --- HISTÓRICO DE FLUXO (!) ---
-window.verHistoricoFluxo = async () => {
-    let html = `<div class="text-left space-y-2 max-h-64 overflow-y-auto no-scrollbar">`;
-    financeiro.listaFluxo.forEach(f => {
-        html += `<div class="flex justify-between p-2 border-b border-white/5 text-[11px]">
-                    <span>${f.nome} (Dia ${f.dia})</span>
-                    <b class="${f.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(f.valor)}</b>
-                    <button onclick="excluirItem('fluxo','${f.id}')" class="ml-2 text-red-500">✕</button>
-                 </div>`;
-    });
-    html += `</div>`;
-    Swal.fire({ title: 'HISTÓRICO DE REGISTROS', html: html, showConfirmButton: false });
+window.analisarInvestimentoIA = () => {
+    const box = document.getElementById("boxResultadoInvest");
+    const s = financeiro.saldo;
+    box.classList.remove("hidden");
+    if (s <= 0) {
+        box.innerHTML = `<div class="p-4 border-l-4 border-rose-500 bg-rose-500/10"><h4 class="font-black text-rose-500">PLANO DE EMERGÊNCIA</h4><p class="text-xs mt-2">Você está negativado. Não invista em bancos agora. Foque em <b>VENDAS</b>: OLX, desapegos ou serviços extras para gerar R$ 200 rápido.</p></div>`;
+    } else if (s < 100) {
+        box.innerHTML = `<div class="p-4 border-l-4 border-yellow-500 bg-yellow-500/10"><h4 class="font-black text-yellow-500">PLANO DE CRESCIMENTO</h4><p class="text-xs mt-2">Com ${BRL(s)}, o banco rende centavos. Compre R$ 50 de balas ou doces e revenda. O objetivo é dobrar esse valor até sexta.</p></div>`;
+    } else {
+        box.innerHTML = `<div class="p-4 border-l-4 border-emerald-500 bg-emerald-500/10"><h4 class="font-black text-emerald-500">PLANO DE MULTIPLICAÇÃO</h4><p class="text-xs mt-2">Ótimo saldo! Coloque 50% em CDB Liquidez Diária e use os outros 50% para revenda de produtos físicos rápidos (Marketplace).</p></div>`;
+    }
 };
 
-// --- GRÁFICO E LISTA ---
+// --- GRÁFICO ---
 function renderizarGraficoDividas() {
     const ctx = document.getElementById('chartDividas');
     if(chartInstance) chartInstance.destroy();
-    const divData = financeiro.listaFluxo.filter(f => f.tipo === 'divida');
+    const divs = financeiro.listaFluxo.filter(f => f.tipo === 'divida');
     document.getElementById("chartTotalLabel").innerText = BRL(financeiro.dividas);
-
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
-        data: {
-            labels: divData.map(d => d.nome),
-            datasets: [{
-                data: divData.map(d => d.valor),
-                backgroundColor: ['#ef4444', '#f97316', '#8b5cf6', '#ec4899', '#06b6d4'],
-                borderWidth: 0
-            }]
-        },
+        data: { labels: divs.map(d => d.nome), datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#ef4444','#f97316','#8b5cf6','#ec4899','#06b6d4'], borderWidth: 0 }] },
         options: { cutout: '80%', plugins: { legend: { display: false } } }
     });
-
     const lista = document.getElementById("listaDividasDetalhada");
     lista.innerHTML = "";
-    divData.forEach((d, i) => {
-        const p = ((d.valor/financeiro.dividas)*100).toFixed(0);
-        lista.innerHTML += `
-            <div class="flex justify-between items-center p-4 glass-card border-r-4" style="border-color: ${chartInstance.data.datasets[0].backgroundColor[i]}">
-                <div><b class="text-sm uppercase">${d.nome}</b><p class="text-[9px] text-slate-500">${p}% do peso total</p></div>
-                <div class="flex gap-3">
-                    <b class="text-sm">${BRL(d.valor)}</b>
-                    <button onclick="gerenciarDivida('${d.id}', '${d.nome}', ${d.valor})" class="bg-rose-600/20 text-rose-500 px-3 py-1 rounded-lg text-[10px] font-black">GERENCIAR</button>
-                </div>
-            </div>`;
+    divs.forEach((d, i) => {
+        const perc = ((d.valor/financeiro.dividas)*100).toFixed(0);
+        lista.innerHTML += `<div class="flex justify-between items-center p-4 glass-card border-r-4" style="border-color:${chartInstance.data.datasets[0].backgroundColor[i]}">
+            <div class="text-xs"><b>${d.nome}</b><br><span class="opacity-50">${perc}% do total</span></div>
+            <div class="flex items-center gap-3"><b>${BRL(d.valor)}</b><button onclick="gerenciarDivida('${d.id}','${d.nome}',${d.valor})" class="bg-rose-500/20 text-rose-500 p-2 rounded-lg text-[10px] font-black">GERIR</button></div>
+        </div>`;
     });
 }
 
-// --- AÇÕES METAS ---
-window.gerenciarMetaCompleta = async (id, nome, alvo) => {
+// --- CRUD METAS ---
+window.gerenciarMeta = async (id, nome, alvo) => {
     const { value: acao } = await Swal.fire({
-        title: `EDITAR: ${nome}`,
-        input: 'select',
-        inputOptions: { editar: 'Mudar Nome/Valor', excluir: 'Apagar Meta' },
+        title: 'Gerenciar Meta', text: nome, background: '#161b30', color: '#fff',
+        input: 'select', inputOptions: { editar: 'Alterar Nome/Valor', excluir: 'Apagar Meta' },
         showCancelButton: true
     });
-    if(acao === 'excluir') {
-        if(confirm("Apagar meta?")) await deleteDoc(doc(db, "metas", id));
-    } else if(acao === 'editar') {
+    if (acao === 'excluir') {
+        const c = await Swal.fire({ title: 'Apagar?', icon: 'warning', showCancelButton: true, background: '#161b30', color: '#fff' });
+        if (c.isConfirmed) await deleteDoc(doc(db, "metas", id));
+    } else if (acao === 'editar') {
         const { value: f } = await Swal.fire({
-            title: 'Novos Dados',
+            title: 'Editar', background: '#161b30', color: '#fff',
             html: `<input id="en" class="swal2-input" value="${nome}"><input id="ev" type="number" class="swal2-input" value="${alvo}">`,
             preConfirm: () => [document.getElementById('en').value, document.getElementById('ev').value]
         });
-        if(f) await updateDoc(doc(db, "metas", id), { nome: f[0], alvo: Number(f[1]) });
+        if (f) await updateDoc(doc(db, "metas", id), { nome: f[0], alvo: Number(f[1]) });
     }
 };
 
+window.ajustarMeta = async (id, atual) => {
+    const { value: v } = await Swal.fire({ title: 'Quanto aportar?', input: 'number', background: '#161b30', color: '#fff' });
+    if (v) await updateDoc(doc(db, "metas", id), { atual: atual + Number(v) });
+};
+
+// --- AUXILIARES ---
 window.adicionarFluxo = async () => {
     const n = document.getElementById("fluxoNome").value;
     const v = Number(document.getElementById("fluxoValor").value);
@@ -252,25 +225,31 @@ window.adicionarFluxo = async () => {
     if(n && v) {
         await addDoc(collection(db, "fluxo"), { nome: n, valor: v, dia: d, tipo: t, userId: userUID });
         document.getElementById("fluxoNome").value = ""; document.getElementById("fluxoValor").value = "";
-        Swal.fire({ icon: 'success', title: 'Registrado!', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+        Swal.fire({ icon: 'success', title: 'Salvo!', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
     }
-};
-
-window.excluirItem = async (col, id) => {
-    await deleteDoc(doc(db, col, id));
-    Swal.close();
-};
-
-window.ajustarMeta = async (id, atual, acao) => {
-    const { value: v } = await Swal.fire({ title: 'Quanto quer aportar?', input: 'number' });
-    if(v) await updateDoc(doc(db, "metas", id), { atual: atual + Number(v) });
 };
 
 window.abrirModalMeta = async () => {
     const { value: f } = await Swal.fire({
-        title: 'NOVA META',
-        html: '<input id="sw-n" class="swal2-input" placeholder="O que vai conquistar?"><input id="sw-v" type="number" class="swal2-input" placeholder="Preço do Sonho R$">',
+        title: 'NOVA META', background: '#161b30', color: '#fff',
+        html: '<input id="sw-n" class="swal2-input" placeholder="Nome"><input id="sw-v" type="number" class="swal2-input" placeholder="Alvo R$">',
         preConfirm: () => [document.getElementById('sw-n').value, document.getElementById('sw-v').value]
     });
     if(f) await addDoc(collection(db, "metas"), { nome: f[0], alvo: Number(f[1]), atual: 0, userId: userUID });
 };
+
+async function salvarHistoricoMensal() {
+    const d = new Date();
+    const id = `${userUID}_${d.getMonth()+1}_${d.getFullYear()}`;
+    await setDoc(doc(db, "historico", id), { userId: userUID, mes: d.getMonth()+1, ano: d.getFullYear(), saldo: financeiro.saldo });
+    const q = query(collection(db, "historico"), where("userId", "==", userUID));
+    const snap = await getDocs(q);
+    const grid = document.getElementById("gridHistorico"); grid.innerHTML = "";
+    snap.forEach(doc => {
+        const h = doc.data();
+        grid.innerHTML += `<div class="min-w-[85px] p-3 glass-card text-center border ${h.saldo >= 0 ? 'border-emerald-500/20' : 'border-rose-500/20'}">
+            <p class="text-[8px] opacity-50 uppercase">${h.mes}/${h.ano}</p>
+            <p class="text-[10px] font-black ${h.saldo >= 0 ? 'text-emerald-400' : 'text-rose-500'}">${BRL(h.saldo)}</p>
+        </div>`;
+    });
+}
