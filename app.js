@@ -1,87 +1,65 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
 getAuth,
 signInWithEmailAndPassword,
-createUserWithEmailAndPassword,
-signOut,
-onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-import {
-getFirestore,
-collection,
-query,
-where,
-onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+createUserWithEmailAndPassword
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 
 const firebaseConfig = {
 
 apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
-
 authDomain: "metasboard.firebaseapp.com",
-
 projectId: "metasboard",
-
-storageBucket: "metasboard.firebasestorage.app",
-
-messagingSenderId: "958671032163",
-
-appId: "1:958671032163:web:3d150d966e103ca2e78d56"
+storageBucket: "metasboard.appspot.com",
+messagingSenderId: "123456789",
+appId: "1:123456789:web:abc"
 
 };
 
 
 const app = initializeApp(firebaseConfig);
-
 const auth = getAuth(app);
 
-const db = getFirestore(app);
 
+window.login = () => {
 
-let userUID = null;
+const email = document.getElementById("email").value;
+const senha = document.getElementById("senha").value;
 
-let totalReceitas = 0;
-
-let totalDividas = 0;
-
-
-const BRL = (v)=>
-new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v||0);
-
-
-
-window.alternarTela=(cadastrar)=>{
-
-document.getElementById("botoesLogin").classList.toggle("hidden",cadastrar);
-
-document.getElementById("botoesCadastro").classList.toggle("hidden",!cadastrar);
-
-};
-
-
-
-window.login=()=>{
-
-const email=document.getElementById("email").value;
-
-const senha=document.getElementById("senha").value;
+if(!email || !senha){
+alert("Preencha todos os campos");
+return;
+}
 
 signInWithEmailAndPassword(auth,email,senha)
 
-.catch(err=>alert(err.message));
+.then(()=>{
+
+alert("Login realizado com sucesso");
+
+})
+
+.catch(err=>{
+
+alert(err.message);
+
+});
 
 };
 
 
 
-window.registrar=()=>{
+window.registrar = () => {
 
-const email=document.getElementById("email").value;
+const email = document.getElementById("email").value;
+const senha = document.getElementById("senha").value;
 
-const senha=document.getElementById("senha").value;
+if(!email || !senha){
+alert("Preencha todos os campos");
+return;
+}
 
 createUserWithEmailAndPassword(auth,email,senha)
 
@@ -91,13 +69,17 @@ document.getElementById("modalBoasVindas").style.display="flex";
 
 })
 
-.catch(err=>alert(err.message));
+.catch(err=>{
+
+alert(err.message);
+
+});
 
 };
 
 
 
-window.fecharBoasVindas=()=>{
+window.fecharBoasVindas = ()=>{
 
 document.getElementById("modalBoasVindas").style.display="none";
 
@@ -105,107 +87,28 @@ document.getElementById("modalBoasVindas").style.display="none";
 
 
 
-window.logout=()=>signOut(auth);
-
-
-
-function carregarDados(){
-
-onSnapshot(query(collection(db,"recorrencias"),where("userId","==",userUID)),snap=>{
-
-totalReceitas=0;
-
-snap.forEach(d=>{
-
-totalReceitas+=d.data().valor;
-
-});
-
-atualizarUI();
-
-});
-
-
-onSnapshot(query(collection(db,"dividas"),where("userId","==",userUID)),snap=>{
-
-totalDividas=0;
-
-snap.forEach(d=>{
-
-totalDividas+=d.data().valor;
-
-});
-
-atualizarUI();
-
-});
-
-}
-
-
-
-function atualizarUI(){
-
-const saldo=totalReceitas-totalDividas;
-
-document.getElementById("resumoReceita").innerText=BRL(totalReceitas);
-
-document.getElementById("resumoDividas").innerText=BRL(totalDividas);
-
-document.getElementById("resumoSaldo").innerText=BRL(saldo);
-
-}
-
-
-
 function gerarDica(){
 
-const dicas=[
+const dicas = [
 
-"Evite comprometer mais de 30% da renda com dívidas.",
+"Evite comprometer mais de 30% da sua renda com dívidas.",
 
-"Guarde pelo menos 10% do que ganha.",
+"Ter uma reserva de emergência traz segurança financeira.",
 
-"Ter uma reserva de emergência reduz estresse financeiro.",
+"Registrar todos os gastos aumenta o controle do dinheiro.",
 
-"Registrar gastos ajuda a controlar impulsos.",
+"Guardar pelo menos 10% da renda mensal ajuda a criar patrimônio.",
 
-"Pequenos gastos frequentes impactam muito no mês."
+"Pequenos gastos recorrentes podem impactar muito no final do mês."
 
 ];
 
-const d=dicas[Math.floor(Math.random()*dicas.length)];
+const aleatoria = dicas[Math.floor(Math.random()*dicas.length)];
 
-document.getElementById("dicaFinanceira").innerText=d;
+document.getElementById("dicaFinanceira").innerText = aleatoria;
 
 }
 
 setInterval(gerarDica,8000);
 
 gerarDica();
-
-
-
-onAuthStateChanged(auth,user=>{
-
-if(user){
-
-userUID=user.uid;
-
-document.getElementById("loginTela").classList.add("hidden");
-
-document.getElementById("dashboard").classList.remove("hidden");
-
-carregarDados();
-
-}
-
-else{
-
-document.getElementById("loginTela").classList.remove("hidden");
-
-document.getElementById("dashboard").classList.add("hidden");
-
-}
-
-});
