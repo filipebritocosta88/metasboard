@@ -3,144 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MetasBoard Ultra 2.0</title>
+  <title>MetasBoard Pro - Intelligence & Strategy</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
   <style>
     body { background-color: #0b0e14; color: white; font-family: 'Inter', sans-serif; overflow-x: hidden; }
-    .glass-card { background: #161b30; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s; }
+    .glass-card { background: #161b30; border: 1px solid rgba(255,255,255,0.05); transition: 0.3s ease; }
     .nav-btn.active { background: rgba(168, 85, 247, 0.2); color: #a855f7; border-left: 4px solid #a855f7; }
-    .meta-bar { transition: width 1.5s cubic-bezier(0.17, 0.67, 0.83, 0.67); }
+    .meta-bar { transition: width 1.5s cubic-bezier(0.17, 0.67, 0.83, 0.67); box-shadow: 0 0 15px rgba(234, 179, 8, 0.3); }
     
-    /* IA Preditiva Animations */
-    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    .ia-vermelho { border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.1); animation: blink 2s infinite; }
-    .ia-roxo { border: 2px solid #a855f7; background: rgba(168, 85, 247, 0.1); animation: blink 3s infinite; }
-    .ia-ouro { border: 2px solid #eab308; background: rgba(234, 179, 8, 0.1); animation: blink 2.5s infinite; }
-
-    /* Privacy Mode */
-    body.privacy-mode .money-val { filter: blur(10px); pointer-events: none; }
-    .swal2-popup { background: #161b30 !important; color: white !important; border-radius: 2rem !important; }
+    @keyframes pulse-red { 0%, 100% { border-color: #ef4444; } 50% { border-color: transparent; } }
+    .border-alert { animation: pulse-red 2s infinite; }
+    
+    body.privacy-mode .money-val { filter: blur(12px); pointer-events: none; user-select: none; }
+    .swal2-popup { background: #161b30 !important; color: white !important; border-radius: 2rem !important; border: 1px solid #334155 !important; }
+    .ranking-medal { position: absolute; top: -15px; right: 20px; font-size: 2rem; filter: drop-shadow(0 0 5px gold); }
   </style>
 </head>
 <body>
 
 <div id="loginTela" class="flex items-center justify-center min-h-screen">
-  <div class="glass-card p-10 rounded-[40px] w-full max-w-md text-center">
-    <h1 class="text-4xl font-black mb-8 italic">METAS<span class="text-purple-500">BOARD</span></h1>
+  <div class="glass-card p-10 rounded-[40px] w-full max-w-md text-center shadow-2xl">
+    <h1 class="text-4xl font-black mb-2 italic">METAS<span class="text-purple-500">BOARD</span></h1>
+    <p class="text-slate-500 text-sm mb-8">Sua evolução financeira começa aqui.</p>
     <div class="space-y-4">
-      <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 outline-none text-white">
-      <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 outline-none text-white">
-      <button onclick="login()" class="w-full bg-purple-600 p-4 rounded-2xl font-black text-white">ENTRAR</button>
-      <button onclick="registrar()" class="w-full text-slate-500 text-sm">Criar nova conta</button>
+      <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 outline-none focus:border-purple-500 text-white">
+      <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl bg-[#0b0e14] border border-slate-700 outline-none focus:border-purple-500 text-white">
+      <button onclick="login()" class="w-full bg-purple-600 p-4 rounded-2xl font-black text-white hover:bg-purple-500 transition">ENTRAR</button>
+      <button onclick="registrar()" class="w-full text-slate-500 text-xs mt-4">Ainda não tem conta? Registre-se</button>
     </div>
   </div>
 </div>
 
 <div id="dashboard" class="hidden min-h-screen flex flex-col md:flex-row">
-  <aside class="w-full md:w-72 border-r border-slate-800 p-8 flex flex-col bg-[#0d111a]">
-    <h1 class="text-2xl font-black mb-10 italic">METAS<span class="text-purple-500">BOARD</span></h1>
+  <aside class="w-full md:w-72 border-r border-slate-800 p-8 flex flex-col bg-[#0d111a] z-50">
+    <h1 class="text-2xl font-black mb-12 italic">METAS<span class="text-purple-500">BOARD</span></h1>
     <nav class="space-y-2 flex-1">
-      <button onclick="mostrarSecao('secDashboard', this)" class="nav-btn active flex items-center gap-4 w-full p-4 rounded-xl font-bold transition">📊 Início</button>
-      <button onclick="mostrarSecao('secMetas', this)" class="nav-btn flex items-center gap-4 w-full p-4 rounded-xl text-slate-400 font-bold transition">🎯 Metas & Ranking</button>
-      <button onclick="mostrarSecao('secDividas', this)" class="nav-btn flex items-center gap-4 w-full p-4 rounded-xl text-slate-400 font-bold transition">💳 Dívidas</button>
-      <button onclick="mostrarSecao('secInvest', this)" class="nav-btn flex items-center gap-4 w-full p-4 rounded-xl text-slate-400 font-bold transition">💰 Investir</button>
+      <button onclick="mostrarSecao('secDashboard', this)" class="nav-btn active flex items-center gap-4 w-full p-4 rounded-xl font-bold transition">📊 Visão Geral</button>
+      <button onclick="mostrarSecao('secMetas', this)" class="nav-btn flex items-center gap-4 w-full p-4 rounded-xl text-slate-400 font-bold transition">🏆 Ranking & Metas</button>
+      <button onclick="mostrarSecao('secDividas', this)" class="nav-btn flex items-center gap-4 w-full p-4 rounded-xl text-slate-400 font-bold transition">💳 Gestão de Dívidas</button>
+      <button onclick="mostrarSecao('secInvest', this)" class="nav-btn flex items-center gap-4 w-full p-4 rounded-xl text-slate-400 font-bold transition">🚀 Onde Investir</button>
     </nav>
-    <div class="mt-auto space-y-3 pt-6">
-        <button onclick="togglePrivacidade()" class="w-full p-3 rounded-xl border border-slate-800 text-xs">👁️ Modo Privacidade</button>
-        <button onclick="logout()" class="text-red-500 font-black p-4 w-full text-left">🚪 Sair</button>
+    <div class="mt-auto pt-6 space-y-3">
+        <button onclick="togglePrivacidade()" class="w-full p-3 rounded-xl border border-slate-800 text-[10px] font-bold">👁️ PRIVACIDADE</button>
+        <button onclick="logout()" class="text-red-500 font-black p-4 w-full text-left hover:bg-red-900/10 rounded-xl transition">🚪 Sair</button>
     </div>
   </aside>
 
   <main class="flex-1 p-8 overflow-y-auto">
     <section id="secDashboard" class="max-w-6xl mx-auto space-y-8">
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div class="glass-card p-6 rounded-3xl border-b-4 border-emerald-500">
-          <p class="text-[10px] font-black text-emerald-500 uppercase">Ganhos Registrados</p>
-          <h3 class="money-val text-3xl font-black italic text-white" id="receitaTotal">R$ 0,00</h3>
+          <p class="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Ganhos</p>
+          <h3 class="money-val text-3xl font-black italic" id="receitaTotal">R$ 0,00</h3>
         </div>
         <div class="glass-card p-6 rounded-3xl border-b-4 border-rose-500">
-          <p class="text-[10px] font-black text-rose-500 uppercase">Total em Dívidas</p>
-          <h3 class="money-val text-3xl font-black italic text-white" id="despesaTotal">R$ 0,00</h3>
+          <p class="text-[10px] font-black text-rose-500 uppercase tracking-widest">Dívidas</p>
+          <h3 class="money-val text-3xl font-black italic" id="despesaTotal">R$ 0,00</h3>
         </div>
         <div class="glass-card p-6 rounded-3xl border-b-4 border-purple-500">
-          <p class="text-[10px] font-black text-purple-500 uppercase">Saldo Livre</p>
-          <h3 class="money-val text-3xl font-black italic text-white" id="saldoTotal">R$ 0,00</h3>
+          <p class="text-[10px] font-black text-purple-500 uppercase tracking-widest">Saldo Livre</p>
+          <h3 class="money-val text-3xl font-black italic" id="saldoTotal">R$ 0,00</h3>
         </div>
       </div>
 
-      <div id="iaBox" class="ia-roxo p-8 rounded-[2.5rem] flex items-center gap-6">
-          <span class="text-4xl" id="iaEmoji">🔮</span>
-          <div>
-              <h4 class="font-black text-xs uppercase tracking-widest text-slate-400" id="iaLabel">Análise Estratégica</h4>
-              <p id="iaMsg" class="text-sm font-medium">Sincronizando seus dados financeiros...</p>
-          </div>
-      </div>
-
-      <div class="glass-card p-8 rounded-[32px] max-w-2xl mx-auto">
-        <h3 class="text-xl font-black mb-6 italic">⚙️ Configurar Ganhos / Dívidas</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input id="nomeFluxo" type="text" placeholder="Nome (Ex: Salário)" class="p-4 bg-black/40 rounded-xl border border-slate-800 text-sm">
-            <input id="valorFluxo" type="number" placeholder="Valor R$" class="p-4 bg-black/40 rounded-xl border border-slate-800 text-sm">
-            <select id="tipoFluxo" class="p-4 bg-black/40 rounded-xl border border-slate-800 text-sm">
-                <option value="ganho">Ganho (+)</option>
-                <option value="divida">Dívida (-)</option>
-            </select>
-            <button onclick="salvarFluxo()" class="bg-emerald-600 p-4 rounded-xl font-black hover:bg-emerald-500 transition">ADICIONAR</button>
-        </div>
-        <div id="listaFluxo" class="mt-8 space-y-2"></div>
-      </div>
-    </section>
-
-    <section id="secMetas" class="hidden max-w-5xl mx-auto space-y-8">
-        <div class="flex justify-between items-center">
-            <h2 class="text-4xl font-black italic">🎯 Ranking de Metas</h2>
-            <button onclick="novaMeta()" class="bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black">+ CRIAR META</button>
-        </div>
-        <div id="gridMetas" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
-    </section>
-
-    <section id="secDividas" class="hidden max-w-4xl mx-auto space-y-8">
-        <div class="glass-card p-10 rounded-[40px] border-l-8 border-rose-600">
-            <h2 class="text-3xl font-black mb-4 italic">💳 Plano de Quitação</h2>
-            <p class="text-slate-400 text-sm mb-6">"Dívida é o imposto de quem não planejou o futuro. Vamos eliminá-las agora."</p>
-            <div id="listaDívidasCoaching" class="space-y-4"></div>
-        </div>
-    </section>
-
-    <section id="secInvest" class="hidden max-w-4xl mx-auto space-y-8">
-        <div class="glass-card p-10 rounded-[40px] border-l-8 border-emerald-500 bg-gradient-to-br from-[#161b30] to-[#0d2a1f]">
-            <h2 class="text-3xl font-black mb-2 italic">💰 Fábrica de Dinheiro</h2>
-            <p class="text-emerald-400 font-bold mb-8">Pare de trabalhar pelo dinheiro, faça ele trabalhar para você.</p>
-            
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div class="bg-black/40 p-6 rounded-3xl border border-emerald-500/20">
-                    <h4 class="font-black text-emerald-500 mb-2">💡 Regra 50-30-20</h4>
-                    <p class="text-xs text-slate-400">50% Essencial, 30% Estilo de Vida, 20% Investimentos. Tente bater essa meta este mês!</p>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <div class="glass-card p-8 rounded-[40px] border border-white/5">
+            <h3 class="text-xl font-black mb-6 italic">📥 Entrada/Saída Rápida</h3>
+            <div class="space-y-4">
+                <input id="fluxoNome" type="text" placeholder="Ex: Salário, Aluguel, Uber..." class="w-full p-4 bg-black/40 rounded-2xl border border-slate-800 text-sm">
+                <div class="grid grid-cols-2 gap-4">
+                    <input id="fluxoValor" type="number" placeholder="Valor R$" class="p-4 bg-black/40 rounded-2xl border border-slate-800 text-sm">
+                    <select id="fluxoTipo" class="p-4 bg-black/40 rounded-2xl border border-slate-800 text-sm">
+                        <option value="ganho">Ganho (+)</option>
+                        <option value="divida">Dívida (-)</option>
+                    </select>
                 </div>
-                <div class="bg-black/40 p-6 rounded-3xl border border-emerald-500/20">
-                    <h4 class="font-black text-emerald-500 mb-2">🚀 Juros Compostos</h4>
-                    <p class="text-xs text-slate-400">R$ 200 por mês a 1% ao mês vira R$ 46.000 em 10 anos. Comece hoje com o que tiver!</p>
+                <button onclick="adicionarFluxo()" class="w-full bg-purple-600 p-4 rounded-2xl font-black hover:bg-purple-500 shadow-xl shadow-purple-900/20">REGISTRAR AGORA</button>
+            </div>
+            <div id="listaFluxo" class="mt-8 space-y-2 max-h-60 overflow-y-auto pr-2"></div>
+        </div>
+
+        <div id="iaStatusBox" class="p-10 rounded-[40px] flex flex-col justify-center min-h-[300px] border-2">
+            <div class="flex items-center gap-4 mb-4">
+                <span id="iaEmoji" class="text-5xl">🔮</span>
+                <h4 id="iaTitulo" class="font-black uppercase tracking-tighter">Mentor IA</h4>
+            </div>
+            <p id="iaTexto" class="text-sm font-medium leading-relaxed opacity-90 italic">Aguardando dados...</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="secMetas" class="hidden max-w-6xl mx-auto space-y-10">
+        <div class="flex justify-between items-center bg-yellow-500/10 p-8 rounded-[40px] border border-yellow-500/20">
+            <div>
+                <h2 class="text-4xl font-black italic text-yellow-500 uppercase tracking-tighter">Copa das Metas</h2>
+                <p class="text-slate-400 text-sm">O ranking é definido pelo seu esforço em chegar nos 100%.</p>
+            </div>
+            <button onclick="abrirModalMeta()" class="bg-yellow-500 text-black px-10 py-5 rounded-3xl font-black hover:scale-105 transition shadow-2xl">Lançar Nova Meta</button>
+        </div>
+        <div id="rankingGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+    </section>
+
+    <section id="secDividas" class="hidden max-w-5xl mx-auto space-y-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2 glass-card p-10 rounded-[40px]">
+                <h2 class="text-3xl font-black mb-8 italic">💳 Lista de Débitos</h2>
+                <div id="listaDividasDetalhada" class="space-y-4"></div>
+            </div>
+            <div class="glass-card p-10 rounded-[40px] text-center">
+                <h3 class="font-black text-xs uppercase mb-6 text-slate-500">Distribuição de Dívidas</h3>
+                <canvas id="chartDividas" width="200" height="200"></canvas>
+                <p class="mt-6 text-xs text-rose-500 font-bold italic" id="txtIncentivoDivida"></p>
+            </div>
+        </div>
+    </section>
+
+    <section id="secInvest" class="hidden max-w-5xl mx-auto space-y-8">
+        <div class="glass-card p-10 rounded-[40px] border-l-8 border-emerald-500 bg-gradient-to-br from-[#161b30] to-[#0d2a1f]">
+            <h2 class="text-4xl font-black mb-4 italic">🚀 Acelerador de Capital</h2>
+            <p class="text-slate-300 mb-10 max-w-2xl">Não deixe seu dinheiro parado. Ele deve ser um soldado que trabalha 24h por dia para você. Analise como multiplicar seu saldo atual.</p>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10">
+                <div class="bg-black/40 p-8 rounded-[32px] border border-emerald-500/10">
+                    <span class="text-3xl mb-4 block">🍫</span>
+                    <h4 class="font-black text-emerald-400 uppercase text-xs mb-2">Pequenos Negócios</h4>
+                    <p class="text-xs text-slate-400 leading-relaxed">Baixo custo de entrada, retorno rápido e alta escalabilidade manual.</p>
+                </div>
+                <div class="bg-black/40 p-8 rounded-[32px] border border-emerald-500/10">
+                    <span class="text-3xl mb-4 block">📈 Renda Passiva</span>
+                    <h4 class="font-black text-emerald-400 uppercase text-xs mb-2">Mercado Financeiro</h4>
+                    <p class="text-xs text-slate-400 leading-relaxed">Fazer o dinheiro gerar mais dinheiro através de juros e dividendos.</p>
                 </div>
             </div>
-            <button onclick="perguntaIA('Dê uma sugestão de investimento para meu saldo atual')" class="w-full mt-8 bg-emerald-600 p-4 rounded-2xl font-black">ANALISAR ONDE INVESTIR MEU SALDO</button>
+
+            <button onclick="analisarInvestimentoIA()" class="w-full bg-emerald-600 p-6 rounded-3xl font-black text-xl hover:bg-emerald-500 transition shadow-2xl shadow-emerald-900/40">🔍 ANALISAR ONDE INVESTIR MEU SALDO</button>
+        </div>
+
+        <div id="boxResultadoInvest" class="hidden glass-card p-10 rounded-[40px] border-2 border-emerald-500/30 animate-pulse">
+            <h3 class="text-2xl font-black mb-6 flex items-center gap-3">💡 <span id="tituloInvestIA">Proposta Estratégica</span></h3>
+            <div id="textoInvestIA" class="space-y-6 text-slate-300 leading-relaxed font-medium"></div>
         </div>
     </section>
   </main>
-</div>
-
-<div class="fixed bottom-6 right-6 flex flex-col items-end gap-4">
-    <div id="janelaChat" class="hidden glass-card w-80 h-[450px] rounded-[30px] flex flex-col overflow-hidden shadow-2xl border-purple-500/30">
-        <div class="bg-purple-600 p-4 font-black text-xs flex justify-between items-center"><span>🤖 MENTOR FINANCEIRO</span><button onclick="toggleChat()">✕</button></div>
-        <div id="chatBox" class="flex-1 p-4 overflow-y-auto space-y-3 text-xs"></div>
-        <div class="p-4 bg-black/40 flex gap-2">
-            <input id="chatInput" type="text" placeholder="Pergunte..." class="bg-transparent border-b border-slate-700 flex-1 outline-none text-xs">
-            <button onclick="perguntaIA()" class="text-purple-500 font-black">></button>
-        </div>
-    </div>
-    <button onclick="toggleChat()" class="bg-purple-600 w-16 h-16 rounded-2xl shadow-2xl text-3xl">🤖</button>
 </div>
 
 <script type="module" src="app.js"></script>
