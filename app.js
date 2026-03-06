@@ -18,9 +18,18 @@ let usuarioAtual = null;
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- UI CONTROLS ---
+// --- UI E NAVEGAÇÃO ---
 window.fecharModal = () => document.getElementById("modalBoasVindas").classList.add("hidden");
 window.toggleChat = () => document.getElementById("janelaChat").classList.toggle("hidden");
+
+window.mostrarSecao = (id, btn) => {
+    const secoes = ['secDashboard', 'secContas', 'secDividas', 'secMetas'];
+    secoes.forEach(s => document.getElementById(s).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'text-purple-400', 'bg-purple-900/20'));
+    btn.classList.add('active', 'text-purple-400', 'bg-purple-900/20');
+};
 
 // --- AUTH ---
 window.registrar = () => {
@@ -37,119 +46,125 @@ window.login = () => {
 
 window.logout = () => signOut(auth);
 
-// --- FIREBASE OBSERVER ---
 onAuthStateChanged(auth, user => {
   if (user) {
     usuarioAtual = user;
     document.getElementById("loginTela").classList.add("hidden");
     document.getElementById("dashboard").classList.replace("hidden", "flex");
     document.getElementById("modalBoasVindas").classList.remove("hidden");
-    carregarTudo();
+    carregarDadosBase();
   } else {
     document.getElementById("loginTela").classList.remove("hidden");
     document.getElementById("dashboard").classList.replace("flex", "hidden");
   }
 });
 
-// --- MOVIMENTOS ---
+// --- FUNÇÕES DE NEGÓCIO ---
+
+// 1. Ganhos Fixos (Agendamento)
 window.adicionarReceita = async () => {
     const desc = document.getElementById("desc").value;
     const valor = Number(document.getElementById("valor").value);
-    if (!desc || !valor) return alert("Preencha os campos corretamente!");
-    await addDoc(collection(db, "movimentos"), { desc, valor, tipo: "receita", userId: usuarioAtual.uid, criadoEm: Date.now() });
-    document.getElementById("desc").value = "";
-    document.getElementById("valor").value = "";
+    if (!desc || !valor) return alert("Preencha descrição e valor!");
+    await addDoc(collection(db, "ganhosFixos"), { desc, valor, userId: usuarioAtual.uid });
+    document.getElementById("desc").value = ""; document.getElementById("valor").value = "";
 };
 
-// --- RESERVA ---
-window.guardarReserva = async () => {
-    const v = Number(prompt("Quanto deseja guardar hoje?"));
-    if (v > 0) await addDoc(collection(db, "reserva"), { valor: v, userId: usuarioAtual.uid, data: Date.now() });
+window.excluirGanhoFixo = async (id) => {
+    if(confirm("Deseja remover este ganho fixo?")) await deleteDoc(doc(db, "ganhosFixos", id));
 };
 
-// --- CONTAS, DIVIDAS, METAS (BOTÕES ATIVADOS) ---
+// 2. Reserva (Adicionar/Retirar)
+window.alterarReserva = async (acao) => {
+    const valor = Number(prompt(`${acao === 'adicionar' ? 'Quanto guardar?' : 'Quanto retirar?'}`));
+    if (!valor || valor <= 0) return;
+    const finalVal = acao === 'adicionar' ? valor : -valor;
+    await addDoc(collection(db, "reserva"), { valor: finalVal, userId: usuarioAtual.uid, data: Date.now() });
+};
+
+// 3. Contas, Dívidas e Metas
 window.adicionarConta = async () => {
-    const nome = prompt("Banco ou Carteira:");
-    const saldo = Number(prompt("Saldo inicial:"));
+    const nome = prompt("Banco:");
+    const saldo = Number(prompt("Saldo:"));
     if (nome && !isNaN(saldo)) await addDoc(collection(db, "contas"), { nome, saldo, userId: usuarioAtual.uid });
 };
 
 window.adicionarDivida = async () => {
-    const nome = prompt("Descrição da dívida:");
-    const valor = Number(prompt("Valor total:"));
-    if (nome && valor) await addDoc(collection(db, "dividas"), { nome, valor, userId: usuarioAtual.uid, status: "Pendente" });
+    const nome = prompt("Credor (Ex: Cartão):");
+    const valor = Number(prompt("Valor total devido:"));
+    if (nome && valor) await addDoc(collection(db, "dividas"), { nome, valor, userId: usuarioAtual.uid });
 };
 
-window.adicionarMeta = async () => {
-    const nome = prompt("O que deseja conquistar?");
-    const valor = Number(prompt("Valor alvo:"));
-    if (nome && valor) await addDoc(collection(db, "metas"), { nome, valor, atual: 0, userId: usuarioAtual.uid });
+window.excluirItem = async (col, id) => {
+    if(confirm("Excluir item?")) await deleteDoc(doc(db, col, id));
 };
 
-// --- CARREGAMENTO CENTRALIZADO ---
-function carregarTudo() {
-    // Carregar Dashboard e Movimentos
-    onSnapshot(query(collection(db, "movimentos"), where("userId", "==", usuarioAtual.uid)), snap => {
-        let r = 0, d = 2630; // 2630 como base fixa para dívidas se quiser manter o visual da imagem
-        const lista = document.getElementById("listaMovimentos");
-        lista.innerHTML = "";
-        snap.forEach(docSnap => {
-            const m = docSnap.data();
-            r += m.valor;
-            lista.innerHTML += `<li class="flex justify-between p-4 bg-[#0b0e14] rounded-2xl border border-slate-800 text-sm">
-                <span>${m.desc}</span> <span class="font-black text-emerald-400">${BRL(m.valor)}</span>
+// --- CARREGAMENTO REATIVO (O CÉREBRO) ---
+function carregarDadosBase() {
+    let totalContas = 0;
+    let totalDividas = 0;
+
+    // Monitorar Contas para somar na Receita Principal
+    onSnapshot(query(collection(db, "contas"), where("userId", "==", usuarioAtual.uid)), snap => {
+        totalContas = 0;
+        const lista = document.getElementById("listaContas"); lista.innerHTML = "";
+        snap.forEach(d => {
+            const data = d.data(); totalContas += data.saldo;
+            lista.innerHTML += `<li class="flex justify-between p-4 glass-card rounded-xl"><span>${data.nome}</span> <div class="flex gap-4 font-black"><span>${BRL(data.saldo)}</span><button onclick="excluirItem('contas','${d.id}')" class="text-red-500 text-xs">X</button></div></li>`;
+        });
+        document.getElementById("receitaTotal").innerText = BRL(totalContas);
+        atualizarResumos(totalContas, totalDividas);
+    });
+
+    // Monitorar Dívidas para somar no Dashboard
+    onSnapshot(query(collection(db, "dividas"), where("userId", "==", usuarioAtual.uid)), snap => {
+        totalDividas = 0;
+        const lista = document.getElementById("listaDividas"); lista.innerHTML = "";
+        snap.forEach(d => {
+            const data = d.data(); totalDividas += data.valor;
+            lista.innerHTML += `<li class="flex justify-between p-4 glass-card rounded-xl"><span>${data.nome}</span> <div class="flex gap-4 font-black"><span>${BRL(data.valor)}</span><button onclick="excluirItem('dividas','${d.id}')" class="text-red-500 text-xs">X</button></div></li>`;
+        });
+        document.getElementById("despesaTotal").innerText = BRL(totalDividas);
+        atualizarResumos(totalContas, totalDividas);
+    });
+
+    // Monitorar Ganhos Fixos (Dashboard)
+    onSnapshot(query(collection(db, "ganhosFixos"), where("userId", "==", usuarioAtual.uid)), snap => {
+        const lista = document.getElementById("listaMovimentos"); lista.innerHTML = "";
+        snap.forEach(d => {
+            const m = d.data();
+            lista.innerHTML += `<li class="flex justify-between p-3 bg-slate-900/50 rounded-xl border border-slate-800 text-xs">
+                <span>${m.desc} (Mensal)</span> <div class="flex gap-3"><b>${BRL(m.valor)}</b><button onclick="excluirGanhoFixo('${d.id}')" class="text-red-500">Excluir</button></div>
             </li>`;
         });
-        document.getElementById("receitaTotal").innerText = BRL(r);
-        document.getElementById("despesaTotal").innerText = BRL(d);
-        document.getElementById("saldoTotal").innerText = BRL(r - d);
-        
-        const perc = r > 0 ? Math.max(0, 100 - (d/r * 100)) : 0;
-        document.getElementById("barraProgresso").style.width = perc + "%";
-        document.getElementById("statusTexto").innerText = perc > 50 ? "SAUDÁVEL" : "ALERTA";
     });
 
-    // Carregar Reserva
+    // Monitorar Reserva
     onSnapshot(query(collection(db, "reserva"), where("userId", "==", usuarioAtual.uid)), snap => {
-        let total = 0;
-        snap.forEach(d => total += d.data().valor);
-        document.getElementById("acumuladoReserva").innerText = BRL(total);
+        let res = 0; snap.forEach(d => res += d.data().valor);
+        document.getElementById("accumuladoReserva").innerText = BRL(res);
     });
+}
 
-    // Carregar Contas, Dívidas e Metas para as abas específicas
-    const listas = { contas: "listaContas", dividas: "listaDividas", metas: "listaMetas" };
-    Object.keys(listas).forEach(colecao => {
-        onSnapshot(query(collection(db, colecao), where("userId", "==", usuarioAtual.uid)), snap => {
-            const el = document.getElementById(listas[colecao]);
-            el.innerHTML = "";
-            snap.forEach(d => {
-                const data = d.data();
-                el.innerHTML += `<li class="flex justify-between items-center p-4 glass-card rounded-2xl">
-                    <span class="font-bold">${data.nome}</span>
-                    <span class="font-black text-purple-400">${BRL(data.valor || data.saldo || 0)}</span>
-                </li>`;
-            });
-        });
-    });
+function atualizarResumos(rec, div) {
+    const saldo = rec - div;
+    document.getElementById("saldoTotal").innerText = BRL(saldo);
+    const perc = rec > 0 ? Math.max(0, Math.min(100, (saldo/rec)*100)) : 0;
+    const barra = document.getElementById("barraProgresso");
+    barra.style.width = perc + "%";
+    document.getElementById("statusTexto").innerText = perc > 50 ? "SAUDÁVEL" : "CRÍTICO";
+    barra.className = `progress-fill h-full ${perc > 50 ? 'bg-emerald-500' : 'bg-rose-500'}`;
 }
 
 // --- MENTOR IA ---
 window.perguntaIA = () => {
     const input = document.getElementById("inputChat");
     const conteudo = document.getElementById("chatConteudo");
-    const msg = input.value.toLowerCase();
-    if (!msg) return;
-
-    conteudo.innerHTML += `<div class="bg-blue-900/40 p-3 rounded-2xl ml-auto text-right max-w-[80%] border border-blue-500/30">${msg}</div>`;
-    
-    let resp = "Para dicas personalizadas, me pergunte sobre 'reserva', 'dívidas' ou 'meta'.";
-    if (msg.includes("reserva")) resp = "Tente guardar 10% do seu saldo. O ideal é ter 6 meses de gastos guardados.";
-    if (msg.includes("dívida")) resp = "Ataque a dívida com maior juros primeiro. Renegociar é sempre uma opção!";
-    if (msg.includes("meta")) resp = "Divida sua meta em marcos pequenos. Isso mantém a motivação alta!";
-
+    if (!input.value) return;
+    conteudo.innerHTML += `<div class="text-right text-blue-400">"${input.value}"</div>`;
     setTimeout(() => {
-        conteudo.innerHTML += `<div class="bg-slate-800 p-4 rounded-2xl mr-auto max-w-[80%] border-l-4 border-blue-500 text-slate-300">🤖 ${resp}</div>`;
+        conteudo.innerHTML += `<div class="bg-slate-800 p-3 rounded-xl">🤖 Tente focar em quitar as dívidas que somam ${document.getElementById("despesaTotal").innerText} antes de aumentar seus gastos fixos.</div>`;
         conteudo.scrollTop = conteudo.scrollHeight;
-    }, 600);
+    }, 500);
     input.value = "";
 };
