@@ -15,23 +15,23 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 let usuarioAtual = null;
-let dadosGlobais = { receita: 0, divida: 0, reserva: 0, metas: [] };
+let dadosGlobais = { rec: 0, div: 0, res: 0, metas: [], auto: 0 };
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- NAVEGAÇÃO ---
+// --- UI ---
+window.fecharModal = () => document.getElementById("modalBoasVindas").classList.add("hidden");
+window.toggleChat = () => document.getElementById("janelaChat").classList.toggle("hidden");
 window.mostrarSecao = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active', 'bg-purple-900/20'));
     btn.classList.add('active', 'bg-purple-900/20');
 };
-window.fecharModal = () => document.getElementById("modalBoasVindas").classList.add("hidden");
-window.toggleChat = () => document.getElementById("janelaChat").classList.toggle("hidden");
 
 // --- AUTH ---
-window.login = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("senha").value).catch(e => alert(e.message));
-window.registrar = () => createUserWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("senha").value).catch(e => alert(e.message));
+window.login = () => signInWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("senha").value);
+window.registrar = () => createUserWithEmailAndPassword(auth, document.getElementById("email").value, document.getElementById("senha").value);
 window.logout = () => signOut(auth);
 
 onAuthStateChanged(auth, user => {
@@ -40,162 +40,152 @@ onAuthStateChanged(auth, user => {
         document.getElementById("loginTela").classList.add("hidden");
         document.getElementById("dashboard").classList.replace("hidden", "flex");
         document.getElementById("modalBoasVindas").classList.remove("hidden");
-        inicializarApp();
+        carregarSistema();
     } else {
         document.getElementById("loginTela").classList.remove("hidden");
         document.getElementById("dashboard").classList.replace("flex", "hidden");
     }
 });
 
-// --- AUTOMAÇÃO DE DATAS (O SEGREDO) ---
-async function verificarAutomacoes() {
-    const hoje = new Date();
-    const diaAtual = hoje.getDate();
-    const mesAnoAtual = `${hoje.getMonth()}-${hoje.getFullYear()}`;
-
-    const q = query(collection(db, "agendamentos"), where("userId", "==", usuarioAtual.uid));
-    const snap = await getDocs(q);
-
-    snap.forEach(async (d) => {
-        const item = d.data();
-        // Se hoje for o dia agendado E ainda não rodou este mês
-        if (item.dia == diaAtual && item.ultimoProcesso !== mesAnoAtual) {
-            if (item.tipo === "ganho") {
-                await addDoc(collection(db, "contas"), { nome: `AUTO: ${item.desc}`, saldo: item.valor, userId: usuarioAtual.uid });
-            } else {
-                await addDoc(collection(db, "dividas"), { nome: `AUTO: ${item.desc}`, valor: item.valor, userId: usuarioAtual.uid });
-            }
-            // Marcar como processado este mês
-            await updateDoc(doc(db, "agendamentos", d.id), { ultimoProcesso: mesAnoAtual });
-        }
-    });
-}
-
-// --- FUNÇÕES DE CADASTRO ---
-window.adicionarFixo = async (tipo) => {
-    const d = tipo === 'ganho' ? document.getElementById("descFixo").value : document.getElementById("descDivFixo").value;
-    const v = Number(tipo === 'ganho' ? document.getElementById("valorFixo").value : document.getElementById("valorDivFixo").value);
-    const dia = Number(tipo === 'ganho' ? document.getElementById("diaFixo").value : document.getElementById("diaDivFixo").value);
-
-    if (!d || !v || !dia) return alert("Preencha tudo!");
-    await addDoc(collection(db, "agendamentos"), { desc: d, valor: v, dia, tipo: tipo.includes('ganho') ? 'ganho' : 'divida', userId: usuarioAtual.uid, ultimoProcesso: "" });
-    alert("Agendamento realizado!");
+// --- LÓGICA DE DADOS ---
+window.adicionarFixo = async () => {
+    const desc = document.getElementById("descFixo").value;
+    const valor = Number(document.getElementById("valorFixo").value);
+    const dia = Number(document.getElementById("diaFixo").value);
+    const tipo = document.getElementById("tipoFixo").value;
+    if (!desc || !valor || !dia) return alert("Preencha todos os campos!");
+    await addDoc(collection(db, "agendamentos"), { desc, valor, dia, tipo, userId: usuarioAtual.uid, ultimoMes: "" });
+    document.getElementById("descFixo").value = "";
+    document.getElementById("valorFixo").value = "";
+    document.getElementById("diaFixo").value = "";
 };
 
-window.abrirModalMeta = async () => {
-    const nome = prompt("Nome da Meta (Ex: Carro Novo):");
+window.adicionarMeta = async () => {
+    const nome = prompt("Nome da Meta:");
     const alvo = Number(prompt("Valor Alvo:"));
     if (nome && alvo) await addDoc(collection(db, "metas"), { nome, alvo, atual: 0, userId: usuarioAtual.uid });
 };
 
-window.atualizarMeta = async (id, valorAtual) => {
-    const novo = Number(prompt("Qual o novo valor acumulado para esta meta?", valorAtual));
-    if (!isNaN(novo)) await updateDoc(doc(db, "metas", id), { atual: novo });
-};
-
 window.alterarReserva = async (acao) => {
-    const v = Number(prompt(acao === 'adicionar' ? "Quanto guardar?" : "Quanto retirar?"));
+    const v = Number(prompt(acao === 'adicionar' ? "Guardar quanto?" : "Retirar quanto?"));
     if (v > 0) await addDoc(collection(db, "reserva"), { valor: acao === 'adicionar' ? v : -v, userId: usuarioAtual.uid });
 };
 
+window.excluirDoc = async (col, id) => {
+    if (confirm("Deseja realmente excluir?")) await deleteDoc(doc(db, col, id));
+};
+
+window.atualizarMeta = async (id, atual) => {
+    const novo = Number(prompt("Novo valor acumulado:", atual));
+    if (!isNaN(novo)) await updateDoc(doc(db, "metas", id), { atual: novo });
+};
+
 window.adicionarConta = async () => {
-    const n = prompt("Nome do Banco:"); const s = Number(prompt("Saldo:"));
+    const n = prompt("Nome do Banco:"); const s = Number(prompt("Saldo atual:"));
     if (n) await addDoc(collection(db, "contas"), { nome: n, saldo: s, userId: usuarioAtual.uid });
 };
 
-// --- CARREGAMENTO REATIVO ---
-function inicializarApp() {
-    verificarAutomacoes();
-
-    // Contas -> Receita
+// --- CARREGAMENTO REALTIME ---
+function carregarSistema() {
+    // 1. Contas -> Receita
     onSnapshot(query(collection(db, "contas"), where("userId", "==", usuarioAtual.uid)), snap => {
-        let total = 0;
-        const lista = document.getElementById("listaContas"); lista.innerHTML = "";
+        let total = 0; const lista = document.getElementById("listaContas"); lista.innerHTML = "";
         snap.forEach(d => {
             total += d.data().saldo;
-            lista.innerHTML += `<li class="flex justify-between p-3 glass-card rounded-xl"><span>${d.data().nome}</span> <b>${BRL(d.data().saldo)}</b></li>`;
+            lista.innerHTML += `<li class="flex justify-between p-3 glass-card rounded-xl"><span>${d.data().nome}</span> <div class="flex gap-4"><b>${BRL(d.data().saldo)}</b> <button onclick="excluirDoc('contas','${d.id}')" class="text-red-500 text-xs">Excluir</button></div></li>`;
         });
-        dadosGlobais.receita = total;
-        document.getElementById("receitaTotal").innerText = BRL(total);
-        renderizarResumos();
+        dadosGlobais.rec = total; atualizarDashboard();
     });
 
-    // Dividas -> Despesa
+    // 2. Dívidas + Agendamentos de Dívida -> Total Dívidas
     onSnapshot(query(collection(db, "dividas"), where("userId", "==", usuarioAtual.uid)), snap => {
-        let total = 0;
-        const lista = document.getElementById("listaDividas"); lista.innerHTML = "";
+        let manual = 0; const lista = document.getElementById("listaDividas"); lista.innerHTML = "";
         snap.forEach(d => {
-            total += d.data().valor;
-            lista.innerHTML += `<li class="flex justify-between p-3 glass-card rounded-xl border-l-2 border-rose-500"><span>${d.data().nome}</span> <b>${BRL(d.data().valor)}</b></li>`;
+            manual += d.data().valor;
+            lista.innerHTML += `<li class="flex justify-between p-3 glass-card rounded-xl border-l-2 border-rose-500"><span>${d.data().nome}</span> <div class="flex gap-4"><b>${BRL(d.data().valor)}</b> <button onclick="excluirDoc('dividas','${d.id}')" class="text-red-500 text-xs">Excluir</button></div></li>`;
         });
-        dadosGlobais.divida = total;
-        document.getElementById("despesaTotal").innerText = BRL(total);
-        renderizarResumos();
+        dadosGlobais.div_manual = manual; atualizarDashboard();
     });
 
-    // Metas -> Grid com Barra
+    // 3. Agendamentos (Calcula soma para o Dashboard e lista na tela)
+    onSnapshot(query(collection(db, "agendamentos"), where("userId", "==", usuarioAtual.uid)), snap => {
+        let autoDiv = 0; const lista = document.getElementById("listaGanhosFixos"); lista.innerHTML = "";
+        snap.forEach(d => {
+            const data = d.data();
+            if(data.tipo === 'divida') autoDiv += data.valor;
+            lista.innerHTML += `
+                <li class="flex justify-between p-3 bg-slate-900/50 rounded-xl border border-slate-800 text-[10px]">
+                    <span class="${data.tipo==='ganho'?'text-emerald-400':'text-rose-400'} font-bold">${data.desc} (Dia ${data.dia})</span>
+                    <div class="flex gap-3"><b>${BRL(data.valor)}</b> <button onclick="excluirDoc('agendamentos','${d.id}')" class="text-red-500">X</button></div>
+                </li>`;
+        });
+        dadosGlobais.div_auto = autoDiv; atualizarDashboard();
+    });
+
+    // 4. Metas
     onSnapshot(query(collection(db, "metas"), where("userId", "==", usuarioAtual.uid)), snap => {
         const grid = document.getElementById("gridMetas"); grid.innerHTML = "";
         dadosGlobais.metas = [];
         snap.forEach(d => {
-            const m = d.data();
-            const perc = Math.min(100, (m.atual / m.alvo) * 100).toFixed(1);
+            const m = d.data(); const p = Math.min(100, (m.atual / m.alvo) * 100).toFixed(0);
             dadosGlobais.metas.push(m);
             grid.innerHTML += `
-                <div class="glass-card p-6 rounded-3xl space-y-4">
-                    <div class="flex justify-between"><b>${m.nome}</b> <span class="text-xs text-yellow-500">${perc}%</span></div>
-                    <div class="meta-progress"><div class="meta-bar" style="width: ${perc}%"></div></div>
-                    <div class="flex justify-between text-[10px] text-slate-500"><span>${BRL(m.atual)}</span> <span>Alvo: ${BRL(m.alvo)}</span></div>
-                    <button onclick="atualizarMeta('${d.id}', ${m.atual})" class="w-full bg-slate-800 py-2 rounded-xl text-[10px] font-bold">ATUALIZAR PROGRESSO</button>
+                <div class="glass-card p-6 rounded-[2rem] border border-yellow-500/10">
+                    <div class="flex justify-between mb-2"><b>${m.nome}</b> <span class="text-yellow-500 font-black">${p}%</span></div>
+                    <div class="meta-progress mb-4"><div class="meta-bar" style="width: ${p}%"></div></div>
+                    <div class="flex justify-between text-[10px] text-slate-500 mb-4"><span>Acumulado: ${BRL(m.atual)}</span> <span>Alvo: ${BRL(m.alvo)}</span></div>
+                    <div class="flex gap-2">
+                        <button onclick="atualizarMeta('${d.id}', ${m.atual})" class="flex-1 bg-slate-800 py-2 rounded-xl text-[10px] font-bold">ATUALIZAR</button>
+                        <button onclick="excluirDoc('metas','${d.id}')" class="bg-red-900/20 px-3 rounded-xl text-red-500">X</button>
+                    </div>
                 </div>`;
         });
     });
 
-    // Reserva
+    // 5. Reserva
     onSnapshot(query(collection(db, "reserva"), where("userId", "==", usuarioAtual.uid)), snap => {
         let res = 0; snap.forEach(d => res += d.data().valor);
-        dadosGlobais.reserva = res;
+        dadosGlobais.res = res;
         document.getElementById("accumuladoReserva").innerText = BRL(res);
     });
-
-    // Agendamentos na lista do dashboard
-    onSnapshot(query(collection(db, "agendamentos"), where("userId", "==", usuarioAtual.uid), where("tipo","==","ganho")), snap => {
-        const l = document.getElementById("listaGanhosFixos"); l.innerHTML = "";
-        snap.forEach(d => {
-            l.innerHTML += `<li class="text-[10px] p-2 bg-emerald-900/10 rounded-lg flex justify-between"><span>${d.data().desc} (Todo dia ${d.data().dia})</span> <b>${BRL(d.data().valor)}</b></li>`;
-        });
-    });
 }
 
-function renderizarResumos() {
-    const saldo = dadosGlobais.receita - dadosGlobais.divida;
+function atualizarDashboard() {
+    const totalDiv = (dadosGlobais.div_manual || 0) + (dadosGlobais.div_auto || 0);
+    const saldo = dadosGlobais.rec - totalDiv;
+    
+    document.getElementById("receitaTotal").innerText = BRL(dadosGlobais.rec);
+    document.getElementById("despesaTotal").innerText = BRL(totalDiv);
     document.getElementById("saldoTotal").innerText = BRL(saldo);
-    const p = dadosGlobais.receita > 0 ? (saldo / dadosGlobais.receita) * 100 : 0;
-    document.getElementById("barraProgresso").style.width = p + "%";
+    
+    const perc = dadosGlobais.rec > 0 ? Math.max(0, (saldo / dadosGlobais.rec) * 100) : 0;
+    document.getElementById("barraProgresso").style.width = perc + "%";
 }
 
-// --- MENTOR IA PRO ---
-window.perguntaIA = () => {
-    const q = document.getElementById("inputChat").value;
+// --- CHAT IA PRO ---
+window.perguntaIA = (sugestao) => {
+    const input = document.getElementById("inputChat");
     const cont = document.getElementById("chatConteudo");
-    if(!q) return;
+    const q = sugestao || input.value;
+    if (!q) return;
 
-    cont.innerHTML += `<div class="text-right text-purple-400 font-bold">"${q}"</div>`;
+    cont.innerHTML += `<div class="bg-purple-900/20 p-3 rounded-xl ml-8 text-right text-purple-400 font-bold border border-purple-500/20">${q}</div>`;
     
-    let r = "Não tenho certeza sobre isso, tente perguntar 'Como estou hoje?' ou 'Dicas'.";
-    
-    const lowQ = q.toLowerCase();
-    if(lowQ.includes("como estou") || lowQ.includes("saldo") || lowQ.includes("ajuda")) {
-        r = `Analisando seus dados... Seu saldo livre é de ${BRL(dadosGlobais.receita - dadosGlobais.divida)}. 
-            Você tem ${dadosGlobais.metas.length} metas em andamento. 
-            ${dadosGlobais.divida > dadosGlobais.receita * 0.5 ? "Cuidado! Suas dívidas ocupam mais de 50% da sua renda." : "Sua saúde financeira está estável!"}`;
-    } else if(lowQ.includes("reserva")) {
-        r = `Sua reserva atual é ${BRL(dadosGlobais.reserva)}. Especialistas sugerem que ela cubra pelo menos 6 meses de gastos.`;
+    let resp = "Estou analisando... Tente perguntar sobre seu 'saldo' ou 'dicas'.";
+    const low = q.toLowerCase();
+
+    if(low.includes("saúde") || low.includes("relatório") || low.includes("saldo")) {
+        const saldo = dadosGlobais.rec - (dadosGlobais.div_manual + dadosGlobais.div_auto);
+        resp = `Seu saldo livre projetado é ${BRL(saldo)}. Suas dívidas automáticas somam ${BRL(dadosGlobais.div_auto)}. ${saldo < 0 ? 'ALERTA: Suas dívidas superam sua receita!' : 'Você está no azul, continue assim!'}`;
+    } else if(low.includes("metas")) {
+        resp = `Você tem ${dadosGlobais.metas.length} metas. ${dadosGlobais.metas.length > 0 ? 'Foque na meta ' + dadosGlobais.metas[0].nome : 'Que tal criar uma nova meta hoje?'}`;
+    } else if(low.includes("economia") || low.includes("dica")) {
+        resp = "Dica: Tente guardar 10% da sua receita fixa assim que ela cair na conta. Atualmente sua receita é de " + BRL(dadosGlobais.rec);
     }
 
     setTimeout(() => {
-        cont.innerHTML += `<div class="bg-slate-800 p-4 rounded-2xl border-l-4 border-purple-500">🤖 ${r}</div>`;
+        cont.innerHTML += `<div class="bg-slate-800 p-4 rounded-xl border-l-4 border-purple-500 text-slate-300">🤖 ${resp}</div>`;
         cont.scrollTop = cont.scrollHeight;
     }, 600);
-    document.getElementById("inputChat").value = "";
+    input.value = "";
 };
