@@ -18,50 +18,29 @@ let userUID = null;
 let isRegisterMode = false;
 let financeiro = { ganhos: 0, dividas: 0, saldo: 0, listaFluxo: [] };
 let chartInstance = null;
+let filtroDatas = { inicio: null, fim: null };
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- AUTH & LOGIN ---
+// --- AUTH ---
 window.alternarAuth = () => {
     isRegisterMode = !isRegisterMode;
-    const btnPrincipal = document.getElementById("btnPrincipal");
-    const btnAlternar = document.getElementById("btnAlternar");
-    const confirmContainer = document.getElementById("confirmarSenhaContainer");
-
-    if (isRegisterMode) {
-        btnPrincipal.innerText = "Criar Minha Conta";
-        btnPrincipal.onclick = registrarUsuario;
-        btnAlternar.innerText = "Já tenho conta? Fazer Login";
-        confirmContainer.classList.remove("hidden");
-    } else {
-        btnPrincipal.innerText = "Acessar Painel";
-        btnPrincipal.onclick = login;
-        btnAlternar.innerText = "Novo usuário? Criar Senha";
-        confirmContainer.classList.add("hidden");
-    }
+    document.getElementById("btnPrincipal").innerText = isRegisterMode ? "Criar Minha Conta" : "Acessar Painel";
+    document.getElementById("btnAlternar").innerText = isRegisterMode ? "Já tenho conta? Login" : "Novo? Criar Senha";
+    document.getElementById("confirmarSenhaContainer").classList.toggle("hidden", !isRegisterMode);
 };
 
 window.login = () => {
     const e = document.getElementById("email").value;
     const s = document.getElementById("senha").value;
-    signInWithEmailAndPassword(auth, e, s)
-        .catch(err => Swal.fire('Erro', 'E-mail ou senha inválidos', 'error'));
+    if (isRegisterMode) {
+        const sc = document.getElementById("senhaConfirm").value;
+        if (s !== sc) return Swal.fire('Erro', 'Senhas não conferem', 'warning');
+        createUserWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro', err.message, 'error'));
+    } else {
+        signInWithEmailAndPassword(auth, e, s).catch(() => Swal.fire('Erro', 'Acesso negado', 'error'));
+    }
 };
-
-async function registrarUsuario() {
-    const e = document.getElementById("email").value;
-    const s = document.getElementById("senha").value;
-    const sc = document.getElementById("senhaConfirm").value;
-
-    if (s !== sc) return Swal.fire('Erro', 'As senhas não coincidem', 'warning');
-    
-    createUserWithEmailAndPassword(auth, e, s)
-        .then(() => {
-            Swal.fire('Sucesso', 'Conta criada! Faça seu login.', 'success');
-            alternarAuth();
-        })
-        .catch(err => Swal.fire('Erro', err.message, 'error'));
-}
 
 onAuthStateChanged(auth, user => {
     if (user) {
@@ -77,7 +56,143 @@ onAuthStateChanged(auth, user => {
 
 window.logout = () => signOut(auth);
 
-// --- NAVEGAÇÃO ---
+// --- FILTRO DE DATAS ---
+window.aplicarFiltroData = () => {
+    const d1 = document.getElementById("dataInicio").value;
+    const d2 = document.getElementById("dataFim").value;
+    if (!d1 || !d2) return Swal.fire('Aviso', 'Selecione as duas datas', 'info');
+    filtroDatas = { inicio: new Date(d1), fim: new Date(d2) };
+    calcularResumo();
+};
+
+// --- CORE DATA ---
+function inicializarListeners() {
+    onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
+        financeiro.listaFluxo = [];
+        snap.forEach(d => financeiro.listaFluxo.push({ ...d.data(), id: d.id }));
+        calcularResumo();
+        gerarPerformanceAnual();
+    });
+
+    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
+        const grid = document.getElementById("rankingGrid"); grid.innerHTML = "";
+        let metas = [];
+        snap.forEach(d => metas.push({ ...d.data(), id: d.id }));
+        metas.sort((a,b) => (b.atual/b.alvo) - (a.atual/a.alvo));
+        metas.forEach(m => {
+            const perc = Math.min(100, (m.atual / m.alvo) * 100).toFixed(1);
+            grid.innerHTML += `
+                <div class="glass-card p-5 border-t-4 border-purple-600/30">
+                    <h4 class="text-sm font-black uppercase mb-3">${m.nome}</h4>
+                    <div class="h-2 bg-black/40 rounded-full mb-2 overflow-hidden">
+                        <div class="h-full bg-purple-600" style="width: ${perc}%"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] font-black mb-4">
+                        <span>${BRL(m.atual)}</span><span>${perc}%</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="ajustarMeta('${m.id}', ${m.atual})" class="bg-purple-600 py-2 rounded-lg text-[10px] font-black uppercase">+ Aporte</button>
+                        <button onclick="gerenciarMeta('${m.id}', '${m.nome}', ${m.alvo})" class="bg-white/5 py-2 rounded-lg text-[10px] font-black">EDITAR</button>
+                    </div>
+                </div>`;
+        });
+    });
+}
+
+function calcularResumo() {
+    let g = 0, d = 0;
+    financeiro.listaFluxo.forEach(item => {
+        const dataItem = new Date(item.data + "T00:00:00");
+        // Se houver filtro, obedece. Se não, soma tudo do mês atual (Março 2026).
+        const matchesFiltro = filtroDatas.inicio ? (dataItem >= filtroDatas.inicio && dataItem <= filtroDatas.fim) : (dataItem.getMonth() === 2 && dataItem.getFullYear() === 2026);
+        
+        if (matchesFiltro) {
+            if (item.tipo === 'ganho') g += item.valor; else d += item.valor;
+        }
+    });
+
+    financeiro.ganhos = g; financeiro.dividas = d; financeiro.saldo = g - d;
+    document.getElementById("receitaTotal").innerText = BRL(g);
+    document.getElementById("despesaTotal").innerText = BRL(d);
+    document.getElementById("saldoTotal").innerText = BRL(g - d);
+    document.getElementById("saldoInvestLabel").innerText = BRL(g - d);
+    document.getElementById("iaTexto").innerText = g - d < 0 ? "⚠️ Cuidado! Suas despesas superam seus ganhos no período selecionado." : "✅ Saldo positivo! Ótimo momento para investir ou bater metas.";
+    
+    // Atualiza gráfico automaticamente
+    if (document.getElementById('secDividas').classList.contains('hidden') === false) renderizarGraficoDividas();
+}
+
+// --- HISTÓRICO ANUAL ---
+function gerarPerformanceAnual() {
+    const grid = document.getElementById("gridMesesAnual"); grid.innerHTML = "";
+    const meses = ["J","F","M","A","M","J","J","A","S","O","N","D"];
+    for (let m = 0; m < 12; m++) {
+        let saldoMes = 0;
+        financeiro.listaFluxo.filter(f => new Date(f.data + "T00:00:00").getMonth() === m && new Date(f.data + "T00:00:00").getFullYear() === 2026).forEach(f => {
+            if(f.tipo === 'ganho') saldoMes += f.valor; else saldoMes -= f.valor;
+        });
+        const cor = saldoMes > 0 ? 'bg-emerald-500' : (saldoMes < 0 ? 'bg-rose-500' : 'bg-slate-700');
+        grid.innerHTML += `<div onclick="Swal.fire('Mês ${m+1}','Saldo: ${BRL(saldoMes)}','info')" class="mes-dot ${cor}">${meses[m]}</div>`;
+    }
+}
+
+// --- REGISTRO ---
+window.adicionarFluxo = async () => {
+    const n = document.getElementById("fluxoNome").value;
+    const v = Number(document.getElementById("fluxoValor").value);
+    const d = document.getElementById("fluxoData").value;
+    const t = document.getElementById("fluxoTipo").value;
+    if(!n || !v || !d) return Swal.fire('Erro','Preencha tudo','warning');
+    await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: t, userId: userUID });
+    Swal.fire({ icon: 'success', title: 'Salvo', toast: true, position: 'top-end', timer: 2000 });
+};
+
+// --- GESTÃO DE DÍVIDAS E GRÁFICO ---
+function renderizarGraficoDividas() {
+    const ctx = document.getElementById('chartDividas');
+    if(chartInstance) chartInstance.destroy();
+    const divs = financeiro.listaFluxo.filter(f => f.tipo === 'divida');
+    document.getElementById("chartTotalLabel").innerText = BRL(financeiro.dividas);
+    chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: divs.map(d => d.nome),
+            datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#ef4444','#f97316','#8b5cf6','#ec4899','#06b6d4'], borderWidth: 0 }]
+        },
+        options: { cutout: '70%', plugins: { legend: { display: false } } }
+    });
+    const lista = document.getElementById("listaDividasDetalhada"); lista.innerHTML = "";
+    divs.forEach(d => {
+        lista.innerHTML += `<div class="flex justify-between items-center p-4 glass-card">
+            <div class="text-[11px]"><b>${d.nome}</b><br><span class="opacity-50">${d.data}</span></div>
+            <div class="flex items-center gap-3"><b>${BRL(d.valor)}</b><button onclick="gerenciarDivida('${d.id}')" class="text-rose-500 font-bold">GERIR</button></div>
+        </div>`;
+    });
+}
+
+window.gerenciarDivida = async (id) => {
+    const { value: acao } = await Swal.fire({
+        title: 'Gerir Dívida',
+        input: 'select',
+        inputOptions: { paga: 'Marcar como Paga', excluir: 'Excluir' },
+        showCancelButton: true
+    });
+    if (acao) await deleteDoc(doc(db, "fluxo", id));
+};
+
+// --- INVESTIMENTOS ---
+window.analisarInvestimentoIA = () => {
+    const box = document.getElementById("boxResultadoInvest");
+    box.classList.remove("hidden");
+    const s = financeiro.saldo;
+    if (s <= 0) {
+        box.innerHTML = `<p class="text-rose-500">Saldo Negativo. Foque em quitar dívidas e reduzir custos antes de investir.</p>`;
+    } else {
+        box.innerHTML = `<p class="text-emerald-500">Com ${BRL(s)}, reserve 50% para emergência (CDB) e 50% para revenda rápida de produtos.</p>`;
+    }
+};
+
+// --- AUXILIARES ---
 window.mostrarSecao = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -86,212 +201,34 @@ window.mostrarSecao = (id, btn) => {
     if(id === 'secDividas') setTimeout(renderizarGraficoDividas, 100);
 };
 
-// --- CORE DATA ---
-function inicializarListeners() {
-    onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
-        let g = 0; let d = 0;
-        financeiro.listaFluxo = [];
-        snap.forEach(docSnap => {
-            const item = docSnap.data();
-            // Só soma no dashboard se for do mês/ano ATUAL (Março 2026)
-            if(item.mes == 3 && item.ano == 2026) {
-                if(item.tipo === 'ganho') g += item.valor; else d += item.valor;
-            }
-            financeiro.listaFluxo.push({ ...item, id: docSnap.id });
-        });
-        financeiro.ganhos = g; financeiro.dividas = d; financeiro.saldo = g - d;
-        atualizarDashboard();
-        gerarPerformanceAnual();
-    });
-
-    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
-        const grid = document.getElementById("rankingGrid"); grid.innerHTML = "";
-        let metasArr = [];
-        snap.forEach(d => metasArr.push({ ...d.data(), id: d.id }));
-        metasArr.sort((a,b) => (b.atual/b.alvo) - (a.atual/a.alvo));
-        metasArr.forEach((m, idx) => {
-            const perc = Math.min(100, (m.atual / m.alvo) * 100).toFixed(1);
-            grid.innerHTML += `
-                <div class="glass-card p-5 border-t-4 ${idx === 0 ? 'border-yellow-500' : 'border-purple-600/30'}">
-                    <div class="flex justify-between items-start mb-3">
-                        <span class="text-[9px] font-black bg-white/5 px-2 py-1 rounded">RANKING #${idx + 1}</span>
-                        <p class="text-xs font-black">${BRL(m.alvo)}</p>
-                    </div>
-                    <h4 class="text-sm font-black mb-3 truncate uppercase">${m.nome}</h4>
-                    <div class="h-2 bg-black/40 rounded-full mb-2 overflow-hidden">
-                        <div class="meta-bar-fill h-full bg-gradient-to-r from-purple-600 to-yellow-500" style="width: ${perc}%"></div>
-                    </div>
-                    <div class="flex justify-between text-[10px] font-black mb-4">
-                        <span class="text-purple-400">${BRL(m.atual)}</span>
-                        <span class="text-yellow-500">${perc}%</span>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="ajustarMeta('${m.id}', ${m.atual})" class="bg-purple-600 py-2 rounded-lg text-[10px] font-black uppercase">+ Aporte</button>
-                        <button onclick="gerenciarMeta('${m.id}', '${m.nome}', ${m.alvo})" class="bg-white/5 py-2 rounded-lg text-[10px] font-black uppercase">Editar</button>
-                    </div>
-                </div>`;
-        });
-    });
-}
-
-// --- PERFORMANCE ANUAL (12 POP-UPS) ---
-function gerarPerformanceAnual() {
-    const grid = document.getElementById("gridMesesAnual");
-    grid.innerHTML = "";
-    const mesesNomes = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
-
-    for (let m = 1; m <= 12; m++) {
-        const fluxosDoMes = financeiro.listaFluxo.filter(f => f.mes == m && f.ano == 2026);
-        let saldoMes = 0;
-        fluxosDoMes.forEach(f => {
-            if(f.tipo === 'ganho') saldoMes += f.valor; else saldoMes -= f.valor;
-        });
-
-        const cor = saldoMes > 0 ? 'bg-emerald-500' : (saldoMes < 0 ? 'bg-rose-500' : 'bg-slate-700');
-        
-        grid.innerHTML += `
-            <div onclick="popupMes(${m}, '${mesesNomes[m-1]}', ${saldoMes})" class="mes-dot ${cor} h-8 flex items-center justify-center text-[8px] font-black shadow-lg">
-                ${mesesNomes[m-1][0]}
-            </div>`;
-    }
-}
-
-window.popupMes = (num, nome, saldo) => {
-    const status = saldo >= 0 ? 'ALTA' : 'BAIXA';
-    const corText = saldo >= 0 ? 'text-emerald-400' : 'text-rose-500';
-    Swal.fire({
-        title: `${nome} / 2026`,
-        html: `Performance: <b class="${corText}">${status}</b><br>Saldo Final: <b>${BRL(saldo)}</b>`,
-        background: '#161b30',
-        color: '#fff',
-        confirmButtonColor: '#a855f7'
-    });
-};
-
-// --- GESTÃO DE DÍVIDAS (PARCELAMENTO) ---
-window.gerenciarDivida = async (id, nome, valor) => {
-    const { value: acao } = await Swal.fire({
-        title: nome,
-        input: 'select',
-        inputOptions: { pagar: 'Já foi paga?', parcelar: 'Parcelar Dívida', excluir: 'Excluir Registro' },
-        showCancelButton: true,
-        background: '#161b30', color: '#fff'
-    });
-
-    if (acao === 'pagar') {
-        await deleteDoc(doc(db, "fluxo", id));
-        Swal.fire('Quitada!', 'A dívida sumiu do seu mapa.', 'success');
-    } else if (acao === 'parcelar') {
-        const { value: nParc } = await Swal.fire({ title: 'Parcelar em quantas vezes?', input: 'number', background: '#161b30', color: '#fff' });
-        if (nParc > 1) {
-            const valorParc = valor / nParc;
-            // Atualiza a original como a primeira parcela
-            await updateDoc(doc(db, "fluxo", id), { valor: valorParc, nome: `${nome} (1/${nParc})` });
-            // Cria as próximas (simulação simplificada no mesmo mês para visualização)
-            for (let i = 2; i <= nParc; i++) {
-                await addDoc(collection(db, "fluxo"), {
-                    nome: `${nome} (${i}/${nParc})`,
-                    valor: valorParc,
-                    tipo: 'divida',
-                    mes: 3, // Simplificado: Ideal seria somar o mês
-                    ano: 2026,
-                    userId: userUID
-                });
-            }
-            Swal.fire('Parcelado!', `Dívida dividida em ${nParc}x.`, 'success');
-        }
-    } else if (acao === 'excluir') {
-        await deleteDoc(doc(db, "fluxo", id));
-    }
-};
-
-// --- RESTANTE DAS FUNÇÕES ---
-window.adicionarFluxo = async () => {
-    const n = document.getElementById("fluxoNome").value;
-    const v = Number(document.getElementById("fluxoValor").value);
-    const m = Number(document.getElementById("fluxoMes").value);
-    const a = Number(document.getElementById("fluxoAno").value);
-    const t = document.getElementById("fluxoTipo").value;
-    if(n && v) {
-        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, mes: m, ano: a, tipo: t, userId: userUID });
-        document.getElementById("fluxoNome").value = ""; 
-        document.getElementById("fluxoValor").value = "";
-        Swal.fire({ icon: 'success', title: 'Salvo!', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
-    }
-};
-
 window.verHistoricoFluxo = () => {
-    let html = `<div class="text-left space-y-2 max-h-64 overflow-y-auto no-scrollbar pr-2">`;
+    let html = `<div class="text-left space-y-2 max-h-60 overflow-y-auto no-scrollbar">`;
     financeiro.listaFluxo.forEach(f => {
-        html += `<div class="flex justify-between items-center p-3 bg-white/5 rounded-xl mb-2">
-            <div class="text-[10px]"><b>${f.nome}</b><br><span class="opacity-50">${f.mes}/${f.ano}</span></div>
-            <div class="flex items-center gap-3">
-                <b class="${f.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(f.valor)}</b>
-                <button onclick="excluirRegistro('${f.id}')" class="text-rose-500 font-bold">✕</button>
-            </div>
+        html += `<div class="flex justify-between items-center p-2 border-b border-white/5">
+            <span class="text-[10px]">${f.nome}</span>
+            <div class="flex items-center gap-2"><b class="text-[10px]">${BRL(f.valor)}</b><button onclick="excluirRegistro('${f.id}')">✕</button></div>
         </div>`;
     });
-    Swal.fire({ title: 'REGISTROS', html: html + `</div>`, showConfirmButton: false, background: '#161b30', color: '#fff' });
+    Swal.fire({ title: 'HISTÓRICO', html: html + `</div>`, showConfirmButton: false });
 };
 
 window.excluirRegistro = async (id) => { await deleteDoc(doc(db, "fluxo", id)); Swal.close(); };
 
-function atualizarDashboard() {
-    document.getElementById("receitaTotal").innerText = BRL(financeiro.ganhos);
-    document.getElementById("despesaTotal").innerText = BRL(financeiro.dividas);
-    document.getElementById("saldoTotal").innerText = BRL(financeiro.saldo);
-    document.getElementById("iaTexto").innerText = financeiro.saldo < 0 ? "Alerta: Seus gastos de Março superam sua receita. Hora de amortizar dívidas!" : "Bom trabalho! Seu saldo está positivo, considere aportar em suas metas.";
-}
+window.ajustarMeta = async (id, atual) => {
+    const { value: v } = await Swal.fire({ title: 'Aporte', input: 'number' });
+    if(v) await updateDoc(doc(db, "metas", id), { atual: atual + Number(v) });
+};
 
-function renderizarGraficoDividas() {
-    const ctx = document.getElementById('chartDividas');
-    if(chartInstance) chartInstance.destroy();
-    const divs = financeiro.listaFluxo.filter(f => f.tipo === 'divida' && f.mes == 3);
-    document.getElementById("chartTotalLabel").innerText = BRL(financeiro.dividas);
-    chartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: divs.map(d => d.nome),
-            datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#ef4444','#f97316','#8b5cf6','#ec4899','#06b6d4'], borderWidth: 0 }]
-        },
-        options: { cutout: '80%', plugins: { legend: { display: false } } }
-    });
-    const lista = document.getElementById("listaDividasDetalhada");
-    lista.innerHTML = "";
-    divs.forEach((d, i) => {
-        lista.innerHTML += `<div class="flex justify-between items-center p-4 glass-card border-r-4" style="border-color:${chartInstance.data.datasets[0].backgroundColor[i]}">
-            <div class="text-[11px]"><b>${d.nome}</b><br><span class="opacity-50">${d.mes}/${d.ano}</span></div>
-            <div class="flex items-center gap-4"><b>${BRL(d.valor)}</b><button onclick="gerenciarDivida('${d.id}','${d.nome}',${d.valor})" class="bg-purple-600/20 text-purple-400 p-2 rounded-lg text-[10px] font-black uppercase">Gerir</button></div>
-        </div>`;
-    });
-}
-// Funções de Metas e Investimento seguem o padrão anterior corrigido...
 window.gerenciarMeta = async (id, nome, alvo) => {
-    const { value: acao } = await Swal.fire({
-        title: 'Gerenciar Meta',
-        input: 'select',
-        inputOptions: { editar: 'Mudar Nome/Valor', excluir: 'Apagar Meta' },
-        showCancelButton: true, background: '#161b30', color: '#fff'
-    });
-    if (acao === 'excluir') await deleteDoc(doc(db, "metas", id));
-    else if (acao === 'editar') {
-        const { value: f } = await Swal.fire({
-            html: `<input id="en" class="swal2-input" value="${nome}"><input id="ev" type="number" class="swal2-input" value="${alvo}">`,
-            preConfirm: () => [document.getElementById('en').value, document.getElementById('ev').value],
-            background: '#161b30', color: '#fff'
-        });
-        if (f) await updateDoc(doc(db, "metas", id), { nome: f[0], alvo: Number(f[1]) });
+    const { value: acao } = await Swal.fire({ title: nome, input: 'select', inputOptions: { edit: 'Editar', del: 'Apagar' }, showCancelButton: true });
+    if(acao === 'del') await deleteDoc(doc(db, "metas", id));
+    else if(acao === 'edit') {
+        const { value: f } = await Swal.fire({ html: `<input id="en" value="${nome}"><input id="ev" type="number" value="${alvo}">`, preConfirm: () => [document.getElementById('en').value, document.getElementById('ev').value] });
+        if(f) await updateDoc(doc(db, "metas", id), { nome: f[0], alvo: Number(f[1]) });
     }
 };
-window.ajustarMeta = async (id, atual) => {
-    const { value: v } = await Swal.fire({ title: 'Quanto aportar?', input: 'number', background: '#161b30', color: '#fff' });
-    if (v) await updateDoc(doc(db, "metas", id), { atual: atual + Number(v) });
-};
+
 window.abrirModalMeta = async () => {
-    const { value: f } = await Swal.fire({
-        html: '<input id="mn" class="swal2-input" placeholder="Nome"><input id="ma" type="number" class="swal2-input" placeholder="Alvo R$">',
-        preConfirm: () => [document.getElementById('mn').value, document.getElementById('ma').value],
-        background: '#161b30', color: '#fff'
-    });
+    const { value: f } = await Swal.fire({ html: '<input id="n" placeholder="Nome"><input id="v" type="number" placeholder="Alvo">', preConfirm: () => [document.getElementById('n').value, document.getElementById('v').value] });
     if(f) await addDoc(collection(db, "metas"), { nome: f[0], alvo: Number(f[1]), atual: 0, userId: userUID });
 };
