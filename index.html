@@ -1,171 +1,146 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8">
+<title>MetasBoard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Metasboard</title>
+<link rel="stylesheet" href="style.css">
 
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<style>
-
-body{
-background:#0f172a;
-color:white;
-font-family:Arial;
-}
-
-.screen{
-display:none;
-}
-
-.screen.active{
-display:block;
-}
-
-.card{
-background:#1e293b;
-padding:20px;
-border-radius:10px;
-transition:0.3s;
-}
-
-.card:hover{
-transform:scale(1.02);
-}
-
-.progress{
-height:10px;
-background:#334155;
-border-radius:10px;
-overflow:hidden;
-}
-
-.bar{
-height:10px;
-background:#22c55e;
-}
-
-</style>
 
 </head>
 
-<body class="p-6">
+<body>
 
-<h1 class="text-3xl mb-6">Metasboard</h1>
+<div id="login">
 
-<div class="flex gap-3 mb-6">
+<h1>MetasBoard</h1>
 
-<button onclick="openScreen('dashboard')">Dashboard</button>
-<button onclick="openScreen('fluxo')">Fluxo</button>
-<button onclick="openScreen('metas')">Metas</button>
-<button onclick="openScreen('gestao')">Gestão</button>
-<button onclick="openScreen('ia')">IA</button>
+<input id="email" placeholder="Email">
+<input id="senha" type="password" placeholder="Senha">
 
-</div>
-
-
-<!-- DASHBOARD -->
-
-<div id="dashboard" class="screen active">
-
-<h2 class="text-xl mb-4">Resumo mensal</h2>
-
-<div class="grid grid-cols-3 gap-4">
-
-<div class="card">
-Entradas
-<p id="totalEntradas">0</p>
-</div>
-
-<div class="card">
-Dívidas
-<p id="totalDividas">0</p>
-</div>
-
-<div class="card">
-Saldo Livre
-<p id="saldoLivre">0</p>
-</div>
-
-</div>
-
-<canvas id="grafico" class="mt-6"></canvas>
+<button onclick="login()">Entrar</button>
 
 </div>
 
 
+<div id="app" style="display:none">
 
-<!-- FLUXO -->
+<aside>
 
-<div id="fluxo" class="screen">
+<h2>METAS<span>BOARD</span></h2>
 
-<h2 class="text-xl mb-4">Fluxo financeiro</h2>
+<button onclick="mostrarSecao('dashboard')">📊 Visão Geral</button>
+<button onclick="mostrarSecao('metas')">🏆 Ranking & Metas</button>
+<button onclick="mostrarSecao('dividas')">💳 Gestão de Dívidas</button>
+<button onclick="mostrarSecao('investir')">🚀 Onde Investir</button>
 
-<input id="desc" placeholder="descrição" class="text-black p-2">
-<input id="valor" placeholder="valor" class="text-black p-2">
+<button onclick="logout()">Sair</button>
 
-<button onclick="addFluxo()" class="bg-green-500 p-2 rounded">Adicionar</button>
+</aside>
 
-<div id="listaFluxo" class="mt-6"></div>
 
+<main>
+
+<section id="dashboard">
+
+<div class="cards">
+
+<div class="card ganho">
+<h3>GANHOS</h3>
+<p id="ganhosTotal">R$0</p>
 </div>
 
-
-<!-- METAS -->
-
-<div id="metas" class="screen">
-
-<h2 class="text-xl mb-4">Metas</h2>
-
-<input id="metaNome" placeholder="nome meta" class="text-black p-2">
-<input id="metaValor" placeholder="valor alvo" class="text-black p-2">
-
-<button onclick="addMeta()" class="bg-blue-500 p-2 rounded">Criar</button>
-
-<div id="listaMetas" class="mt-6"></div>
-
+<div class="card divida">
+<h3>DÍVIDAS</h3>
+<p id="dividasTotal">R$0</p>
 </div>
 
-
-
-<!-- GESTAO -->
-
-<div id="gestao" class="screen">
-
-<h2 class="text-xl mb-4">Dívidas</h2>
-
-<input id="dividaNome" placeholder="nome" class="text-black p-2">
-<input id="dividaValor" placeholder="valor" class="text-black p-2">
-
-<button onclick="addDivida()" class="bg-red-500 p-2 rounded">Adicionar</button>
-
-<div id="listaDividas" class="mt-6"></div>
-
-</div>
-
-
-
-<!-- IA -->
-
-<div id="ia" class="screen">
-
-<h2 class="text-xl mb-4">Assistente IA</h2>
-
-<div id="chat"></div>
-
-<div class="flex gap-3 mt-4">
-
-<button onclick="ia('economizar')">Economizar</button>
-<button onclick="ia('investir')">Investir</button>
-<button onclick="ia('dividas')">Dívidas</button>
-
+<div class="card saldo">
+<h3>SALDO LIVRE</h3>
+<p id="saldoLivre">R$0</p>
 </div>
 
 </div>
 
+
+<div class="mentor">
+<h3>🔮 MENTOR IA</h3>
+<p id="mentorTexto"></p>
+</div>
+
+
+<div class="extras">
+
+<div class="desafio">
+<h4>🔥 DESAFIO DA SEMANA</h4>
+<p id="desafioTexto"></p>
+</div>
+
+<div class="vencimento">
+<h4>📅 PRÓXIMO VENCIMENTO</h4>
+<p id="vencimentoTexto"></p>
+</div>
+
+</div>
+
+
+<div class="registrar">
+
+<h3>📥 Registrar Fluxo</h3>
+
+<input id="nomeFluxo" placeholder="Nome (Ex: Aluguel)">
+<input id="valorFluxo" type="number" placeholder="Valor">
+<input id="diaFluxo" type="number" placeholder="Dia Venc.">
+
+<select id="tipoFluxo">
+<option value="ganho">É um Ganho (+)</option>
+<option value="divida">É uma Dívida (-)</option>
+</select>
+
+<button onclick="adicionarFluxo()">SALVAR</button>
+
+</div>
+
+</section>
+
+
+<section id="metas" style="display:none">
+
+<h2>🏆 Ranking de Metas</h2>
+
+<div id="listaMetas"></div>
+
+</section>
+
+
+<section id="dividas" style="display:none">
+
+<h2>💳 Gestão de Dívidas</h2>
+
+<canvas id="graficoDividas"></canvas>
+
+</section>
+
+
+<section id="investir" style="display:none">
+
+<h2>🚀 IA de Investimentos</h2>
+
+<button onclick="analisarInvestimentoIA()">Analisar</button>
+
+<p id="resultadoInvestimento"></p>
+
+</section>
+
+</main>
+
+</div>
 
 <script src="app.js"></script>
 
