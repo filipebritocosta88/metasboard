@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>MetasBoard</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -10,21 +12,43 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body{background:#0b0e14;color:white;font-family:Inter}
-.glass{background:#161b30;border-radius:20px;padding:20px}
-.btn{transition:0.25s}
-.btn:hover{transform:scale(1.05)}
-.nav.active{color:#a855f7;font-weight:bold}
+
+body{
+background:#0b0e14;
+color:white;
+font-family:Inter;
+}
+
+.card{
+background:#161b30;
+border-radius:20px;
+padding:20px;
+}
+
+.btn{
+transition:0.25s;
+}
+
+.btn:hover{
+transform:scale(1.05);
+}
+
+.nav.active{
+color:#a855f7;
+font-weight:bold;
+}
+
 </style>
 
 </head>
+
 <body>
 
 <!-- LOGIN -->
 
 <div id="loginTela" class="h-screen flex items-center justify-center">
 
-<div class="glass w-80 space-y-4 text-center">
+<div class="card w-80 space-y-4 text-center">
 
 <h1 class="text-2xl font-black">METASBOARD</h1>
 
@@ -33,7 +57,9 @@ body{background:#0b0e14;color:white;font-family:Inter}
 <input id="senha" type="password" placeholder="Senha" class="w-full p-3 rounded bg-black/30">
 
 <button onclick="login()" class="btn bg-purple-600 w-full p-3 rounded font-bold">
+
 Entrar
+
 </button>
 
 </div>
@@ -52,17 +78,17 @@ Entrar
 
 <div class="grid grid-cols-3 gap-3">
 
-<div class="glass text-center">
+<div class="card text-center">
 <p class="text-xs">Entradas</p>
 <h3 id="receitaTotal">R$0</h3>
 </div>
 
-<div class="glass text-center">
+<div class="card text-center">
 <p class="text-xs">Dívidas</p>
 <h3 id="despesaTotal">R$0</h3>
 </div>
 
-<div class="glass text-center">
+<div class="card text-center">
 <p class="text-xs">Saldo</p>
 <h3 id="saldoTotal">R$0</h3>
 </div>
@@ -71,7 +97,7 @@ Entrar
 
 <!-- SAÚDE MENSAL -->
 
-<div class="glass">
+<div class="card">
 
 <h3 class="text-sm mb-3">Saúde Mensal</h3>
 
@@ -79,9 +105,9 @@ Entrar
 
 </div>
 
-<!-- REGISTRO -->
+<!-- REGISTRAR -->
 
-<div class="glass space-y-3">
+<div class="card space-y-3">
 
 <h3>Registrar Fluxo</h3>
 
@@ -99,14 +125,14 @@ Entrar
 </select>
 
 <button onclick="salvarFluxo()" class="btn bg-purple-600 w-full p-3 rounded">
+
 Salvar
+
 </button>
 
 </div>
 
-<!-- HISTORICO -->
-
-<div class="glass">
+<div class="card">
 
 <h3 class="mb-3">Lançamentos</h3>
 
@@ -122,8 +148,10 @@ Salvar
 
 <h2 class="text-xl font-black">Metas</h2>
 
-<button onclick="novaMeta()" class="btn bg-yellow-500 text-black p-3 rounded">
+<button onclick="criarMeta()" class="btn bg-yellow-500 text-black p-3 rounded">
+
 Nova Meta
+
 </button>
 
 <div id="listaMetas" class="grid gap-3"></div>
@@ -138,8 +166,6 @@ Nova Meta
 
 <canvas id="graficoDividas"></canvas>
 
-<div id="listaDividas"></div>
-
 </section>
 
 <!-- INVEST -->
@@ -149,15 +175,21 @@ Nova Meta
 <h2 class="text-xl font-black">Investimentos</h2>
 
 <button onclick="simular('conservador')" class="btn bg-green-600 p-3 rounded w-full">
+
 Perfil Conservador
+
 </button>
 
 <button onclick="simular('moderado')" class="btn bg-yellow-500 p-3 rounded w-full">
+
 Perfil Moderado
+
 </button>
 
 <button onclick="simular('agressivo')" class="btn bg-red-500 p-3 rounded w-full">
+
 Perfil Agressivo
+
 </button>
 
 <div id="resultadoInvest"></div>
@@ -166,13 +198,14 @@ Perfil Agressivo
 
 </div>
 
-<!-- NAV -->
-
 <nav class="fixed bottom-0 left-0 right-0 bg-black flex justify-around p-4 text-xs">
 
 <button onclick="trocar('secDashboard',this)" class="nav active">Dashboard</button>
+
 <button onclick="trocar('secMetas',this)" class="nav">Metas</button>
+
 <button onclick="trocar('secGestao',this)" class="nav">Gestão</button>
+
 <button onclick="trocar('secInvest',this)" class="nav">Investir</button>
 
 </nav>
