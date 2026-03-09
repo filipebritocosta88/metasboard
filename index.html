@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <title>MetasBoard</title>
@@ -17,93 +17,138 @@
 
 <body>
 
-<div id="login">
+<div class="container">
 
-<h1>MetasBoard</h1>
+<!-- MENU LATERAL -->
 
-<input id="email" placeholder="Email">
-<input id="senha" type="password" placeholder="Senha">
+<aside class="sidebar">
 
-<button onclick="login()">Entrar</button>
+<h1 class="logo">METAS<span>BOARD</span></h1>
 
-</div>
+<nav>
 
+<button onclick="mostrarSecao('dashboard')" class="active">
+📊 Visão Geral
+</button>
 
-<div id="app" style="display:none">
+<button onclick="mostrarSecao('metas')">
+🏆 Ranking & Metas
+</button>
 
-<aside>
+<button onclick="mostrarSecao('dividas')">
+💳 Gestão de Dívidas
+</button>
 
-<h2>METAS<span>BOARD</span></h2>
+<button onclick="mostrarSecao('investir')">
+🚀 Onde Investir
+</button>
 
-<button onclick="mostrarSecao('dashboard')">📊 Visão Geral</button>
-<button onclick="mostrarSecao('metas')">🏆 Ranking & Metas</button>
-<button onclick="mostrarSecao('dividas')">💳 Gestão de Dívidas</button>
-<button onclick="mostrarSecao('investir')">🚀 Onde Investir</button>
-
-<button onclick="logout()">Sair</button>
+</nav>
 
 </aside>
 
+
+<!-- CONTEÚDO -->
 
 <main>
 
 <section id="dashboard">
 
+<!-- CARDS -->
+
 <div class="cards">
 
-<div class="card ganho">
+<div class="card ganhos">
 <h3>GANHOS</h3>
-<p id="ganhosTotal">R$0</p>
+<p id="ganhosTotal">R$ 0</p>
 </div>
 
-<div class="card divida">
+<div class="card dividas">
 <h3>DÍVIDAS</h3>
-<p id="dividasTotal">R$0</p>
+<p id="dividasTotal">R$ 0</p>
 </div>
 
 <div class="card saldo">
 <h3>SALDO LIVRE</h3>
-<p id="saldoLivre">R$0</p>
+<p id="saldoLivre">R$ 0</p>
 </div>
 
 </div>
 
+
+<!-- GRID PRINCIPAL -->
+
+<div class="dashboard-grid">
+
+<div class="col-esquerda">
 
 <div class="mentor">
+
 <h3>🔮 MENTOR IA</h3>
-<p id="mentorTexto"></p>
+
+<p id="mentorTexto">
+Seu mentor financeiro aparecerá aqui.
+</p>
+
 </div>
 
 
-<div class="extras">
+<div class="mini-cards">
 
 <div class="desafio">
+
 <h4>🔥 DESAFIO DA SEMANA</h4>
-<p id="desafioTexto"></p>
+
+<p id="desafioTexto">
+Carregando desafio...
+</p>
+
 </div>
+
 
 <div class="vencimento">
+
 <h4>📅 PRÓXIMO VENCIMENTO</h4>
-<p id="vencimentoTexto"></p>
+
+<p id="vencimentoTexto">
+Nenhum
+</p>
+
+</div>
+
 </div>
 
 </div>
 
+
+<!-- REGISTRAR FLUXO -->
 
 <div class="registrar">
 
 <h3>📥 Registrar Fluxo</h3>
 
 <input id="nomeFluxo" placeholder="Nome (Ex: Aluguel)">
+
+<div class="linha">
+
 <input id="valorFluxo" type="number" placeholder="Valor">
+
 <input id="diaFluxo" type="number" placeholder="Dia Venc.">
 
+</div>
+
 <select id="tipoFluxo">
+
 <option value="ganho">É um Ganho (+)</option>
 <option value="divida">É uma Dívida (-)</option>
+
 </select>
 
-<button onclick="adicionarFluxo()">SALVAR</button>
+<button onclick="adicionarFluxo()">
+SALVAR
+</button>
+
+</div>
 
 </div>
 
@@ -112,7 +157,7 @@
 
 <section id="metas" style="display:none">
 
-<h2>🏆 Ranking de Metas</h2>
+<h2>🏆 Ranking & Metas</h2>
 
 <div id="listaMetas"></div>
 
@@ -130,9 +175,11 @@
 
 <section id="investir" style="display:none">
 
-<h2>🚀 IA de Investimentos</h2>
+<h2>🚀 Onde Investir</h2>
 
-<button onclick="analisarInvestimentoIA()">Analisar</button>
+<button onclick="analisarInvestimentoIA()">
+Analisar com IA
+</button>
 
 <p id="resultadoInvestimento"></p>
 
