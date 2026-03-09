@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Metasboard</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
@@ -13,26 +14,7 @@
 body{
 background:#0f172a;
 color:white;
-font-family:sans-serif;
-}
-
-.card{
-background:#1e293b;
-padding:20px;
-border-radius:12px;
-transition:0.3s;
-}
-
-.card:hover{
-transform:scale(1.02);
-}
-
-button{
-transition:0.2s;
-}
-
-button:hover{
-transform:scale(1.05);
+font-family:Arial;
 }
 
 .screen{
@@ -43,6 +25,17 @@ display:none;
 display:block;
 }
 
+.card{
+background:#1e293b;
+padding:20px;
+border-radius:10px;
+transition:0.3s;
+}
+
+.card:hover{
+transform:scale(1.02);
+}
+
 .progress{
 height:10px;
 background:#334155;
@@ -50,25 +43,27 @@ border-radius:10px;
 overflow:hidden;
 }
 
-.progress-bar{
+.bar{
 height:10px;
 background:#22c55e;
 }
 
 </style>
+
 </head>
 
 <body class="p-6">
 
-<!-- MENU -->
+<h1 class="text-3xl mb-6">Metasboard</h1>
 
 <div class="flex gap-3 mb-6">
+
 <button onclick="openScreen('dashboard')">Dashboard</button>
 <button onclick="openScreen('fluxo')">Fluxo</button>
 <button onclick="openScreen('metas')">Metas</button>
 <button onclick="openScreen('gestao')">Gestão</button>
-<button onclick="openScreen('investir')">Investir</button>
 <button onclick="openScreen('ia')">IA</button>
+
 </div>
 
 
@@ -76,42 +71,42 @@ background:#22c55e;
 
 <div id="dashboard" class="screen active">
 
-<h2 class="text-2xl mb-4">Visão geral</h2>
-
-<select id="monthSelector" onchange="renderDashboard()" class="text-black mb-4"></select>
+<h2 class="text-xl mb-4">Resumo mensal</h2>
 
 <div class="grid grid-cols-3 gap-4">
 
 <div class="card">
-<h3>Entradas</h3>
+Entradas
 <p id="totalEntradas">0</p>
 </div>
 
 <div class="card">
-<h3>Dívidas</h3>
+Dívidas
 <p id="totalDividas">0</p>
 </div>
 
 <div class="card">
-<h3>Saldo Livre</h3>
+Saldo Livre
 <p id="saldoLivre">0</p>
 </div>
 
 </div>
 
-<canvas id="chartFluxo" class="mt-6"></canvas>
+<canvas id="grafico" class="mt-6"></canvas>
 
 </div>
+
 
 
 <!-- FLUXO -->
 
 <div id="fluxo" class="screen">
 
-<h2 class="text-2xl mb-4">Registro de fluxo</h2>
+<h2 class="text-xl mb-4">Fluxo financeiro</h2>
 
 <input id="desc" placeholder="descrição" class="text-black p-2">
 <input id="valor" placeholder="valor" class="text-black p-2">
+
 <button onclick="addFluxo()" class="bg-green-500 p-2 rounded">Adicionar</button>
 
 <div id="listaFluxo" class="mt-6"></div>
@@ -123,26 +118,27 @@ background:#22c55e;
 
 <div id="metas" class="screen">
 
-<h2 class="text-2xl mb-4">Metas</h2>
+<h2 class="text-xl mb-4">Metas</h2>
 
-<input id="metaNome" placeholder="Nome da meta" class="text-black p-2">
-<input id="metaValor" placeholder="Valor alvo" class="text-black p-2">
+<input id="metaNome" placeholder="nome meta" class="text-black p-2">
+<input id="metaValor" placeholder="valor alvo" class="text-black p-2">
 
-<button onclick="addMeta()" class="bg-blue-500 p-2 rounded">Criar meta</button>
+<button onclick="addMeta()" class="bg-blue-500 p-2 rounded">Criar</button>
 
 <div id="listaMetas" class="mt-6"></div>
 
 </div>
 
 
+
 <!-- GESTAO -->
 
 <div id="gestao" class="screen">
 
-<h2 class="text-2xl mb-4">Gestão de dívidas</h2>
+<h2 class="text-xl mb-4">Dívidas</h2>
 
-<input id="dividaNome" placeholder="Nome dívida" class="text-black p-2">
-<input id="dividaValor" placeholder="Valor" class="text-black p-2">
+<input id="dividaNome" placeholder="nome" class="text-black p-2">
+<input id="dividaValor" placeholder="valor" class="text-black p-2">
 
 <button onclick="addDivida()" class="bg-red-500 p-2 rounded">Adicionar</button>
 
@@ -151,53 +147,25 @@ background:#22c55e;
 </div>
 
 
-<!-- INVESTIR -->
-
-<div id="investir" class="screen">
-
-<h2 class="text-2xl mb-4">Sugestões de investimento</h2>
-
-<div class="grid grid-cols-2 gap-4">
-
-<div class="card">
-<h3>ETF Global</h3>
-<p>Diversificação mundial</p>
-</div>
-
-<div class="card">
-<h3>Renda fixa</h3>
-<p>Proteção contra volatilidade</p>
-</div>
-
-<div class="card">
-<h3>Tech Stocks</h3>
-<p>Empresas de crescimento</p>
-</div>
-
-</div>
-
-</div>
-
 
 <!-- IA -->
 
 <div id="ia" class="screen">
 
-<h2 class="text-2xl mb-4">Assistente IA</h2>
+<h2 class="text-xl mb-4">Assistente IA</h2>
 
 <div id="chat"></div>
 
-<div class="flex gap-2 mt-4">
+<div class="flex gap-3 mt-4">
 
-<button onclick="iaPergunta('economizar')">Como economizar</button>
-
-<button onclick="iaPergunta('investir')">Como investir</button>
-
-<button onclick="iaPergunta('dividas')">Quitar dívidas</button>
+<button onclick="ia('economizar')">Economizar</button>
+<button onclick="ia('investir')">Investir</button>
+<button onclick="ia('dividas')">Dívidas</button>
 
 </div>
 
 </div>
+
 
 <script src="app.js"></script>
 
