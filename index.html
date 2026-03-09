@@ -1,216 +1,205 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>MetasBoard</title>
+<title>Metasboard</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
 body{
-background:#0b0e14;
+background:#0f172a;
 color:white;
-font-family:Inter;
+font-family:sans-serif;
 }
 
 .card{
-background:#161b30;
-border-radius:20px;
+background:#1e293b;
 padding:20px;
+border-radius:12px;
+transition:0.3s;
 }
 
-.btn{
-transition:0.25s;
+.card:hover{
+transform:scale(1.02);
 }
 
-.btn:hover{
+button{
+transition:0.2s;
+}
+
+button:hover{
 transform:scale(1.05);
 }
 
-.nav.active{
-color:#a855f7;
-font-weight:bold;
+.screen{
+display:none;
+}
+
+.screen.active{
+display:block;
+}
+
+.progress{
+height:10px;
+background:#334155;
+border-radius:10px;
+overflow:hidden;
+}
+
+.progress-bar{
+height:10px;
+background:#22c55e;
 }
 
 </style>
-
 </head>
 
-<body>
+<body class="p-6">
 
-<!-- LOGIN -->
+<!-- MENU -->
 
-<div id="loginTela" class="h-screen flex items-center justify-center">
-
-<div class="card w-80 space-y-4 text-center">
-
-<h1 class="text-2xl font-black">METASBOARD</h1>
-
-<input id="email" placeholder="Email" class="w-full p-3 rounded bg-black/30">
-
-<input id="senha" type="password" placeholder="Senha" class="w-full p-3 rounded bg-black/30">
-
-<button onclick="login()" class="btn bg-purple-600 w-full p-3 rounded font-bold">
-
-Entrar
-
-</button>
-
+<div class="flex gap-3 mb-6">
+<button onclick="openScreen('dashboard')">Dashboard</button>
+<button onclick="openScreen('fluxo')">Fluxo</button>
+<button onclick="openScreen('metas')">Metas</button>
+<button onclick="openScreen('gestao')">Gestão</button>
+<button onclick="openScreen('investir')">Investir</button>
+<button onclick="openScreen('ia')">IA</button>
 </div>
 
-</div>
-
-<!-- APP -->
-
-<div id="app" class="hidden pb-24">
 
 <!-- DASHBOARD -->
 
-<section id="secDashboard" class="p-4 space-y-6">
+<div id="dashboard" class="screen active">
 
-<h2 class="text-xl font-black">Visão Geral</h2>
+<h2 class="text-2xl mb-4">Visão geral</h2>
 
-<div class="grid grid-cols-3 gap-3">
+<select id="monthSelector" onchange="renderDashboard()" class="text-black mb-4"></select>
 
-<div class="card text-center">
-<p class="text-xs">Entradas</p>
-<h3 id="receitaTotal">R$0</h3>
-</div>
-
-<div class="card text-center">
-<p class="text-xs">Dívidas</p>
-<h3 id="despesaTotal">R$0</h3>
-</div>
-
-<div class="card text-center">
-<p class="text-xs">Saldo</p>
-<h3 id="saldoTotal">R$0</h3>
-</div>
-
-</div>
-
-<!-- SAÚDE MENSAL -->
+<div class="grid grid-cols-3 gap-4">
 
 <div class="card">
-
-<h3 class="text-sm mb-3">Saúde Mensal</h3>
-
-<div id="meses" class="grid grid-cols-6 gap-2 text-center text-xs"></div>
-
-</div>
-
-<!-- REGISTRAR -->
-
-<div class="card space-y-3">
-
-<h3>Registrar Fluxo</h3>
-
-<input id="nomeFluxo" placeholder="Nome" class="w-full p-3 rounded bg-black/30">
-
-<input id="valorFluxo" type="number" placeholder="Valor" class="w-full p-3 rounded bg-black/30">
-
-<input id="dataFluxo" type="date" class="w-full p-3 rounded bg-black/30">
-
-<select id="tipoFluxo" class="w-full p-3 rounded bg-black/30">
-
-<option value="ganho">Entrada</option>
-<option value="divida">Dívida</option>
-
-</select>
-
-<button onclick="salvarFluxo()" class="btn bg-purple-600 w-full p-3 rounded">
-
-Salvar
-
-</button>
-
+<h3>Entradas</h3>
+<p id="totalEntradas">0</p>
 </div>
 
 <div class="card">
+<h3>Dívidas</h3>
+<p id="totalDividas">0</p>
+</div>
 
-<h3 class="mb-3">Lançamentos</h3>
-
-<div id="listaFluxo" class="space-y-2"></div>
+<div class="card">
+<h3>Saldo Livre</h3>
+<p id="saldoLivre">0</p>
+</div>
 
 </div>
 
-</section>
+<canvas id="chartFluxo" class="mt-6"></canvas>
+
+</div>
+
+
+<!-- FLUXO -->
+
+<div id="fluxo" class="screen">
+
+<h2 class="text-2xl mb-4">Registro de fluxo</h2>
+
+<input id="desc" placeholder="descrição" class="text-black p-2">
+<input id="valor" placeholder="valor" class="text-black p-2">
+<button onclick="addFluxo()" class="bg-green-500 p-2 rounded">Adicionar</button>
+
+<div id="listaFluxo" class="mt-6"></div>
+
+</div>
+
 
 <!-- METAS -->
 
-<section id="secMetas" class="hidden p-4 space-y-4">
+<div id="metas" class="screen">
 
-<h2 class="text-xl font-black">Metas</h2>
+<h2 class="text-2xl mb-4">Metas</h2>
 
-<button onclick="criarMeta()" class="btn bg-yellow-500 text-black p-3 rounded">
+<input id="metaNome" placeholder="Nome da meta" class="text-black p-2">
+<input id="metaValor" placeholder="Valor alvo" class="text-black p-2">
 
-Nova Meta
+<button onclick="addMeta()" class="bg-blue-500 p-2 rounded">Criar meta</button>
 
-</button>
-
-<div id="listaMetas" class="grid gap-3"></div>
-
-</section>
-
-<!-- GESTÃO -->
-
-<section id="secGestao" class="hidden p-4 space-y-4">
-
-<h2 class="text-xl font-black">Gestão de Dívidas</h2>
-
-<canvas id="graficoDividas"></canvas>
-
-</section>
-
-<!-- INVEST -->
-
-<section id="secInvest" class="hidden p-4 space-y-4">
-
-<h2 class="text-xl font-black">Investimentos</h2>
-
-<button onclick="simular('conservador')" class="btn bg-green-600 p-3 rounded w-full">
-
-Perfil Conservador
-
-</button>
-
-<button onclick="simular('moderado')" class="btn bg-yellow-500 p-3 rounded w-full">
-
-Perfil Moderado
-
-</button>
-
-<button onclick="simular('agressivo')" class="btn bg-red-500 p-3 rounded w-full">
-
-Perfil Agressivo
-
-</button>
-
-<div id="resultadoInvest"></div>
-
-</section>
+<div id="listaMetas" class="mt-6"></div>
 
 </div>
 
-<nav class="fixed bottom-0 left-0 right-0 bg-black flex justify-around p-4 text-xs">
 
-<button onclick="trocar('secDashboard',this)" class="nav active">Dashboard</button>
+<!-- GESTAO -->
 
-<button onclick="trocar('secMetas',this)" class="nav">Metas</button>
+<div id="gestao" class="screen">
 
-<button onclick="trocar('secGestao',this)" class="nav">Gestão</button>
+<h2 class="text-2xl mb-4">Gestão de dívidas</h2>
 
-<button onclick="trocar('secInvest',this)" class="nav">Investir</button>
+<input id="dividaNome" placeholder="Nome dívida" class="text-black p-2">
+<input id="dividaValor" placeholder="Valor" class="text-black p-2">
 
-</nav>
+<button onclick="addDivida()" class="bg-red-500 p-2 rounded">Adicionar</button>
 
-<script type="module" src="app.js"></script>
+<div id="listaDividas" class="mt-6"></div>
+
+</div>
+
+
+<!-- INVESTIR -->
+
+<div id="investir" class="screen">
+
+<h2 class="text-2xl mb-4">Sugestões de investimento</h2>
+
+<div class="grid grid-cols-2 gap-4">
+
+<div class="card">
+<h3>ETF Global</h3>
+<p>Diversificação mundial</p>
+</div>
+
+<div class="card">
+<h3>Renda fixa</h3>
+<p>Proteção contra volatilidade</p>
+</div>
+
+<div class="card">
+<h3>Tech Stocks</h3>
+<p>Empresas de crescimento</p>
+</div>
+
+</div>
+
+</div>
+
+
+<!-- IA -->
+
+<div id="ia" class="screen">
+
+<h2 class="text-2xl mb-4">Assistente IA</h2>
+
+<div id="chat"></div>
+
+<div class="flex gap-2 mt-4">
+
+<button onclick="iaPergunta('economizar')">Como economizar</button>
+
+<button onclick="iaPergunta('investir')">Como investir</button>
+
+<button onclick="iaPergunta('dividas')">Quitar dívidas</button>
+
+</div>
+
+</div>
+
+<script src="app.js"></script>
 
 </body>
 </html>
