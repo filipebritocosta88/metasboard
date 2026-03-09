@@ -1,233 +1,203 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-const firebaseConfig = {
+let fluxo = JSON.parse(localStorage.getItem("fluxo")) || []
+let metas = JSON.parse(localStorage.getItem("metas")) || []
+let dividas = JSON.parse(localStorage.getItem("dividas")) || []
 
-apiKey:"AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
-authDomain:"metasboard.firebaseapp.com",
-projectId:"metasboard"
+function openScreen(id){
 
-};
-
-const app=initializeApp(firebaseConfig);
-
-const auth=getAuth(app);
-
-const db=getFirestore(app);
-
-let uid=null;
-
-let chart=null;
-
-const BRL=v=>v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-
-window.login=()=>{
-
-let e=email.value;
-
-let s=senha.value;
-
-signInWithEmailAndPassword(auth,e,s);
-
-};
-
-onAuthStateChanged(auth,user=>{
-
-if(user){
-
-uid=user.uid;
-
-loginTela.style.display="none";
-
-app.style.display="block";
-
-escutarFluxo();
-
-gerarMeses();
+document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"))
+document.getElementById(id).classList.add("active")
 
 }
 
-});
 
-function escutarFluxo(){
+function save(){
 
-const q=query(collection(db,"fluxo"),where("uid","==",uid));
+localStorage.setItem("fluxo",JSON.stringify(fluxo))
+localStorage.setItem("metas",JSON.stringify(metas))
+localStorage.setItem("dividas",JSON.stringify(dividas))
 
-onSnapshot(q,snap=>{
-
-let ganhos=0;
-
-let dividas=0;
-
-listaFluxo.innerHTML="";
-
-let dadosGrafico={};
-
-snap.forEach(d=>{
-
-let f=d.data();
-
-if(f.tipo=="ganho")ganhos+=f.valor;
-
-else{
-
-dividas+=f.valor;
-
-dadosGrafico[f.nome]=(dadosGrafico[f.nome]||0)+f.valor;
+render()
 
 }
 
-listaFluxo.innerHTML+=`
 
-<div class="flex justify-between bg-black/30 p-2 rounded">
+function addFluxo(){
 
-<span>${f.nome} - ${BRL(f.valor)}</span>
+let desc = document.getElementById("desc").value
+let valor = Number(document.getElementById("valor").value)
 
-<div>
+fluxo.push({
+desc,
+valor,
+date:new Date().toISOString()
+})
 
-<button onclick="editar('${d.id}',${f.valor})">✏</button>
+save()
 
-<button onclick="apagar('${d.id}')">🗑</button>
+}
+
+
+function deleteFluxo(i){
+
+fluxo.splice(i,1)
+
+save()
+
+}
+
+
+function renderFluxo(){
+
+let div = document.getElementById("listaFluxo")
+
+div.innerHTML=""
+
+fluxo.forEach((f,i)=>{
+
+div.innerHTML+=`
+
+<div class="card flex justify-between">
+
+<span>${f.desc} - ${f.valor}</span>
+
+<button onclick="deleteFluxo(${i})">❌</button>
 
 </div>
-
-</div>
-
-`;
-
-});
-
-receitaTotal.innerText=BRL(ganhos);
-
-despesaTotal.innerText=BRL(dividas);
-
-saldoTotal.innerText=BRL(ganhos-dividas);
-
-gerarGrafico(dadosGrafico);
-
-});
-
-}
-
-window.salvarFluxo=async()=>{
-
-await addDoc(collection(db,"fluxo"),{
-
-nome:nomeFluxo.value,
-
-valor:Number(valorFluxo.value),
-
-data:dataFluxo.value,
-
-tipo:tipoFluxo.value,
-
-uid
-
-});
-
-};
-
-window.apagar=id=>deleteDoc(doc(db,"fluxo",id));
-
-window.editar=async(id,valor)=>{
-
-const{value:v}=await Swal.fire({
-
-title:"Editar valor",
-
-input:"number",
-
-inputValue:valor
-
-});
-
-if(v){
-
-updateDoc(doc(db,"fluxo",id),{valor:Number(v)});
-
-}
-
-};
-
-window.trocar=(id,btn)=>{
-
-document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
-
-document.getElementById(id).classList.remove("hidden");
-
-document.querySelectorAll(".nav").forEach(b=>b.classList.remove("active"));
-
-btn.classList.add("active");
-
-};
-
-function gerarMeses(){
-
-const nomes=["J","F","M","A","M","J","J","A","S","O","N","D"];
-
-nomes.forEach(m=>{
-
-meses.innerHTML+=`<div class="bg-slate-800 p-2 rounded">${m}</div>`;
-
-});
-
-}
-
-function gerarGrafico(dados){
-
-const ctx=document.getElementById("graficoDividas");
-
-if(chart)chart.destroy();
-
-chart=new Chart(ctx,{
-
-type:"doughnut",
-
-data:{
-
-labels:Object.keys(dados),
-
-datasets:[{
-
-data:Object.values(dados)
-
-}]
-
-}
-
-});
-
-}
-
-window.criarMeta=async()=>{
-
-const{value:f}=await Swal.fire({
-
-title:"Nova Meta",
-
-html:`
-
-<input id="m1" class="swal2-input" placeholder="Nome">
-
-<input id="m2" type="number" class="swal2-input" placeholder="Valor alvo">
 
 `
 
-});
+})
 
-};
+}
 
-window.simular=perfil=>{
 
-let texto="";
+function addMeta(){
 
-if(perfil=="conservador")texto="Investir em CDB e Tesouro.";
+let nome = document.getElementById("metaNome").value
+let valor = Number(document.getElementById("metaValor").value)
 
-if(perfil=="moderado")texto="Mistura de renda fixa e FIIs.";
+metas.push({
+nome,
+valor,
+atual:0
+})
 
-if(perfil=="agressivo")texto="Ações e cripto com alto risco.";
+save()
 
-resultadoInvest.innerHTML=`<div class="card">${texto}</div>`;
+}
 
-};
+
+function renderMetas(){
+
+let div = document.getElementById("listaMetas")
+
+div.innerHTML=""
+
+metas.forEach((m,i)=>{
+
+let progresso = (m.atual/m.valor)*100
+
+div.innerHTML+=`
+
+<div class="card">
+
+<h3>${m.nome}</h3>
+
+<div class="progress">
+
+<div class="progress-bar" style="width:${progresso}%"></div>
+
+</div>
+
+<button onclick="deleteMeta(${i})">remover</button>
+
+</div>
+
+`
+
+})
+
+}
+
+
+function deleteMeta(i){
+
+metas.splice(i,1)
+
+save()
+
+}
+
+
+function addDivida(){
+
+let nome = document.getElementById("dividaNome").value
+let valor = Number(document.getElementById("dividaValor").value)
+
+dividas.push({nome,valor})
+
+save()
+
+}
+
+
+function renderDividas(){
+
+let div = document.getElementById("listaDividas")
+
+div.innerHTML=""
+
+dividas.forEach(d=>{
+
+div.innerHTML+=`<div class="card">${d.nome} - ${d.valor}</div>`
+
+})
+
+}
+
+
+function renderDashboard(){
+
+let entradas = fluxo.reduce((a,b)=>a+b.valor,0)
+
+let totalDividas = dividas.reduce((a,b)=>a+b.valor,0)
+
+document.getElementById("totalEntradas").innerText = entradas
+
+document.getElementById("totalDividas").innerText = totalDividas
+
+document.getElementById("saldoLivre").innerText = entradas-totalDividas
+
+}
+
+
+function iaPergunta(tipo){
+
+let chat = document.getElementById("chat")
+
+let respostas = {
+
+economizar:"Reduza gastos recorrentes e crie metas mensais",
+
+investir:"Diversifique entre renda fixa e ações globais",
+
+dividas:"Priorize dívidas com juros maiores"
+
+}
+
+chat.innerHTML += `<div class="card mt-2">${respostas[tipo]}</div>`
+
+}
+
+
+function render(){
+
+renderFluxo()
+renderMetas()
+renderDividas()
+renderDashboard()
+
+}
+
+render()
