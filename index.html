@@ -9,144 +9,117 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
   <style>
-    :root { --primary: #a855f7; --bg: #0b0e14; --card: #161b30; }
+    :root { --primary: #a855f7; --bg: #000000; --card: #0a0c14; }
     body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
     .glass-card { background: var(--card); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
     .nav-btn-m.active { color: var(--primary); font-weight: 900; border-top: 2px solid var(--primary); }
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    input, select { font-size: 16px !important; color: white !important; background: rgba(0,0,0,0.4) !important; }
-    .mes-dot { width: 12px; height: 12px; border-radius: 4px; transition: transform 0.2s; cursor: pointer; }
-    .mes-dot:hover { transform: scale(1.3); }
+    input, select { font-size: 16px !important; color: white !important; background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; outline: none !important; }
+    .mes-dot { width: 100%; height: 25px; border-radius: 6px; transition: transform 0.2s; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; }
+    .swal2-popup { border-radius: 24px !important; background: #0a0c14 !important; color: white !important; }
   </style>
 </head>
 <body class="overflow-x-hidden no-scrollbar">
 
-<div id="loginTela" class="flex items-center justify-center min-h-screen p-6">
+<div id="loginTela" class="flex items-center justify-center min-h-screen p-6 fixed inset-0 z-[9999] bg-black">
   <div class="glass-card p-8 w-full max-w-md text-center shadow-2xl">
-    <h1 class="text-3xl font-black mb-8 italic italic tracking-tighter">METAS<span class="text-purple-500">BOARD</span></h1>
+    <h1 class="text-3xl font-black mb-8 italic tracking-tighter">METAS<span class="text-purple-500">BOARD</span></h1>
     <div id="authInputs" class="space-y-4">
-      <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-xl border border-slate-700 outline-none">
-      <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-xl border border-slate-700 outline-none">
+      <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-xl">
+      <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-xl">
       <div id="confirmarSenhaContainer" class="hidden">
-        <input id="senhaConfirm" type="password" placeholder="Confirme sua Senha" class="w-full p-4 rounded-xl border border-slate-700 outline-none mt-4">
+        <input id="senhaConfirm" type="password" placeholder="Confirme sua Senha" class="w-full p-4 rounded-xl mt-4">
       </div>
-      
       <button id="btnPrincipal" onclick="login()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase shadow-lg shadow-purple-900/20">Acessar Painel</button>
-      
       <div class="pt-4 border-t border-white/5">
-        <button id="btnAlternar" onclick="alternarAuth()" class="text-slate-400 text-xs font-bold hover:text-white uppercase tracking-widest">Novo usuário? Criar Senha</button>
+        <button id="btnAlternar" onclick="alternarAuth()" class="text-slate-400 text-xs font-bold hover:text-white uppercase tracking-widest">Novo usuário? Criar Conta</button>
       </div>
     </div>
   </div>
 </div>
 
-<div id="dashboard" class="hidden min-h-screen pb-20 md:flex">
-  <aside class="hidden md:flex w-64 border-r border-slate-800 p-6 flex-col bg-[#0d111a]">
-    <h2 class="text-xl font-black mb-10 italic">METAS<span class="text-purple-500">BOARD</span></h2>
-    <nav class="space-y-2">
-      <button onclick="mostrarSecao('secDashboard', this)" class="nav-btn active w-full p-3 rounded-lg text-left font-bold transition">📊 Visão Geral</button>
-      <button onclick="mostrarSecao('secMetas', this)" class="nav-btn w-full p-3 rounded-lg text-left text-slate-400 transition">🏆 Ranking & Metas</button>
-      <button onclick="mostrarSecao('secDividas', this)" class="nav-btn w-full p-3 rounded-lg text-left text-slate-400 transition">💳 Gestão de Contas</button>
-      <button onclick="mostrarSecao('secInvest', this)" class="nav-btn w-full p-3 rounded-lg text-left text-slate-400 transition">🚀 Onde Investir</button>
-    </nav>
-    <button onclick="logout()" class="mt-auto p-3 text-red-500 font-bold">Sair</button>
-  </aside>
-
+<div id="dashboard" class="hidden min-h-screen pb-24 md:flex">
   <main class="flex-1 p-4 md:p-8 overflow-y-auto no-scrollbar">
     <section id="secDashboard" class="max-w-6xl mx-auto space-y-6">
       <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <div class="glass-card p-4 border-l-4 border-emerald-500"><p class="text-[10px] font-black opacity-50 uppercase">Entradas</p><h3 id="receitaTotal" class="text-lg md:text-2xl font-black">R$ 0,00</h3></div>
-        <div class="glass-card p-4 border-l-4 border-rose-500"><p class="text-[10px] font-black opacity-50 uppercase">Dívidas</p><h3 id="despesaTotal" class="text-lg md:text-2xl font-black">R$ 0,00</h3></div>
+        <div class="glass-card p-4 border-l-4 border-emerald-500"><p class="text-[10px] font-black opacity-50 uppercase">Entradas</p><h3 id="receitaTotal" class="text-lg md:text-2xl font-black text-emerald-400">R$ 0,00</h3></div>
+        <div class="glass-card p-4 border-l-4 border-rose-500"><p class="text-[10px] font-black opacity-50 uppercase">Dívidas</p><h3 id="despesaTotal" class="text-lg md:text-2xl font-black text-rose-500">R$ 0,00</h3></div>
         <div class="glass-card p-4 border-l-4 border-purple-500 col-span-2 md:col-span-1"><p class="text-[10px] font-black opacity-50 uppercase">Disponível</p><h3 id="saldoTotal" class="text-xl md:text-2xl font-black">R$ 0,00</h3></div>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="space-y-4">
-            <div class="glass-card p-6 border-l-8 border-purple-500 bg-gradient-to-br from-purple-900/20 to-transparent">
+            <div class="glass-card p-6 border-l-8 border-purple-500 bg-gradient-to-br from-purple-900/10 to-transparent">
                 <h4 class="text-xs font-black uppercase mb-2 flex items-center gap-2">🔮 Mentor Estratégico</h4>
-                <p id="iaTexto" class="text-xs md:text-sm italic opacity-80 leading-relaxed"></p>
+                <p id="iaTexto" class="text-xs italic opacity-80 leading-relaxed">Carregando análise...</p>
             </div>
-            
             <div class="glass-card p-5">
-                <h4 class="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest text-center">Desempenho Anual 2026</h4>
-                <div id="gridMesesAnual" class="grid grid-cols-6 md:grid-cols-12 gap-2 px-2">
-                    </div>
-                <div class="flex justify-center gap-4 mt-4 text-[8px] font-black uppercase text-slate-500">
-                    <span class="flex items-center gap-1"><div class="w-2 h-2 bg-emerald-500 rounded"></div> No Azul</span>
-                    <span class="flex items-center gap-1"><div class="w-2 h-2 bg-rose-500 rounded"></div> No Vermelho</span>
-                </div>
+                <h4 class="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest text-center">Performance Anual 2026</h4>
+                <div id="gridMesesAnual" class="grid grid-cols-6 md:grid-cols-12 gap-2"></div>
             </div>
         </div>
 
-        <div class="glass-card p-6 relative">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-black italic uppercase">Registrar Fluxo</h3>
-                <button onclick="verHistoricoFluxo()" class="w-10 h-10 rounded-full bg-purple-600 text-white font-black text-xl shadow-lg flex items-center justify-center">!</button>
-            </div>
+        <div class="glass-card p-6">
+            <h3 class="font-black italic uppercase text-xs mb-4">Novo Lançamento</h3>
             <div class="space-y-3">
-                <input id="fluxoNome" type="text" placeholder="Nome do lançamento" class="w-full p-3 rounded-xl border border-white/10 outline-none">
-                <div class="grid grid-cols-3 gap-2">
-                    <input id="fluxoValor" type="number" placeholder="Valor" class="p-3 rounded-xl border border-white/10 outline-none">
-                    <select id="fluxoMes" class="p-3 rounded-xl border border-white/10 outline-none">
-                        <option value="1">Jan</option><option value="2">Fev</option><option value="3">Mar</option>
-                        <option value="4">Abr</option><option value="5">Mai</option><option value="6">Jun</option>
-                        <option value="7">Jul</option><option value="8">Ago</option><option value="9">Set</option>
-                        <option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
-                    </select>
-                    <select id="fluxoAno" class="p-3 rounded-xl border border-white/10 outline-none">
-                        <option value="2025">2025</option><option value="2026" selected>2026</option>
-                    </select>
+                <input id="fluxoNome" type="text" placeholder="Nome do lançamento" class="w-full p-3 rounded-xl">
+                <div class="grid grid-cols-2 gap-2">
+                    <input id="fluxoValor" type="number" placeholder="Valor R$" class="p-3 rounded-xl">
+                    <input id="fluxoData" type="date" class="p-3 rounded-xl text-xs">
                 </div>
-                <select id="fluxoTipo" class="w-full p-3 rounded-xl border border-white/10 outline-none">
-                    <option value="ganho">Ganho (+)</option>
+                <select id="fluxoTipo" class="w-full p-3 rounded-xl">
+                    <option value="ganho">Entrada (+)</option>
                     <option value="divida">Dívida (-)</option>
                 </select>
-                <button onclick="adicionarFluxo()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-sm">Salvar Registro</button>
+                <button onclick="adicionarFluxo()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-xs">Salvar Registro</button>
             </div>
         </div>
       </div>
     </section>
 
-    <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#0d111a]/95 backdrop-blur-lg border-t border-slate-800 flex justify-around p-3 z-[1000]">
-        <button onclick="mostrarSecao('secDashboard', this)" class="nav-btn-m active text-[10px] flex flex-col items-center gap-1"><span>📊</span>Início</button>
-        <button onclick="mostrarSecao('secMetas', this)" class="nav-btn-m text-[10px] flex flex-col items-center gap-1"><span>🏆</span>Metas</button>
-        <button onclick="mostrarSecao('secDividas', this)" class="nav-btn-m text-[10px] flex flex-col items-center gap-1"><span>💳</span>Gestão</button>
-        <button onclick="mostrarSecao('secInvest', this)" class="nav-btn-m text-[10px] flex flex-col items-center gap-1"><span>🚀</span>Investir</button>
-    </nav>
-
     <section id="secMetas" class="hidden space-y-6">
         <div class="flex justify-between items-center">
-            <h2 class="text-2xl font-black italic uppercase">Copa das Metas 🏆</h2>
-            <button onclick="abrirModalMeta()" class="bg-yellow-500 text-black px-4 py-2 rounded-xl font-black text-xs uppercase">+ Nova Meta</button>
+            <h2 class="text-xl font-black italic uppercase">Metas 🏆</h2>
+            <button onclick="abrirModalMeta()" class="bg-yellow-500 text-black px-4 py-2 rounded-xl font-black text-[10px] uppercase">+ Nova Meta</button>
         </div>
-        <div id="rankingGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div id="rankingGrid" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
     </section>
 
     <section id="secDividas" class="hidden space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div class="glass-card p-6 flex flex-col items-center justify-center">
-                <h3 class="text-[10px] font-black text-slate-500 uppercase mb-6 tracking-widest">Distribuição de Débitos</h3>
-                <div class="relative w-56 h-56 md:w-64 md:h-64">
-                    <canvas id="chartDividas"></canvas>
-                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Total Devido</span>
-                        <span id="chartTotalLabel" class="text-xl font-black text-rose-500">R$ 0</span>
-                    </div>
+        <div class="glass-card p-8 flex flex-col items-center">
+            <h3 class="text-[10px] font-black text-slate-500 uppercase mb-6 tracking-widest">Mapa de Débitos</h3>
+            <div class="relative w-56 h-56">
+                <canvas id="chartDividas"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span id="chartTotalLabel" class="text-xl font-black text-rose-500">R$ 0</span>
                 </div>
             </div>
-            <div id="listaDividasDetalhada" class="space-y-3"></div>
+            <button onclick="abrirCofre()" class="mt-6 text-emerald-400 font-black text-[10px] uppercase border border-emerald-500/20 px-6 py-2 rounded-full">📁 Ver Dívidas Pagas</button>
         </div>
+        <div id="listaDividasDetalhada" class="space-y-3"></div>
     </section>
 
-    <section id="secInvest" class="hidden max-w-2xl mx-auto space-y-6">
-        <div class="glass-card p-8 border-l-8 border-emerald-500">
-            <h2 class="text-2xl font-black mb-2 uppercase italic">Acelerador</h2>
-            <button onclick="analisarInvestimentoIA()" class="w-full bg-emerald-600 p-4 rounded-xl font-black uppercase mt-4">Analisar Saldo</button>
+    <section id="secInvest" class="hidden space-y-6 max-w-2xl mx-auto">
+        <div class="glass-card p-6 border-l-4 border-emerald-500">
+            <h3 class="text-sm font-black uppercase mb-4">Simulador de Futuro 🚀</h3>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <input id="simuMes" type="number" placeholder="Aporte Mensal" class="p-3 rounded-xl text-xs">
+                <input id="simuAnos" type="number" placeholder="Anos" class="p-3 rounded-xl text-xs">
+            </div>
+            <button onclick="simularJuros()" class="w-full bg-emerald-600 p-3 rounded-xl font-black text-[10px] uppercase">Calcular Projeção</button>
+            <div id="resSimulador" class="mt-4 hidden text-center p-4 bg-emerald-500/5 rounded-xl border border-emerald-500/10"></div>
         </div>
-        <div id="boxResultadoInvest" class="hidden glass-card p-6 space-y-4"></div>
+        <div id="cardsSugestaoInvest" class="grid grid-cols-1 gap-4"></div>
     </section>
   </main>
 </div>
+
+<nav class="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-xl border-t border-white/5 flex justify-around p-4 z-[1000]">
+    <button onclick="mostrarSecao('secDashboard', this)" class="nav-btn-m active text-[9px] flex flex-col items-center gap-1 uppercase font-black"><span>📊</span>Dashboard</button>
+    <button onclick="mostrarSecao('secMetas', this)" class="nav-btn-m text-[9px] flex flex-col items-center gap-1 uppercase font-black"><span>🏆</span>Metas</button>
+    <button onclick="mostrarSecao('secDividas', this)" class="nav-btn-m text-[9px] flex flex-col items-center gap-1 uppercase font-black"><span>💳</span>Gestão</button>
+    <button onclick="mostrarSecao('secInvest', this)" class="nav-btn-m text-[9px] flex flex-col items-center gap-1 uppercase font-black"><span>🚀</span>Investir</button>
+</nav>
 
 <script type="module" src="app.js"></script>
 </body>
