@@ -1,224 +1,205 @@
-let fluxo = JSON.parse(localStorage.getItem("fluxo")) || []
-let metas = JSON.parse(localStorage.getItem("metas")) || []
-let dividas = JSON.parse(localStorage.getItem("dividas")) || []
+const firebaseConfig = {
 
-function openScreen(id){
+apiKey: "SUA_API_KEY",
+authDomain: "SEU_DOMINIO",
+projectId: "SEU_PROJETO"
 
-document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"))
-document.getElementById(id).classList.add("active")
+};
 
-}
+firebase.initializeApp(firebaseConfig);
 
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-function save(){
-
-localStorage.setItem("fluxo",JSON.stringify(fluxo))
-localStorage.setItem("metas",JSON.stringify(metas))
-localStorage.setItem("dividas",JSON.stringify(dividas))
-
-render()
-
-}
+let usuarioAtual = null;
 
 
-function addFluxo(){
+function login(){
 
-let desc = document.getElementById("desc").value
-let valor = Number(document.getElementById("valor").value)
+const email = document.getElementById("email").value;
+const senha = document.getElementById("senha").value;
 
-fluxo.push({desc,valor})
-
-save()
+auth.signInWithEmailAndPassword(email, senha)
+.catch(e=>alert(e.message));
 
 }
 
 
-function deleteFluxo(i){
+function logout(){
 
-fluxo.splice(i,1)
-save()
-
-}
-
-
-function renderFluxo(){
-
-let div = document.getElementById("listaFluxo")
-div.innerHTML=""
-
-fluxo.forEach((f,i)=>{
-
-div.innerHTML+=`
-
-<div class="card flex justify-between">
-
-<span>${f.desc} - ${f.valor}</span>
-
-<button onclick="deleteFluxo(${i})">❌</button>
-
-</div>
-
-`
-
-})
+auth.signOut();
 
 }
 
 
+auth.onAuthStateChanged(user=>{
 
-function addMeta(){
+if(user){
 
-let nome=document.getElementById("metaNome").value
-let valor=Number(document.getElementById("metaValor").value)
+usuarioAtual = user;
 
-metas.push({
+document.getElementById("login").style.display="none";
+document.getElementById("app").style.display="flex";
+
+inicializarListeners();
+
+}else{
+
+document.getElementById("login").style.display="block";
+document.getElementById("app").style.display="none";
+
+}
+
+});
+
+
+function mostrarSecao(sec){
+
+document.querySelectorAll("main section").forEach(s=>s.style.display="none");
+
+document.getElementById(sec).style.display="block";
+
+}
+
+
+function adicionarFluxo(){
+
+const nome = document.getElementById("nomeFluxo").value;
+const valor = Number(document.getElementById("valorFluxo").value);
+const dia = Number(document.getElementById("diaFluxo").value);
+const tipo = document.getElementById("tipoFluxo").value;
+
+db.collection("fluxo").add({
+
 nome,
 valor,
-atual:0
-})
+dia,
+tipo,
+userId: usuarioAtual.uid
 
-save()
-
-}
-
-
-function renderMetas(){
-
-let div=document.getElementById("listaMetas")
-div.innerHTML=""
-
-metas.forEach((m,i)=>{
-
-let progresso=(m.atual/m.valor)*100
-
-div.innerHTML+=`
-
-<div class="card">
-
-<h3>${m.nome}</h3>
-
-<div class="progress">
-
-<div class="bar" style="width:${progresso}%"></div>
-
-</div>
-
-<button onclick="deleteMeta(${i})">remover</button>
-
-</div>
-
-`
-
-})
+});
 
 }
 
 
-function deleteMeta(i){
+function inicializarListeners(){
 
-metas.splice(i,1)
-save()
+db.collection("fluxo")
+.where("userId","==",usuarioAtual.uid)
+.onSnapshot(snapshot=>{
+
+let ganhos=0;
+let dividas=0;
+
+let listaDividas=[];
+
+snapshot.forEach(doc=>{
+
+const d=doc.data();
+
+if(d.tipo==="ganho") ganhos+=d.valor;
+if(d.tipo==="divida"){
+dividas+=d.valor;
+listaDividas.push(d);
+}
+
+});
+
+document.getElementById("ganhosTotal").innerText="R$ "+ganhos;
+document.getElementById("dividasTotal").innerText="R$ "+dividas;
+
+const saldo = ganhos-dividas;
+
+document.getElementById("saldoLivre").innerText="R$ "+saldo;
+
+atualizarMentor(ganhos,dividas,saldo);
+renderizarGraficoDividas(listaDividas);
+atualizarVencimentos(listaDividas);
+
+});
 
 }
 
 
+function atualizarMentor(ganhos,dividas,saldo){
 
-function addDivida(){
+let msg="";
 
-let nome=document.getElementById("dividaNome").value
-let valor=Number(document.getElementById("dividaValor").value)
+if(saldo<0){
 
-dividas.push({nome,valor})
+msg="⚠️ Você está gastando mais do que ganha.";
 
-save()
+}else if(saldo<500){
+
+msg="💡 Tente guardar pelo menos 20% da renda.";
+
+}else{
+
+msg="🚀 Você está indo muito bem financeiramente.";
+
+}
+
+document.getElementById("mentorTexto").innerText=msg;
 
 }
 
 
+function atualizarVencimentos(dividas){
 
-function renderDividas(){
+if(dividas.length===0) return;
 
-let div=document.getElementById("listaDividas")
+dividas.sort((a,b)=>a.dia-b.dia);
 
-div.innerHTML=""
-
-dividas.forEach(d=>{
-
-div.innerHTML+=`<div class="card">${d.nome} - ${d.valor}</div>`
-
-})
+document.getElementById("vencimentoTexto").innerText=
+dividas[0].nome+" vence dia "+dividas[0].dia;
 
 }
 
 
+let grafico=null;
 
-function renderDashboard(){
+function renderizarGraficoDividas(lista){
 
-let entradas=fluxo.reduce((a,b)=>a+b.valor,0)
-let totalDividas=dividas.reduce((a,b)=>a+b.valor,0)
+if(grafico) grafico.destroy();
 
-document.getElementById("totalEntradas").innerText=entradas
-document.getElementById("totalDividas").innerText=totalDividas
-document.getElementById("saldoLivre").innerText=entradas-totalDividas
+const ctx=document.getElementById("graficoDividas");
 
-renderChart()
-
-}
-
-
-
-let chart
-
-function renderChart(){
-
-let ctx=document.getElementById("grafico")
-
-if(chart) chart.destroy()
-
-chart=new Chart(ctx,{
-type:"bar",
+grafico=new Chart(ctx,{
+type:"doughnut",
 data:{
-labels:["Entradas","Dívidas"],
+labels:lista.map(d=>d.nome),
 datasets:[{
-data:[
-fluxo.reduce((a,b)=>a+b.valor,0),
-dividas.reduce((a,b)=>a+b.valor,0)
-]
+data:lista.map(d=>d.valor)
 }]
 }
-})
+});
 
 }
 
 
+function analisarInvestimentoIA(){
 
-function ia(tipo){
+const saldo = Number(
+document.getElementById("saldoLivre")
+.innerText.replace("R$","")
+);
 
-let chat=document.getElementById("chat")
+let sugestao="";
 
-let respostas={
+if(saldo<100){
 
-economizar:"Crie metas mensais e reduza gastos recorrentes.",
+sugestao="Comece vendendo algo ou fazendo renda extra.";
 
-investir:"Diversifique entre renda fixa e ações globais.",
+}else if(saldo<1000){
 
-dividas:"Priorize quitar dívidas com maior juros."
+sugestao="Considere revenda de produtos ou freelances.";
 
-}
+}else{
 
-chat.innerHTML+=`<div class="card mt-2">${respostas[tipo]}</div>`
-
-}
-
-
-
-function render(){
-
-renderFluxo()
-renderMetas()
-renderDividas()
-renderDashboard()
+sugestao="Você pode começar a investir ou abrir um pequeno negócio.";
 
 }
 
-render()
+document.getElementById("resultadoInvestimento").innerText=sugestao;
+
+}
