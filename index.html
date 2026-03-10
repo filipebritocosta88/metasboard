@@ -36,14 +36,14 @@
         z-index: 10001 !important; 
         position: relative; 
         background: rgba(168, 85, 247, 0.1) !important; 
-        box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
     }
+    /* Forçar o SweetAlert a ficar sempre no topo de tudo */
+    .swal2-container { z-index: 100000 !important; }
     .swal2-popup { 
         border-radius: 28px !important; 
         background: #0a0c14 !important; 
         color: white !important; 
         border: 1px solid rgba(255,255,255,0.1) !important;
-        padding-bottom: 20px !important;
     }
     .swal2-confirm { border-radius: 15px !important; font-weight: 900 !important; text-transform: uppercase !important; font-size: 11px !important; padding: 12px 24px !important; }
   </style>
