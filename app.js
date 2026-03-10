@@ -21,46 +21,79 @@ let metasAtivas = [];
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- LÓGICA DE LOGIN ---
+// --- TUTORIAL / ONBOARDING ---
+async function iniciarTutorial() {
+    const { value: aceitou } = await Swal.fire({
+        title: 'BEM-VINDO AO METASBOARD',
+        text: 'Este é o seu novo ecossistema de produtividade e controle financeiro. Quer que eu te mostre como funciona?',
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonText: 'Sim, me ensine!',
+        cancelButtonText: 'Pular',
+        confirmButtonColor: '#a855f7'
+    });
+
+    if (!aceitou) return;
+
+    const passos = [
+        { el: 'step-saude', txt: 'Aqui você vê sua Saúde Patrimonial. O HP desce conforme suas dívidas aumentam!' },
+        { el: 'step-registro', txt: 'Nesta área você registra o que ganha e o que gasta. Use o check do 5º dia útil para salários!' },
+        { el: 'step-nav', txt: 'Navegue entre o Início, suas Metas e a Gestão detalhada por aqui.' },
+        { el: 'step-conversor', txt: 'Precisa converter R$ para Dólar ou Euro para suas metas internacionais? Clique aqui!' }
+    ];
+
+    for (let p of passos) {
+        const item = document.getElementById(p.el);
+        item.classList.add('tutorial-highlight');
+        await Swal.fire({ text: p.txt, toast: true, position: 'top', showConfirmButton: true, confirmButtonText: 'Próximo' });
+        item.classList.remove('tutorial-highlight');
+    }
+
+    Swal.fire({ title: 'Tudo pronto!', text: 'Agora é com você. Conquiste seus objetivos!', icon: 'success', timer: 3000 });
+}
+
+// --- AUTH ---
 window.alternarModoAuth = () => {
     modoRegistro = !modoRegistro;
-    const btn = document.getElementById('btnAcessar');
-    const troca = document.getElementById('btnTrocarAuth');
-    btn.innerText = modoRegistro ? "CRIAR CONTA" : "ENTRAR NO BOARD";
-    troca.innerText = modoRegistro ? "JÁ TENHO CONTA" : "CRIAR NOVA CONTA";
+    document.getElementById('btnAcessar').innerText = modoRegistro ? "CRIAR CONTA" : "ENTRAR NO BOARD";
+    document.getElementById('btnTrocarAuth').innerText = modoRegistro ? "JÁ TENHO CONTA" : "CRIAR NOVA CONTA";
 };
 
 window.executarAuth = () => {
     const e = document.getElementById('email').value.trim();
     const s = document.getElementById('senha').value.trim();
-    if(!e || !s) { alert("Preencha e-mail e senha."); return; }
+    if(!e || !s) return alert("Preencha os dados.");
     
     if(modoRegistro) {
-        createUserWithEmailAndPassword(auth, e, s).catch(err => alert("Erro ao criar: " + err.message));
+        createUserWithEmailAndPassword(auth, e, s).then(() => {
+            localStorage.setItem('novo_user_' + auth.currentUser.uid, 'true');
+        }).catch(err => alert(err.message));
     } else {
-        signInWithEmailAndPassword(auth, e, s).catch(err => alert("Acesso negado. Verifique os dados."));
+        signInWithEmailAndPassword(auth, e, s).catch(() => alert("Erro no login."));
     }
 };
 
 window.sairDoSistema = () => signOut(auth).then(() => location.reload());
 
-// Monitor de Estado de Login
 onAuthStateChanged(auth, user => {
-    const loginT = document.getElementById('loginTela');
-    const dashT = document.getElementById('dashboard');
-    
     if (user) { 
         userUID = user.uid; 
-        loginT.style.display = 'none'; 
-        dashT.classList.add('show-dash'); 
+        document.getElementById('loginTela').style.display = 'none'; 
+        document.getElementById('dashboard').classList.add('show-dash'); 
         iniciarRealtime(); 
+        
+        // Checa se é o primeiro acesso
+        if (localStorage.getItem('novo_user_' + userUID)) {
+            localStorage.removeItem('novo_user_' + userUID);
+            iniciarTutorial();
+        }
     } else { 
-        loginT.style.display = 'flex'; 
-        dashT.classList.remove('show-dash'); 
+        document.getElementById('loginTela').style.display = 'flex'; 
+        document.getElementById('dashboard').classList.remove('show-dash'); 
     }
 });
 
-// --- ENGINE FINANCEIRA ---
+// --- CORE ---
 function getQuintoDiaUtil() {
     let d = new Date(); d.setDate(1); let c = 0;
     while (c < 5) {
@@ -72,12 +105,9 @@ function getQuintoDiaUtil() {
 }
 
 function iniciarRealtime() {
-    // Fluxo
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let prev = 0, real = 0, div = 0; fin.lista = [];
-        const hoje = new Date();
-        const quinto = getQuintoDiaUtil();
-
+        const hoje = new Date(), quinto = getQuintoDiaUtil();
         snap.forEach(ds => {
             const i = { ...ds.data(), id: ds.id };
             if (i.status !== 'paga') {
@@ -93,20 +123,18 @@ function iniciarRealtime() {
         atualizarUI();
     });
 
-    // Metas
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "ativa")), snap => {
         metasAtivas = [];
         const grid = document.getElementById('rankingGrid'); grid.innerHTML = "";
         snap.forEach(ds => {
             const m = { ...ds.data(), id: ds.id }; metasAtivas.push(m);
             const check = m.checklist || [];
-            const doneCount = check.filter(c => c.done).length;
-            const perc = check.length > 0 ? (doneCount / check.length) * 100 : 0;
-
+            const done = check.filter(c => c.done).length;
+            const perc = check.length > 0 ? (done / check.length) * 100 : 0;
             grid.innerHTML += `
             <div class="glass-card p-6 border-l-4 border-purple-500">
-                <div class="flex justify-between items-start mb-2">
-                    <h4 class="text-sm font-black uppercase italic">${m.nome}</h4>
+                <div class="flex justify-between mb-2">
+                    <h4 class="text-sm font-black italic uppercase">${m.nome}</h4>
                     <span class="text-purple-400 font-black text-xs">${perc.toFixed(0)}%</span>
                 </div>
                 <div class="hp-bar mb-4"><div class="hp-fill bg-purple-600" style="width: ${perc}%"></div></div>
@@ -123,7 +151,6 @@ function iniciarRealtime() {
     });
 }
 
-// --- UI & MENTOR ---
 function atualizarUI() {
     document.getElementById('receitaTotal').innerText = BRL(fin.previsto);
     document.getElementById('saldoReal').innerText = BRL(fin.saldoReal);
@@ -134,7 +161,7 @@ function atualizarUI() {
     
     const t = document.getElementById('listaTimeline'); t.innerHTML = "";
     fin.lista.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(i => {
-        t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'} active:opacity-60" onclick="abrirAcao('${i.id}')">
+        t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'}" onclick="abrirAcao('${i.id}')">
             <div><h4 class="text-[10px] font-black uppercase">${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
             <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
         </div>`;
@@ -146,37 +173,15 @@ function renderGestao() {
     if(chartInst) chartInst.destroy();
     const divs = fin.lista.filter(f => f.tipo === 'divida');
     document.getElementById('totalGestao').innerText = BRL(fin.dividas);
-    
     chartInst = new Chart(ctx, {
         type: 'doughnut',
-        data: {
-            datasets: [{
-                data: divs.map(d => d.valor),
-                backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#4f46e5'],
-                borderWidth: 0, borderRadius: 5
-            }]
-        },
+        data: { datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#a855f7', '#7c3aed', '#6366f1'], borderWidth: 0 }] },
         options: { cutout: '85%', plugins: { legend: { display: false } } }
     });
-
     const conselho = document.getElementById('conselhoMentor');
     const ratio = fin.dividas / (fin.previsto || 1);
-    conselho.innerText = ratio > 0.6 ? "Cuidado! Suas dívidas estão altas. Recomendo adiar novos requisitos de metas." : "Finanças saudáveis. Você tem espaço para investir em suas submetas hoje!";
-    
-    const list = document.getElementById('listaDetalhada'); list.innerHTML = "";
-    divs.forEach(d => {
-        list.innerHTML += `<div class="flex justify-between p-4 bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase"><span class="opacity-60">${d.nome}</span><span>${BRL(d.valor)}</span></div>`;
-    });
+    conselho.innerText = ratio > 0.6 ? "Cuidado com os gastos!" : "Finanças saudáveis para novos sonhos.";
 }
-
-// --- COMANDOS ---
-window.salvarLancamento = async () => {
-    const n = document.getElementById('fNome').value, v = Number(document.getElementById('fValor').value), d = document.getElementById('fData').value, s = document.getElementById('f5Dia').checked;
-    if(n && v && d) {
-        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tipoAtual, isSalario: s, status: 'pendente', userId: userUID });
-        document.getElementById('fNome').value = ""; document.getElementById('fValor').value = "";
-    }
-};
 
 window.navegar = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
@@ -184,6 +189,14 @@ window.navegar = (id, btn) => {
     document.querySelectorAll('.nav-btn-m').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     if(id === 'secGestao') renderGestao();
+};
+
+window.salvarLancamento = async () => {
+    const n = document.getElementById('fNome').value, v = Number(document.getElementById('fValor').value), d = document.getElementById('fData').value, s = document.getElementById('f5Dia').checked;
+    if(n && v && d) {
+        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tipoAtual, isSalario: s, status: 'pendente', userId: userUID });
+        document.getElementById('fNome').value = ""; document.getElementById('fValor').value = "";
+    }
 };
 
 window.toggleSubmeta = async (mId, idx, status) => {
@@ -198,23 +211,22 @@ window.toggleSubmeta = async (mId, idx, status) => {
 };
 
 window.abrirAcao = async (id) => {
-    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Pago', del: '🗑️ Excluir' }, background: '#0a0c14', color: '#fff' });
+    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Pago', del: '🗑️ Excluir' } });
     if(a === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
     else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
 };
 
 window.modalNovaMeta = async () => {
-    const { value: n } = await Swal.fire({ title: 'Nova Meta Principal', input: 'text', placeholder: 'Ex: Trocar de Carro' });
+    const { value: n } = await Swal.fire({ title: 'Meta Principal', input: 'text' });
     if(n) await addDoc(collection(db, "metas"), { nome: n, status: 'ativa', checklist: [], userId: userUID });
 };
 
 window.addSubmeta = async (id) => {
-    const { value: i } = await Swal.fire({ title: 'Requisito', input: 'text', placeholder: 'Ex: Guardar R$ 100' });
+    const { value: i } = await Swal.fire({ title: 'Requisito', input: 'text' });
     if(i) await updateDoc(doc(db, "metas", id), { checklist: arrayUnion({ item: i, done: false }) });
 };
 
 window.toggleChat = () => { const w = document.getElementById('chatWindow'); w.classList.toggle('hidden'); w.classList.toggle('flex'); };
-
 window.converterMoedas = () => {
     const brl = Number(document.getElementById('convValor').value);
     document.getElementById('resDolar').innerText = "$ " + (brl / 5.10).toFixed(2);
