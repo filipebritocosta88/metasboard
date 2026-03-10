@@ -22,9 +22,8 @@ let dadosCarregados = false;
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- TUTORIAL MELHORADO ---
+// --- TUTORIAL ---
 async function iniciarTutorial() {
-    // Garante que o dashboard e os dados estão prontos
     while(!dadosCarregados) { await new Promise(r => setTimeout(r, 100)); }
 
     const { value: aceitou } = await Swal.fire({
@@ -41,31 +40,20 @@ async function iniciarTutorial() {
 
     const passos = [
         { el: 'step-saude', txt: 'Sua SAÚDE PATRIMONIAL. O HP cai se as dívidas subirem.' },
-        { el: 'step-registro', txt: 'REGISTRO: Adicione ganhos e gastos aqui. Dica: Use o check de 5º dia útil para salários.' },
+        { el: 'step-registro', txt: 'REGISTRO: Adicione ganhos e gastos aqui.' },
         { el: 'step-nav', txt: 'MENU: Navegue entre Início, Metas e Gestão Estratégica.' },
-        { el: 'step-conversor', txt: 'CONVERSOR: Calcule Dólar e Euro em tempo real para suas metas!' }
+        { el: 'step-conversor', txt: 'CONVERSOR: Calcule Dólar e Euro em tempo real!' }
     ];
 
     for (let p of passos) {
         const item = document.getElementById(p.el);
-        
-        // Esconder teclado se estiver aberto e focar no elemento
         document.activeElement.blur();
         item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        
-        await new Promise(r => setTimeout(r, 400)); // Espera o scroll
+        await new Promise(r => setTimeout(r, 400));
         item.classList.add('tutorial-highlight');
-        
-        await Swal.fire({ 
-            text: p.txt, 
-            confirmButtonText: 'PRÓXIMO', 
-            confirmButtonColor: '#a855f7',
-            backdrop: 'rgba(0,0,0,0.6)'
-        });
-        
+        await Swal.fire({ text: p.txt, confirmButtonText: 'PRÓXIMO', confirmButtonColor: '#a855f7' });
         item.classList.remove('tutorial-highlight');
     }
-
     confetti({ particleCount: 150, spread: 60 });
 }
 
@@ -80,7 +68,6 @@ window.executarAuth = () => {
     const e = document.getElementById('email').value.trim();
     const s = document.getElementById('senha').value.trim();
     if(!e || !s) return;
-    
     if(modoRegistro) {
         createUserWithEmailAndPassword(auth, e, s).then((cred) => {
             localStorage.setItem('novo_user_' + cred.user.uid, 'true');
@@ -98,8 +85,6 @@ onAuthStateChanged(auth, user => {
         document.getElementById('loginTela').style.display = 'none'; 
         document.getElementById('dashboard').classList.add('show-dash'); 
         iniciarRealtime(); 
-        
-        // Só dispara o tutorial se for um novo usuário marcado no registro
         if (localStorage.getItem('novo_user_' + userUID)) {
             localStorage.removeItem('novo_user_' + userUID);
             iniciarTutorial();
@@ -109,15 +94,29 @@ onAuthStateChanged(auth, user => {
     }
 });
 
-// --- ENGINE ---
+// --- CORE FUNCTIONS ---
+function getQuintoDiaUtil() {
+    let d = new Date(); d.setDate(1); let c = 0;
+    while (c < 5) {
+        let day = d.getDay();
+        if (day !== 0 && day !== 6) c++;
+        if (c < 5) d.setDate(d.getDate() + 1);
+    }
+    return d;
+}
+
 function iniciarRealtime() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let prev = 0, real = 0, div = 0; fin.lista = [];
+        const hoje = new Date(), quinto = getQuintoDiaUtil();
         snap.forEach(ds => {
             const i = { ...ds.data(), id: ds.id };
             if (i.status !== 'paga') {
-                if (i.tipo === 'ganho') { prev += i.valor; real += i.valor; } 
-                else { div += i.valor; }
+                if (i.tipo === 'ganho') {
+                    prev += i.valor;
+                    if (i.isSalario) { if (hoje >= quinto) real += i.valor; }
+                    else { if (hoje >= new Date(i.data)) real += i.valor; }
+                } else { div += i.valor; }
             }
             fin.lista.push(i);
         });
@@ -140,7 +139,10 @@ function iniciarRealtime() {
                 <div class="space-y-2 mb-4">
                     ${check.map((c, idx) => `<div onclick="toggleSubmeta('${m.id}', ${idx}, ${c.done})" class="submeta-item p-4 rounded-2xl flex justify-between items-center text-[10px] font-bold ${c.done ? 'done' : ''}"><span>${c.item}</span><span>${c.done ? '✅' : '⭕'}</span></div>`).join('')}
                 </div>
-                <button onclick="addSubmeta('${m.id}')" class="w-full bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">+ Requisito</button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="addSubmeta('${m.id}')" class="bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">+ Requisito</button>
+                    <button onclick="deletarMeta('${m.id}')" class="bg-rose-500/10 text-rose-500 py-3 rounded-xl text-[9px] font-black uppercase">Excluir</button>
+                </div>
             </div>`;
         });
     });
@@ -155,7 +157,7 @@ function atualizarUI() {
     document.getElementById('txtSaude').innerText = perc > 70 ? "Excelente" : "Alerta";
     
     const t = document.getElementById('listaTimeline'); t.innerHTML = "";
-    fin.lista.forEach(i => {
+    fin.lista.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(i => {
         t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'}" onclick="abrirAcao('${i.id}')">
             <div><h4 class="text-[10px] font-black uppercase">${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
             <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
@@ -163,11 +165,20 @@ function atualizarUI() {
     });
 }
 
+// --- BOTÕES NAVEGAÇÃO ---
 window.navegar = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
     document.querySelectorAll('.nav-btn-m').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    if(id === 'secGestao') renderGestao();
+};
+
+// --- BOTÕES LANÇAMENTO ---
+window.setTipo = (t) => {
+    tipoAtual = t;
+    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] font-black uppercase opacity-40 pb-1";
+    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] font-black uppercase opacity-40 pb-1";
 };
 
 window.salvarLancamento = async () => {
@@ -175,34 +186,61 @@ window.salvarLancamento = async () => {
     if(n && v && d) {
         await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tipoAtual, isSalario: s, status: 'pendente', userId: userUID });
         document.getElementById('fNome').value = ""; document.getElementById('fValor').value = "";
-    }
+    } else { alert("Preencha todos os campos."); }
 };
 
 window.abrirAcao = async (id) => {
-    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Pago', del: '🗑️ Excluir' } });
+    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Confirmar', del: '🗑️ Excluir' }, confirmButtonColor: '#a855f7' });
     if(a === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
     else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
 };
 
+window.abrirHistorico = () => {
+    let h = `<div class="space-y-2 text-left">`;
+    fin.lista.forEach(i => h += `<div class="p-3 bg-white/5 rounded-xl text-[10px] uppercase font-black">${i.nome} - ${BRL(i.valor)}</div>`);
+    Swal.fire({ title: 'HISTÓRICO', html: h + (fin.lista.length ? '' : 'Vazio') + '</div>', showConfirmButton: false });
+};
+
+// --- BOTÕES METAS ---
 window.modalNovaMeta = async () => {
-    const { value: n } = await Swal.fire({ title: 'Meta', input: 'text' });
+    const { value: n } = await Swal.fire({ title: 'Nova Meta', input: 'text', confirmButtonColor: '#a855f7' });
     if(n) await addDoc(collection(db, "metas"), { nome: n, status: 'ativa', checklist: [], userId: userUID });
 };
 
 window.addSubmeta = async (id) => {
-    const { value: i } = await Swal.fire({ title: 'Requisito', input: 'text' });
+    const { value: i } = await Swal.fire({ title: 'Requisito', input: 'text', confirmButtonColor: '#a855f7' });
     if(i) await updateDoc(doc(db, "metas", id), { checklist: arrayUnion({ item: i, done: false }) });
 };
+
+window.toggleSubmeta = async (mId, idx, status) => {
+    const m = metasAtivas.find(x => x.id === mId);
+    let nova = [...m.checklist];
+    nova[idx].done = !status;
+    await updateDoc(doc(db, "metas", mId), { checklist: nova });
+};
+
+window.deletarMeta = async (id) => {
+    const { isConfirmed } = await Swal.fire({ title: 'Excluir Meta?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#f43f5e' });
+    if(isConfirmed) await deleteDoc(doc(db, "metas", id));
+};
+
+// --- GESTÃO E CONVERSOR ---
+function renderGestao() {
+    const ctx = document.getElementById('chartGestao');
+    if(chartInst) chartInst.destroy();
+    const divs = fin.lista.filter(f => f.tipo === 'divida');
+    document.getElementById('totalGestao').innerText = BRL(fin.dividas);
+    chartInst = new Chart(ctx, {
+        type: 'doughnut',
+        data: { datasets: [{ data: divs.length ? divs.map(d => d.valor) : [1], backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#4ade80'], borderWidth: 0 }] },
+        options: { cutout: '85%', plugins: { legend: { display: false } } }
+    });
+    document.getElementById('conselhoMentor').innerText = (fin.dividas / (fin.previsto || 1)) > 0.6 ? "Cuidado! Suas dívidas estão altas." : "Tudo sob controle. Continue focando nas metas!";
+}
 
 window.toggleChat = () => { const w = document.getElementById('chatWindow'); w.classList.toggle('hidden'); w.classList.toggle('flex'); };
 window.converterMoedas = () => {
     const brl = Number(document.getElementById('convValor').value);
     document.getElementById('resDolar').innerText = "$ " + (brl / 5.10).toFixed(2);
     document.getElementById('resEuro').innerText = "€ " + (brl / 5.50).toFixed(2);
-};
-
-window.setTipo = (t) => {
-    tipoAtual = t;
-    document.getElementById('tabGanho').style.opacity = t === 'ganho' ? "1" : "0.4";
-    document.getElementById('tabDivida').style.opacity = t === 'divida' ? "1" : "0.4";
 };
