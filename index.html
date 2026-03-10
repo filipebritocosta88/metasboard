@@ -17,48 +17,39 @@
     
     .glass-card { background: rgba(10, 12, 20, 0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; backdrop-filter: blur(15px); }
     .nav-btn-m.active { color: var(--primary); filter: drop-shadow(0 0 5px var(--primary)); }
-    .no-scrollbar::-webkit-scrollbar { display: none; }
     
-    input { font-size: 16px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; outline: none; -webkit-appearance: none; }
-    button { cursor: pointer; touch-action: manipulation; }
-
+    input { font-size: 16px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; outline: none; }
+    
     .hp-bar { height: 8px; border-radius: 10px; background: rgba(255,255,255,0.1); overflow: hidden; }
     .hp-fill { height: 100%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
-    .submeta-item.done { opacity: 0.3; text-decoration: line-through; border-color: #a855f7; }
     
+    /* Categorias */
+    .cat-btn { border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s ease; }
+    .cat-btn.active { background: var(--primary); border-color: var(--primary); transform: scale(1.05); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
+
     #dashboard { display: none; opacity: 0; transition: opacity 0.4s ease; }
     .show-dash { display: block !important; opacity: 1 !important; }
 
+    /* Tutorial Fix */
     .tutorial-highlight { 
         outline: 3px solid #a855f7 !important; 
         outline-offset: 4px; 
         z-index: 10001 !important; 
         position: relative; 
-        background: rgba(168, 85, 247, 0.1) !important; 
     }
     .swal2-container { z-index: 100000 !important; }
-    .swal2-popup { 
-        border-radius: 28px !important; 
-        background: #0a0c14 !important; 
-        color: white !important; 
-        border: 1px solid rgba(255,255,255,0.1) !important;
-    }
-    .swal2-confirm { border-radius: 15px !important; font-weight: 900 !important; text-transform: uppercase !important; font-size: 11px !important; padding: 12px 24px !important; }
   </style>
 </head>
 <body class="no-scrollbar">
 
 <div id="loginTela">
     <div class="w-full max-w-sm space-y-8">
-        <div>
-            <h1 class="text-5xl font-black italic tracking-tighter text-center">METAS<span class="text-purple-500">BOARD</span></h1>
-            <p class="text-[10px] text-center uppercase font-bold opacity-40 mt-2 tracking-[0.3em]">Ecossistema Pessoal</p>
-        </div>
-        <div class="glass-card p-8 space-y-4 border-t-2 border-purple-500/50">
+        <h1 class="text-5xl font-black italic tracking-tighter text-center">METAS<span class="text-purple-500">BOARD</span></h1>
+        <div class="glass-card p-8 space-y-4">
             <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl">
             <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl">
-            <button onclick="executarAuth()" id="btnAcessar" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs tracking-widest active:opacity-70">Entrar no Board</button>
-            <button onclick="alternarModoAuth()" id="btnTrocarAuth" class="w-full text-[9px] font-black uppercase opacity-40 py-2">Criar Nova Conta</button>
+            <button onclick="executarAuth()" id="btnAcessar" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs active:opacity-70">Entrar</button>
+            <button onclick="alternarModoAuth()" id="btnTrocarAuth" class="w-full text-[9px] font-black uppercase opacity-40">Criar Nova Conta</button>
         </div>
     </div>
 </div>
@@ -69,7 +60,7 @@
     <header class="flex justify-between items-center py-4">
         <h2 class="text-xl font-black italic uppercase">Home</h2>
         <div class="flex gap-2">
-            <button id="step-historico" onclick="abrirHistorico()" class="bg-white/5 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-white/10">📜 Histórico</button>
+            <button onclick="abrirHistorico()" class="bg-white/5 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-white/10">📜 Histórico</button>
             <button onclick="sairDoSistema()" class="bg-rose-500/10 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase">Sair</button>
         </div>
     </header>
@@ -77,9 +68,9 @@
     <div id="step-saude" class="glass-card p-6">
         <div class="flex justify-between items-center mb-2">
             <span class="text-[9px] font-black uppercase opacity-40">Saúde Patrimonial</span>
-            <span id="txtSaude" class="text-[9px] font-black uppercase text-emerald-400">Calculando...</span>
+            <span id="txtSaude" class="text-[9px] font-black uppercase text-emerald-400">Excelente</span>
         </div>
-        <div class="hp-bar"><div id="hpFill" class="hp-fill bg-emerald-500" style="width: 0%"></div></div>
+        <div class="hp-bar"><div id="hpFill" class="hp-fill bg-emerald-500" style="width: 100%"></div></div>
         <div class="grid grid-cols-3 gap-2 mt-6">
             <div class="text-center"><p class="text-[7px] opacity-40 uppercase font-black">Previsão</p><h4 id="receitaTotal" class="text-xs font-black text-emerald-400">R$ 0</h4></div>
             <div class="text-center border-x border-white/5"><p class="text-[7px] opacity-40 uppercase font-black">Saldo Real</p><h4 id="saldoReal" class="text-xs font-black text-purple-400">R$ 0</h4></div>
@@ -93,15 +84,24 @@
                 <button onclick="setTipo('ganho')" id="tabGanho" class="text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1">💰 Renda</button>
                 <button onclick="setTipo('divida')" id="tabDivida" class="text-[10px] font-black uppercase opacity-40 pb-1">💸 Saída</button>
             </div>
-            <input id="fNome" type="text" placeholder="Descrição" class="w-full p-4 rounded-xl text-xs">
+            
+            <input id="fNome" type="text" placeholder="O que você comprou/ganhou?" class="w-full p-4 rounded-xl text-xs">
+            
             <div class="grid grid-cols-2 gap-2">
                 <input id="fValor" type="number" placeholder="Valor R$" class="p-4 rounded-xl text-xs">
                 <input id="fData" type="date" class="p-4 rounded-xl text-[10px]">
             </div>
-            <label class="flex items-center gap-2 p-2 opacity-60">
-                <input type="checkbox" id="f5Dia" class="w-4 h-4 accent-purple-500">
-                <span class="text-[9px] font-black uppercase">Salário (5º Dia Útil)</span>
-            </label>
+
+            <div class="space-y-2">
+                <p class="text-[8px] font-black uppercase opacity-30 px-1">Categoria</p>
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="setCat('🛒', this)" class="cat-btn p-3 rounded-xl flex flex-col items-center gap-1 active"><span class="text-sm">🛒</span><span class="text-[7px] font-bold">Mercado</span></button>
+                    <button onclick="setCat('🏠', this)" class="cat-btn p-3 rounded-xl flex flex-col items-center gap-1"><span class="text-sm">🏠</span><span class="text-[7px] font-bold">Fixo</span></button>
+                    <button onclick="setCat('🍔', this)" class="cat-btn p-3 rounded-xl flex flex-col items-center gap-1"><span class="text-sm">🍔</span><span class="text-[7px] font-bold">Lazer</span></button>
+                    <button onclick="setCat('🚀', this)" class="cat-btn p-3 rounded-xl flex flex-col items-center gap-1"><span class="text-sm">🚀</span><span class="text-[7px] font-bold">Invest</span></button>
+                </div>
+            </div>
+
             <button onclick="salvarLancamento()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-xs active:scale-95">Adicionar Registro</button>
         </div>
         <div id="listaTimeline" class="space-y-3"></div>
@@ -110,28 +110,15 @@
     <section id="secMetas" class="hidden space-y-6">
         <div class="flex justify-between items-center px-2">
             <h3 class="text-xs font-black uppercase italic">Objetivos</h3>
-            <div class="flex gap-2">
-                <button onclick="verMetasConcluidas()" class="text-[9px] font-black opacity-30 uppercase">🏆 Vitórias</button>
-                <button id="step-nova-meta" onclick="modalNovaMeta()" class="bg-white text-black px-4 py-2 rounded-lg text-[9px] font-black uppercase">+ Meta</button>
-            </div>
+            <button onclick="modalNovaMeta()" class="bg-white text-black px-4 py-2 rounded-lg text-[9px] font-black uppercase">+ Meta</button>
         </div>
         <div id="rankingGrid" class="space-y-4"></div>
     </section>
 
     <section id="secGestao" class="hidden space-y-6">
-        <div id="step-grafico" class="glass-card p-8 flex flex-col items-center">
+        <div class="glass-card p-8 flex flex-col items-center">
             <canvas id="chartGestao" class="max-w-[180px]"></canvas>
             <h2 id="totalGestao" class="text-xl font-black mt-4 text-rose-500">R$ 0</h2>
-        </div>
-        <div id="step-mentor" class="glass-card p-6 bg-gradient-to-br from-purple-900/20 to-transparent border-purple-500/20">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="text-2xl">🧠</span>
-                <div>
-                    <h4 class="text-[10px] font-black uppercase tracking-widest text-purple-400">Mentor Estratégico</h4>
-                    <p class="text-[8px] opacity-40 uppercase">Análise Patrimonial</p>
-                </div>
-            </div>
-            <p id="conselhoMentor" class="text-[11px] italic leading-relaxed opacity-80">Carregando inteligência...</p>
         </div>
         <div id="listaDetalhada" class="space-y-1"></div>
     </section>
@@ -139,28 +126,10 @@
   </main>
 </div>
 
-<button id="step-conversor" onclick="toggleChat()" class="fixed bottom-24 right-6 w-14 h-14 bg-emerald-600 rounded-full flex items-center justify-center shadow-2xl z-[1000] text-2xl active:scale-90">💵</button>
-<div id="chatWindow" class="fixed bottom-24 right-6 w-72 h-auto glass-card p-4 hidden flex-col z-[1001] border-2 border-emerald-500/20">
-    <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
-        <h4 class="text-[9px] font-black uppercase text-emerald-400">Conversor Express</h4>
-        <button onclick="toggleChat()">✕</button>
-    </div>
-    <div class="space-y-4">
-        <div class="space-y-1">
-            <label class="text-[8px] font-black opacity-40 uppercase">Valor em Real (BRL)</label>
-            <input id="convValor" type="number" oninput="converterMoedas()" placeholder="R$ 0,00" class="w-full p-3 rounded-xl text-sm">
-        </div>
-        <div class="grid grid-cols-1 gap-2">
-            <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center"><span class="text-[10px] font-bold">🇺🇸 Dólar</span><span id="resDolar" class="text-xs font-black text-emerald-400">$ 0.00</span></div>
-            <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center"><span class="text-[10px] font-bold">🇪🇺 Euro</span><span id="resEuro" class="text-xs font-black text-blue-400">€ 0.00</span></div>
-        </div>
-    </div>
-</div>
-
-<nav id="step-nav" class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[900] shadow-2xl">
-    <button id="nav-home" onclick="navegar('secDashboard', this)" class="nav-btn-m active p-3 flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[8px] font-black uppercase">Home</span></button>
-    <button id="nav-metas" onclick="navegar('secMetas', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">🎯</span><span class="text-[8px] font-black uppercase">Metas</span></button>
-    <button id="nav-gestao" onclick="navegar('secGestao', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">📊</span><span class="text-[8px] font-black uppercase">Gestão</span></button>
+<nav class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[900]">
+    <button onclick="navegar('secDashboard', this)" class="nav-btn-m active p-3 flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[8px] font-black uppercase">Home</span></button>
+    <button onclick="navegar('secMetas', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">🎯</span><span class="text-[8px] font-black uppercase">Metas</span></button>
+    <button onclick="navegar('secGestao', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">📊</span><span class="text-[8px] font-black uppercase">Gestão</span></button>
 </nav>
 
 <script type="module" src="app.js"></script>
