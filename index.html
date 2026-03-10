@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>MetasBoard Ultra Pro</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -26,12 +26,26 @@
     .hp-fill { height: 100%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
     .submeta-item.done { opacity: 0.3; text-decoration: line-through; border-color: #a855f7; }
     
-    #dashboard { display: none; opacity: 0; transition: opacity 0.5s ease; }
+    #dashboard { display: none; opacity: 0; transition: opacity 0.4s ease; }
     .show-dash { display: block !important; opacity: 1 !important; }
 
-    /* Destaque do Tutorial */
-    .tutorial-highlight { outline: 3px solid #a855f7; outline-offset: 4px; z-index: 10001 !important; position: relative; background: rgba(168, 85, 247, 0.2) !important; }
-    .swal2-popup { border-radius: 24px !important; background: #0a0c14 !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+    /* Ajuste Tutorial Mobile */
+    .tutorial-highlight { 
+        outline: 3px solid #a855f7 !important; 
+        outline-offset: 4px; 
+        z-index: 10001 !important; 
+        position: relative; 
+        background: rgba(168, 85, 247, 0.1) !important; 
+        box-shadow: 0 0 30px rgba(168, 85, 247, 0.4);
+    }
+    .swal2-popup { 
+        border-radius: 28px !important; 
+        background: #0a0c14 !important; 
+        color: white !important; 
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        padding-bottom: 20px !important;
+    }
+    .swal2-confirm { border-radius: 15px !important; font-weight: 900 !important; text-transform: uppercase !important; font-size: 11px !important; padding: 12px 24px !important; }
   </style>
 </head>
 <body class="no-scrollbar">
@@ -39,8 +53,8 @@
 <div id="loginTela">
     <div class="w-full max-w-sm space-y-8">
         <div>
-            <h1 class="text-5xl font-black italic tracking-tighter">METAS<span class="text-purple-500">BOARD</span></h1>
-            <p class="text-[10px] uppercase font-bold opacity-40 mt-2 tracking-[0.3em]">Ecossistema Pessoal</p>
+            <h1 class="text-5xl font-black italic tracking-tighter text-center">METAS<span class="text-purple-500">BOARD</span></h1>
+            <p class="text-[10px] text-center uppercase font-bold opacity-40 mt-2 tracking-[0.3em]">Ecossistema Pessoal</p>
         </div>
         <div class="glass-card p-8 space-y-4 border-t-2 border-purple-500/50">
             <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl">
@@ -51,7 +65,7 @@
     </div>
 </div>
 
-<div id="dashboard" class="min-h-screen pb-32">
+<div id="dashboard" class="min-h-screen pb-40">
   <main class="p-4 md:p-8 max-w-2xl mx-auto space-y-6">
     
     <header class="flex justify-between items-center py-4">
