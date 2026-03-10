@@ -14,30 +14,28 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-let userUID = null;
-let isRegisterMode = false;
+let userUID = null, isRegisterMode = false, chartInstance = null;
 let financeiro = { ganhos: 0, dividas: 0, saldo: 0, listaFluxo: [] };
-let chartInstance = null;
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 // --- AUTH ---
 window.alternarAuth = () => {
     isRegisterMode = !isRegisterMode;
-    document.getElementById("btnPrincipal").innerText = isRegisterMode ? "Criar Minha Conta" : "Acessar Painel";
+    document.getElementById("btnPrincipal").innerText = isRegisterMode ? "Criar Conta" : "Acessar Sistema";
     document.getElementById("confirmarSenhaContainer").classList.toggle("hidden", !isRegisterMode);
 };
 
 window.login = () => {
     const e = document.getElementById("email").value, s = document.getElementById("senha").value;
     if (isRegisterMode) {
-        const sc = document.getElementById("senhaConfirm").value;
-        if(s !== sc) return Swal.fire('Erro', 'Senhas não conferem', 'error');
         createUserWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro', err.message, 'error'));
     } else {
-        signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro', 'E-mail ou senha inválidos', 'error'));
+        signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro', 'Credenciais Inválidas', 'error'));
     }
 };
+
+window.logout = () => signOut(auth);
 
 onAuthStateChanged(auth, user => {
     if (user) { 
@@ -51,15 +49,7 @@ onAuthStateChanged(auth, user => {
     }
 });
 
-// --- DASHBOARD ---
-window.mostrarSecao = (id, btn) => {
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-    document.querySelectorAll('.nav-btn-m').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if(id === 'secDividas') setTimeout(renderizarGraficoDividas, 100);
-};
-
+// --- ENGINE ---
 function inicializarListeners() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let g = 0, d = 0; financeiro.listaFluxo = [];
@@ -72,18 +62,24 @@ function inicializarListeners() {
         });
         financeiro.ganhos = g; financeiro.dividas = d; financeiro.saldo = g - d;
         atualizarDashboard();
-        gerarPerformanceAnual();
+        gerarConquistas();
     });
 
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
         const grid = document.getElementById("rankingGrid"); grid.innerHTML = "";
         snap.forEach(d => {
             const m = d.data(); const perc = Math.min(100, (m.atual / m.alvo) * 100).toFixed(0);
-            grid.innerHTML += `<div class="glass-card p-5 border-t-2 border-purple-500/20">
-                <h4 class="text-[10px] font-black uppercase mb-3">${m.nome}</h4>
-                <div class="h-1 bg-black/40 rounded-full mb-2"><div class="h-full bg-purple-600 rounded-full" style="width: ${perc}%"></div></div>
-                <div class="flex justify-between text-[9px] mb-4 font-black"><span>${BRL(m.atual)}</span><span class="text-purple-400">${perc}%</span></div>
-                <button onclick="ajustarMeta('${d.id}', ${m.atual})" class="w-full bg-white/5 py-2 rounded-lg text-[10px] font-black">APORTAR</button>
+            grid.innerHTML += `
+            <div class="glass-card p-6 border-l-4 ${perc >= 100 ? 'border-emerald-500' : 'border-purple-500'}">
+                <div class="flex justify-between items-start mb-4">
+                    <div><h4 class="text-xs font-black uppercase">${m.nome}</h4><p class="text-[9px] opacity-40 uppercase">Progresso Alvo</p></div>
+                    <span class="text-xs font-black ${perc >= 100 ? 'text-emerald-400' : 'text-purple-400'}">${perc}%</span>
+                </div>
+                <div class="hp-bar mb-4"><div class="hp-fill ${perc >= 100 ? 'bg-emerald-500' : 'bg-purple-600'}" style="width: ${perc}%"></div></div>
+                <div class="flex gap-2">
+                    <button onclick="ajustarMeta('${d.id}', ${m.atual})" class="flex-1 bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">Aportar</button>
+                    <button onclick="excluirMeta('${d.id}')" class="p-3 bg-white/5 rounded-xl">🗑️</button>
+                </div>
             </div>`;
         });
     });
@@ -94,73 +90,125 @@ function atualizarDashboard() {
     document.getElementById("despesaTotal").innerText = BRL(financeiro.dividas);
     document.getElementById("saldoTotal").innerText = BRL(financeiro.saldo);
     
-    const iaTexto = document.getElementById("iaTexto");
-    const iaCard = document.getElementById("iaCard");
-    const comprometimento = financeiro.ganhos > 0 ? (financeiro.dividas / financeiro.ganhos) * 100 : 0;
+    // RPG HEALTH BAR LOGIC
+    const hpFill = document.getElementById("hpFill");
+    const hpStatus = document.getElementById("hpStatus");
+    const percComprometimento = (financeiro.dividas / (financeiro.ganhos || 1)) * 100;
+    const hp = Math.max(0, 100 - percComprometimento);
 
-    if (comprometimento > 70) {
-        iaCard.classList.replace('border-purple-500', 'border-rose-500');
-        iaTexto.innerHTML = `<span class="text-rose-500 font-black italic">ALERTA CRÍTICO:</span> Suas dívidas consomem ${comprometimento.toFixed(0)}% da renda. Pare de gastar imediatamente!`;
+    hpFill.style.width = hp + "%";
+    if (hp > 70) { hpFill.className = "hp-fill bg-emerald-500"; hpStatus.innerText = "Imbatível"; hpStatus.className = "text-[10px] font-black text-emerald-400"; }
+    else if (hp > 30) { hpFill.className = "hp-fill bg-yellow-500"; hpStatus.innerText = "Alerta"; hpStatus.className = "text-[10px] font-black text-yellow-400"; }
+    else { hpFill.className = "hp-fill bg-rose-500"; hpStatus.innerText = "Crítico"; hpStatus.className = "text-[10px] font-black text-rose-500 animate-pulse"; }
+
+    const ia = document.getElementById("iaTexto");
+    if (financeiro.saldo > 0) {
+        ia.innerText = `Você possui ${BRL(financeiro.saldo)} livres. Se investir isso agora a 1% amanhã você terá mais. Foco no longo prazo.`;
     } else {
-        iaCard.classList.replace('border-rose-500', 'border-purple-500');
-        iaTexto.innerText = financeiro.saldo > 0 ? "Fluxo saudável. Momento ideal para focar nas metas." : "Dica: Revise seus gastos variáveis para aumentar o aporte mensal.";
+        ia.innerText = "Atenção: Seu custo de vida ultrapassou sua renda. Hora de cortar gastos não essenciais.";
     }
 }
 
-// --- FUNÇÕES DE AÇÃO ---
-window.adicionarFluxo = async () => {
-    const n = document.getElementById("fluxoNome").value, 
-          v = Number(document.getElementById("fluxoValor").value), 
-          d = document.getElementById("fluxoData").value, 
-          t = document.getElementById("fluxoTipo").value,
-          c = document.getElementById("fluxoCat").value;
+function gerarConquistas() {
+    const grid = document.getElementById("conquistasGrid"); grid.innerHTML = "";
+    const conquistas = [];
+    if (financeiro.ganhos > 5000) conquistas.push({icon: "💰", title: "High Earner"});
+    if (financeiro.listaFluxo.filter(f => f.status === 'paga').length > 5) conquistas.push({icon: "🛡️", title: "Debt Killer"});
+    if (financeiro.saldo > 1000) conquistas.push({icon: "💎", title: "Investor"});
 
+    conquistas.forEach(c => {
+        grid.innerHTML += `<div class="glass-card p-3 min-w-[100px] text-center badge-glow border-purple-500/30">
+            <span class="text-xl">${c.icon}</span>
+            <p class="text-[8px] font-black uppercase mt-1">${c.title}</p>
+        </div>`;
+    });
+}
+
+// --- ACTIONS ---
+window.adicionarFluxo = async () => {
+    const n = document.getElementById("fluxoNome").value, v = Number(document.getElementById("fluxoValor").value), d = document.getElementById("fluxoData").value, t = document.getElementById("fluxoTipo").value;
     if (n && v && d) { 
-        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: t, categoria: c, status: 'pendente', userId: userUID });
-        document.getElementById("fluxoNome").value = "";
-        document.getElementById("fluxoValor").value = "";
-        Swal.fire({ icon:'success', title:'Salvo!', toast:true, position:'top-end', timer:1500, showConfirmButton:false });
-    } else {
-        Swal.fire('Atenção', 'Preencha todos os campos!', 'warning');
+        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: t, userId: userUID });
+        document.getElementById("fluxoNome").value = ""; document.getElementById("fluxoValor").value = "";
+        Swal.fire({ icon:'success', title:'Registrado', background:'#0a0c14', color:'#fff', toast:true, position:'top-end', timer:1500, showConfirmButton:false });
     }
+};
+
+window.mostrarSecao = (id, btn) => {
+    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    document.querySelectorAll('.nav-btn-m').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if(id === 'secDividas') setTimeout(renderizarGraficoDividas, 100);
+};
+
+window.ajustarMeta = async (id, atual) => {
+    const { value: v } = await Swal.fire({ title: 'Aporte R$', input: 'number', background: '#0a0c14', color: '#fff' });
+    if (v) await updateDoc(doc(db, "metas", id), { atual: atual + Number(v) });
+};
+
+window.excluirMeta = async (id) => {
+    const res = await Swal.fire({ title: 'Excluir meta?', showCancelButton: true, background: '#0a0c14', color: '#fff' });
+    if(res.isConfirmed) await deleteDoc(doc(db, "metas", id));
+};
+
+window.abrirModalMeta = async () => {
+    const { value: f } = await Swal.fire({
+        title: 'Novo Objetivo',
+        html: '<input id="mn" placeholder="Nome" class="swal2-input"><input id="ma" type="number" placeholder="Alvo R$" class="swal2-input">',
+        background: '#0a0c14',
+        preConfirm: () => [document.getElementById('mn').value, document.getElementById('ma').value]
+    });
+    if(f && f[0]) await addDoc(collection(db, "metas"), { nome: f[0], alvo: Number(f[1]), atual: 0, userId: userUID });
+};
+
+function renderizarGraficoDividas() {
+    const ctx = document.getElementById('chartDividas');
+    if(chartInstance) chartInstance.destroy();
+    const divs = financeiro.listaFluxo.filter(f => f.tipo === 'divida' && f.status !== 'paga');
+    document.getElementById("chartTotalLabel").innerText = BRL(financeiro.dividas);
+    
+    chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: divs.map(d => d.nome),
+            datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#a855f7','#7c3aed','#6366f1','#4f46e5'], borderWidth: 0 }]
+        },
+        options: { cutout: '85%', plugins: { legend: { display: false } } }
+    });
+
+    const lista = document.getElementById("listaDividasDetalhada"); lista.innerHTML = "";
+    divs.forEach(d => {
+        lista.innerHTML += `<div class="flex justify-between items-center p-4 glass-card border-r-4 border-rose-500/50">
+            <div class="text-[10px] font-black uppercase">${d.nome}</div>
+            <button onclick="gerenciarDivida('${d.id}', '${d.nome}', ${d.valor})" class="text-purple-400 font-black text-[9px]">GERENCIAR</button>
+        </div>`;
+    });
+}
+
+window.gerenciarDivida = async (id, nome, valor) => {
+    const { value: acao } = await Swal.fire({
+        title: nome,
+        input: 'select',
+        inputOptions: { paga: '✅ Quitar', del: '🗑️ Deletar' },
+        background: '#0a0c14', color: '#fff'
+    });
+    if (acao === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
+    else if (acao === 'del') await deleteDoc(doc(db, "fluxo", id));
+};
+
+window.abrirCofre = () => {
+    const pagas = financeiro.listaFluxo.filter(f => f.status === 'paga');
+    let html = `<div class="space-y-2">`;
+    pagas.forEach(p => { html += `<div class="p-3 bg-white/5 rounded-xl flex justify-between text-xs"><span>${p.nome}</span><b>${BRL(p.valor)}</b></div>`; });
+    Swal.fire({ title: 'COFRE', html: html || 'Vazio', background: '#0a0c14', color: '#fff' });
 };
 
 window.simularJuros = () => {
     const aporte = Number(document.getElementById('simuMes').value);
     const anos = Number(document.getElementById('simuAnos').value);
-    const meses = anos * 12;
-    const taxaMensal = Math.pow(1 + 0.12, 1/12) - 1;
-    const total = aporte * (Math.pow(1 + taxaMensal, meses) - 1) / taxaMensal;
+    const total = aporte * anos * 12 * 1.15; // Simulação simples com 15% de lucro hipotético
     const res = document.getElementById('resSimulador');
     res.classList.remove('hidden');
-    res.innerHTML = `<p class="text-[9px] uppercase opacity-50 italic">Em ${anos} anos você teria:</p><h4 class="text-xl font-black text-emerald-400">${BRL(total)}</h4>`;
+    res.innerHTML = `<h2 class="text-3xl font-black text-emerald-400">${BRL(total)}</h2><p class="text-[10px] uppercase font-black opacity-40 mt-2">Expectativa para ${anos} anos</p>`;
 };
-
-// As funções de gráfico e modal de metas continuam seguindo a mesma lógica original
-function renderizarGraficoDividas() {
-    const ctx = document.getElementById('chartDividas');
-    if(chartInstance) chartInstance.destroy();
-    const divs = financeiro.listaFluxo.filter(f => f.tipo === 'divida' && f.status !== 'paga');
-    
-    // Agrupar por categoria para o gráfico
-    const categorias = {};
-    divs.forEach(d => categorias[d.categoria] = (categorias[d.categoria] || 0) + d.valor);
-
-    chartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(categorias),
-            datasets: [{ data: Object.values(categorias), backgroundColor: ['#ef4444','#f97316','#8b5cf6','#ec4899'], borderWidth: 0 }]
-        },
-        options: { cutout: '80%', plugins: { legend: { display: false } } }
-    });
-
-    const lista = document.getElementById("listaDividasDetalhada"); lista.innerHTML = "";
-    divs.forEach(d => {
-        lista.innerHTML += `<div class="flex justify-between items-center p-4 glass-card">
-            <div class="text-[10px]"><b class="uppercase">${d.nome}</b><br><span class="opacity-40">${d.categoria} | ${d.data}</span></div>
-            <button onclick="gerenciarDivida('${d.id}', '${d.nome}', ${d.valor})" class="text-purple-400 font-black text-[10px]">GERIR</button>
-        </div>`;
-    });
-}
-// (Demais funções window.gerenciarDivida, abrirCofre, etc seguem o padrão enviado anteriormente)
