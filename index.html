@@ -13,17 +13,12 @@
     :root { --primary: #a855f7; --bg: #000000; }
     body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; margin: 0; padding: 0; }
     
-    /* Overlay de Login Prioritária */
-    #loginTela { 
-        position: fixed; inset: 0; z-index: 99999; background: #000; 
-        display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px;
-    }
+    #loginTela { position: fixed; inset: 0; z-index: 99999; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; }
     
     .glass-card { background: rgba(10, 12, 20, 0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; backdrop-filter: blur(15px); }
     .nav-btn-m.active { color: var(--primary); filter: drop-shadow(0 0 5px var(--primary)); }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     
-    /* Correção para iPhone: Inputs não dão zoom e botões respondem ao toque */
     input { font-size: 16px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; outline: none; -webkit-appearance: none; }
     button { cursor: pointer; touch-action: manipulation; }
 
@@ -33,6 +28,10 @@
     
     #dashboard { display: none; opacity: 0; transition: opacity 0.5s ease; }
     .show-dash { display: block !important; opacity: 1 !important; }
+
+    /* Destaque do Tutorial */
+    .tutorial-highlight { outline: 3px solid #a855f7; outline-offset: 4px; z-index: 10001 !important; position: relative; background: rgba(168, 85, 247, 0.2) !important; }
+    .swal2-popup { border-radius: 24px !important; background: #0a0c14 !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }
   </style>
 </head>
 <body class="no-scrollbar">
@@ -46,7 +45,7 @@
         <div class="glass-card p-8 space-y-4 border-t-2 border-purple-500/50">
             <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl">
             <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl">
-            <button onclick="executarAuth()" id="btnAcessar" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs tracking-widest active:opacity-70 transition-all">Entrar no Board</button>
+            <button onclick="executarAuth()" id="btnAcessar" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs tracking-widest active:opacity-70">Entrar no Board</button>
             <button onclick="alternarModoAuth()" id="btnTrocarAuth" class="w-full text-[9px] font-black uppercase opacity-40 py-2">Criar Nova Conta</button>
         </div>
     </div>
@@ -58,12 +57,12 @@
     <header class="flex justify-between items-center py-4">
         <h2 class="text-xl font-black italic uppercase">Home</h2>
         <div class="flex gap-2">
-            <button onclick="abrirHistorico()" class="bg-white/5 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-white/10">📜 Histórico</button>
+            <button id="step-historico" onclick="abrirHistorico()" class="bg-white/5 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-white/10">📜 Histórico</button>
             <button onclick="sairDoSistema()" class="bg-rose-500/10 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase">Sair</button>
         </div>
     </header>
 
-    <div class="glass-card p-6">
+    <div id="step-saude" class="glass-card p-6">
         <div class="flex justify-between items-center mb-2">
             <span class="text-[9px] font-black uppercase opacity-40">Saúde Patrimonial</span>
             <span id="txtSaude" class="text-[9px] font-black uppercase text-emerald-400">Calculando...</span>
@@ -77,7 +76,7 @@
     </div>
 
     <section id="secDashboard" class="space-y-6">
-        <div class="glass-card p-6 space-y-4">
+        <div id="step-registro" class="glass-card p-6 space-y-4">
             <div class="flex gap-4">
                 <button onclick="setTipo('ganho')" id="tabGanho" class="text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1">💰 Renda</button>
                 <button onclick="setTipo('divida')" id="tabDivida" class="text-[10px] font-black uppercase opacity-40 pb-1">💸 Saída</button>
@@ -91,7 +90,7 @@
                 <input type="checkbox" id="f5Dia" class="w-4 h-4 accent-purple-500">
                 <span class="text-[9px] font-black uppercase">Salário (5º Dia Útil)</span>
             </label>
-            <button onclick="salvarLancamento()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-xs active:scale-95 transition-all">Adicionar Registro</button>
+            <button onclick="salvarLancamento()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-xs active:scale-95">Adicionar Registro</button>
         </div>
         <div id="listaTimeline" class="space-y-3"></div>
     </section>
@@ -101,18 +100,18 @@
             <h3 class="text-xs font-black uppercase italic">Objetivos</h3>
             <div class="flex gap-2">
                 <button onclick="verMetasConcluidas()" class="text-[9px] font-black opacity-30 uppercase">🏆 Vitórias</button>
-                <button onclick="modalNovaMeta()" class="bg-white text-black px-4 py-2 rounded-lg text-[9px] font-black uppercase">+ Meta</button>
+                <button id="step-nova-meta" onclick="modalNovaMeta()" class="bg-white text-black px-4 py-2 rounded-lg text-[9px] font-black uppercase">+ Meta</button>
             </div>
         </div>
         <div id="rankingGrid" class="space-y-4"></div>
     </section>
 
     <section id="secGestao" class="hidden space-y-6">
-        <div class="glass-card p-8 flex flex-col items-center">
+        <div id="step-grafico" class="glass-card p-8 flex flex-col items-center">
             <canvas id="chartGestao" class="max-w-[180px]"></canvas>
             <h2 id="totalGestao" class="text-xl font-black mt-4 text-rose-500">R$ 0</h2>
         </div>
-        <div class="glass-card p-6 bg-gradient-to-br from-purple-900/20 to-transparent border-purple-500/20">
+        <div id="step-mentor" class="glass-card p-6 bg-gradient-to-br from-purple-900/20 to-transparent border-purple-500/20">
             <div class="flex items-center gap-3 mb-4">
                 <span class="text-2xl">🧠</span>
                 <div>
@@ -128,7 +127,7 @@
   </main>
 </div>
 
-<button onclick="toggleChat()" class="fixed bottom-24 right-6 w-14 h-14 bg-emerald-600 rounded-full flex items-center justify-center shadow-2xl z-[1000] text-2xl active:scale-90">💵</button>
+<button id="step-conversor" onclick="toggleChat()" class="fixed bottom-24 right-6 w-14 h-14 bg-emerald-600 rounded-full flex items-center justify-center shadow-2xl z-[1000] text-2xl active:scale-90">💵</button>
 <div id="chatWindow" class="fixed bottom-24 right-6 w-72 h-auto glass-card p-4 hidden flex-col z-[1001] border-2 border-emerald-500/20">
     <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
         <h4 class="text-[9px] font-black uppercase text-emerald-400">Conversor Express</h4>
@@ -140,22 +139,16 @@
             <input id="convValor" type="number" oninput="converterMoedas()" placeholder="R$ 0,00" class="w-full p-3 rounded-xl text-sm">
         </div>
         <div class="grid grid-cols-1 gap-2">
-            <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center">
-                <span class="text-[10px] font-bold">🇺🇸 Dólar</span>
-                <span id="resDolar" class="text-xs font-black text-emerald-400">$ 0.00</span>
-            </div>
-            <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center">
-                <span class="text-[10px] font-bold">🇪🇺 Euro</span>
-                <span id="resEuro" class="text-xs font-black text-blue-400">€ 0.00</span>
-            </div>
+            <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center"><span class="text-[10px] font-bold">🇺🇸 Dólar</span><span id="resDolar" class="text-xs font-black text-emerald-400">$ 0.00</span></div>
+            <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center"><span class="text-[10px] font-bold">🇪🇺 Euro</span><span id="resEuro" class="text-xs font-black text-blue-400">€ 0.00</span></div>
         </div>
     </div>
 </div>
 
-<nav class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[900] shadow-2xl">
-    <button onclick="navegar('secDashboard', this)" class="nav-btn-m active p-3 flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[8px] font-black uppercase">Home</span></button>
-    <button onclick="navegar('secMetas', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">🎯</span><span class="text-[8px] font-black uppercase">Metas</span></button>
-    <button onclick="navegar('secGestao', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">📊</span><span class="text-[8px] font-black uppercase">Gestão</span></button>
+<nav id="step-nav" class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[900] shadow-2xl">
+    <button id="nav-home" onclick="navegar('secDashboard', this)" class="nav-btn-m active p-3 flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[8px] font-black uppercase">Home</span></button>
+    <button id="nav-metas" onclick="navegar('secMetas', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">🎯</span><span class="text-[8px] font-black uppercase">Metas</span></button>
+    <button id="nav-gestao" onclick="navegar('secGestao', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">📊</span><span class="text-[8px] font-black uppercase">Gestão</span></button>
 </nav>
 
 <script type="module" src="app.js"></script>
