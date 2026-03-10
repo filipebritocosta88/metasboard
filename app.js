@@ -21,37 +21,46 @@ let metasAtivas = [];
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- GESTÃO DE ACESSO ---
+// --- LÓGICA DE LOGIN ---
 window.alternarModoAuth = () => {
     modoRegistro = !modoRegistro;
-    document.getElementById('btnTrocarAuth').innerText = modoRegistro ? "Já tenho conta" : "Criar Nova Conta";
+    const btn = document.getElementById('btnAcessar');
+    const troca = document.getElementById('btnTrocarAuth');
+    btn.innerText = modoRegistro ? "CRIAR CONTA" : "ENTRAR NO BOARD";
+    troca.innerText = modoRegistro ? "JÁ TENHO CONTA" : "CRIAR NOVA CONTA";
 };
 
 window.executarAuth = () => {
-    const e = document.getElementById('email').value, s = document.getElementById('senha').value;
-    if(!e || !s) return alert("Preencha os campos!");
+    const e = document.getElementById('email').value.trim();
+    const s = document.getElementById('senha').value.trim();
+    if(!e || !s) { alert("Preencha e-mail e senha."); return; }
+    
     if(modoRegistro) {
-        createUserWithEmailAndPassword(auth, e, s).catch(err => alert("Erro: " + err.message));
+        createUserWithEmailAndPassword(auth, e, s).catch(err => alert("Erro ao criar: " + err.message));
     } else {
-        signInWithEmailAndPassword(auth, e, s).catch(() => alert("Acesso negado!"));
+        signInWithEmailAndPassword(auth, e, s).catch(err => alert("Acesso negado. Verifique os dados."));
     }
 };
 
 window.sairDoSistema = () => signOut(auth).then(() => location.reload());
 
+// Monitor de Estado de Login
 onAuthStateChanged(auth, user => {
+    const loginT = document.getElementById('loginTela');
+    const dashT = document.getElementById('dashboard');
+    
     if (user) { 
         userUID = user.uid; 
-        document.getElementById('loginTela').style.display = 'none'; 
-        document.getElementById('dashboard').style.display = 'block'; 
+        loginT.style.display = 'none'; 
+        dashT.classList.add('show-dash'); 
         iniciarRealtime(); 
     } else { 
-        document.getElementById('loginTela').style.display = 'flex'; 
-        document.getElementById('dashboard').style.display = 'none'; 
+        loginT.style.display = 'flex'; 
+        dashT.classList.remove('show-dash'); 
     }
 });
 
-// --- LÓGICA DE CALENDÁRIO ---
+// --- ENGINE FINANCEIRA ---
 function getQuintoDiaUtil() {
     let d = new Date(); d.setDate(1); let c = 0;
     while (c < 5) {
@@ -62,8 +71,8 @@ function getQuintoDiaUtil() {
     return d;
 }
 
-// --- ENGINE REALTIME ---
 function iniciarRealtime() {
+    // Fluxo
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let prev = 0, real = 0, div = 0; fin.lista = [];
         const hoje = new Date();
@@ -84,14 +93,15 @@ function iniciarRealtime() {
         atualizarUI();
     });
 
+    // Metas
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "ativa")), snap => {
         metasAtivas = [];
         const grid = document.getElementById('rankingGrid'); grid.innerHTML = "";
         snap.forEach(ds => {
             const m = { ...ds.data(), id: ds.id }; metasAtivas.push(m);
             const check = m.checklist || [];
-            const done = check.filter(c => c.done).length;
-            const perc = check.length > 0 ? (done / check.length) * 100 : 0;
+            const doneCount = check.filter(c => c.done).length;
+            const perc = check.length > 0 ? (doneCount / check.length) * 100 : 0;
 
             grid.innerHTML += `
             <div class="glass-card p-6 border-l-4 border-purple-500">
@@ -107,21 +117,28 @@ function iniciarRealtime() {
                         </div>
                     `).join('')}
                 </div>
-                <button onclick="addSubmeta('${m.id}')" class="w-full bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">+ Adicionar Requisito</button>
+                <button onclick="addSubmeta('${m.id}')" class="w-full bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">+ Requisito</button>
             </div>`;
         });
     });
 }
 
-// --- MENTOR E GESTÃO ---
-function atualizarMentor() {
-    const conselho = document.getElementById('conselhoMentor');
-    const ratio = fin.dividas / (fin.previsto || 1);
+// --- UI & MENTOR ---
+function atualizarUI() {
+    document.getElementById('receitaTotal').innerText = BRL(fin.previsto);
+    document.getElementById('saldoReal').innerText = BRL(fin.saldoReal);
+    document.getElementById('despesaTotal').innerText = BRL(fin.dividas);
+    const perc = Math.max(0, 100 - (fin.dividas / (fin.previsto || 1) * 100));
+    document.getElementById('hpFill').style.width = perc + "%";
+    document.getElementById('txtSaude').innerText = perc > 70 ? "Excelente" : perc > 40 ? "Alerta" : "Crítico";
     
-    if (fin.previsto === 0) conselho.innerText = "Cadastre sua renda para eu começar a te mentorar!";
-    else if (ratio > 0.7) conselho.innerText = "ALERTA: Suas dívidas consomem 70%+ da sua renda. Foque em quitar os requisitos menores das metas antes de novos gastos.";
-    else if (fin.saldoReal > fin.dividas) conselho.innerText = "Excelente! Seu saldo real cobre suas dívidas. Momento ideal para aportar em um requisito de meta de alto valor.";
-    else conselho.innerText = "Seu fluxo está estável. Mantenha os pagamentos em dia para liberar o saldo do 5º dia útil para suas metas.";
+    const t = document.getElementById('listaTimeline'); t.innerHTML = "";
+    fin.lista.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(i => {
+        t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'} active:opacity-60" onclick="abrirAcao('${i.id}')">
+            <div><h4 class="text-[10px] font-black uppercase">${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
+            <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
+        </div>`;
+    });
 }
 
 function renderGestao() {
@@ -135,30 +152,24 @@ function renderGestao() {
         data: {
             datasets: [{
                 data: divs.map(d => d.valor),
-                backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#4f46e5', '#ef4444'],
-                borderWidth: 0,
-                borderRadius: 5
+                backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#4f46e5'],
+                borderWidth: 0, borderRadius: 5
             }]
         },
         options: { cutout: '85%', plugins: { legend: { display: false } } }
     });
 
+    const conselho = document.getElementById('conselhoMentor');
+    const ratio = fin.dividas / (fin.previsto || 1);
+    conselho.innerText = ratio > 0.6 ? "Cuidado! Suas dívidas estão altas. Recomendo adiar novos requisitos de metas." : "Finanças saudáveis. Você tem espaço para investir em suas submetas hoje!";
+    
     const list = document.getElementById('listaDetalhada'); list.innerHTML = "";
     divs.forEach(d => {
         list.innerHTML += `<div class="flex justify-between p-4 bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase"><span class="opacity-60">${d.nome}</span><span>${BRL(d.valor)}</span></div>`;
     });
-    atualizarMentor();
 }
 
-// --- CONVERSOR DE MOEDAS ---
-window.converterMoedas = () => {
-    const brl = Number(document.getElementById('convValor').value);
-    document.getElementById('resDolar').innerText = "$ " + (brl / 5.10).toFixed(2);
-    document.getElementById('resEuro').innerText = "€ " + (brl / 5.50).toFixed(2);
-    document.getElementById('resPeso').innerText = "$ " + (brl * 170).toFixed(0);
-};
-
-// --- CORE ---
+// --- COMANDOS ---
 window.salvarLancamento = async () => {
     const n = document.getElementById('fNome').value, v = Number(document.getElementById('fValor').value), d = document.getElementById('fData').value, s = document.getElementById('f5Dia').checked;
     if(n && v && d) {
@@ -166,23 +177,6 @@ window.salvarLancamento = async () => {
         document.getElementById('fNome').value = ""; document.getElementById('fValor').value = "";
     }
 };
-
-function atualizarUI() {
-    document.getElementById('receitaTotal').innerText = BRL(fin.previsto);
-    document.getElementById('saldoReal').innerText = BRL(fin.saldoReal);
-    document.getElementById('despesaTotal').innerText = BRL(fin.dividas);
-    const perc = Math.max(0, 100 - (fin.dividas / (fin.previsto || 1) * 100));
-    document.getElementById('hpFill').style.width = perc + "%";
-    document.getElementById('txtSaude').innerText = perc > 70 ? "Excelente" : perc > 40 ? "Alerta" : "Crítico";
-    
-    const t = document.getElementById('listaTimeline'); t.innerHTML = "";
-    fin.lista.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(i => {
-        t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'} active:scale-95" onclick="abrirAcao('${i.id}')">
-            <div><h4 class="text-[10px] font-black uppercase">${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
-            <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
-        </div>`;
-    });
-}
 
 window.navegar = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
@@ -204,26 +198,33 @@ window.toggleSubmeta = async (mId, idx, status) => {
 };
 
 window.abrirAcao = async (id) => {
-    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Marcar Pago', del: '🗑️ Excluir' }, background: '#0a0c14', color: '#fff' });
+    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Pago', del: '🗑️ Excluir' }, background: '#0a0c14', color: '#fff' });
     if(a === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
     else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
 };
 
 window.modalNovaMeta = async () => {
-    const { value: n } = await Swal.fire({ title: 'Meta Principal', input: 'text', placeholder: 'Ex: Viagem Japão' });
+    const { value: n } = await Swal.fire({ title: 'Nova Meta Principal', input: 'text', placeholder: 'Ex: Trocar de Carro' });
     if(n) await addDoc(collection(db, "metas"), { nome: n, status: 'ativa', checklist: [], userId: userUID });
 };
 
 window.addSubmeta = async (id) => {
-    const { value: i } = await Swal.fire({ title: 'Submeta', input: 'text', placeholder: 'Ex: Comprar Passagem' });
+    const { value: i } = await Swal.fire({ title: 'Requisito', input: 'text', placeholder: 'Ex: Guardar R$ 100' });
     if(i) await updateDoc(doc(db, "metas", id), { checklist: arrayUnion({ item: i, done: false }) });
 };
 
 window.toggleChat = () => { const w = document.getElementById('chatWindow'); w.classList.toggle('hidden'); w.classList.toggle('flex'); };
+
+window.converterMoedas = () => {
+    const brl = Number(document.getElementById('convValor').value);
+    document.getElementById('resDolar').innerText = "$ " + (brl / 5.10).toFixed(2);
+    document.getElementById('resEuro').innerText = "€ " + (brl / 5.50).toFixed(2);
+};
+
 window.setTipo = (t) => {
     tipoAtual = t;
-    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500" : "text-[10px] opacity-40";
-    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500" : "text-[10px] opacity-40";
+    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
+    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
 };
 
 window.abrirHistorico = () => {
