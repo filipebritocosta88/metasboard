@@ -49,7 +49,7 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div class="space-y-4">
-            <div class="glass-card p-6 border-l-8 border-purple-500 bg-gradient-to-br from-purple-900/10 to-transparent">
+            <div id="iaCard" class="glass-card p-6 border-l-8 border-purple-500 bg-gradient-to-br from-purple-900/10 to-transparent transition-colors duration-500">
                 <h4 class="text-xs font-black uppercase mb-2 flex items-center gap-2">🔮 Mentor Estratégico</h4>
                 <p id="iaTexto" class="text-xs italic opacity-80 leading-relaxed">Carregando análise...</p>
             </div>
@@ -67,10 +67,18 @@
                     <input id="fluxoValor" type="number" placeholder="Valor R$" class="p-3 rounded-xl">
                     <input id="fluxoData" type="date" class="p-3 rounded-xl text-xs">
                 </div>
-                <select id="fluxoTipo" class="w-full p-3 rounded-xl">
-                    <option value="ganho">Entrada (+)</option>
-                    <option value="divida">Dívida (-)</option>
-                </select>
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="fluxoTipo" class="p-3 rounded-xl text-xs">
+                        <option value="ganho">Entrada (+)</option>
+                        <option value="divida">Dívida (-)</option>
+                    </select>
+                    <select id="fluxoCat" class="p-3 rounded-xl text-xs">
+                        <option value="Essencial">🏠 Essencial</option>
+                        <option value="Lazer">🎡 Lazer</option>
+                        <option value="Saúde">🏥 Saúde</option>
+                        <option value="Outros">📦 Outros</option>
+                    </select>
+                </div>
                 <button onclick="adicionarFluxo()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-xs">Salvar Registro</button>
             </div>
         </div>
