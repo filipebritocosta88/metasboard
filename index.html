@@ -23,21 +23,18 @@
     .hp-bar { height: 8px; border-radius: 10px; background: rgba(255,255,255,0.1); overflow: hidden; }
     .hp-fill { height: 100%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
     
-    /* Categorias */
     .cat-btn { border: 1px solid rgba(255,255,255,0.1); transition: all 0.3s ease; }
-    .cat-btn.active { background: var(--primary); border-color: var(--primary); transform: scale(1.05); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); }
+    .cat-btn.active { background: var(--primary); border-color: var(--primary); transform: scale(1.05); }
+
+    /* Modo Anônimo */
+    .blur-mode .money-val { filter: blur(6px); pointer-events: none; }
 
     #dashboard { display: none; opacity: 0; transition: opacity 0.4s ease; }
     .show-dash { display: block !important; opacity: 1 !important; }
 
-    /* Tutorial Fix */
-    .tutorial-highlight { 
-        outline: 3px solid #a855f7 !important; 
-        outline-offset: 4px; 
-        z-index: 10001 !important; 
-        position: relative; 
-    }
+    .tutorial-highlight { outline: 3px solid #a855f7 !important; outline-offset: 4px; z-index: 10001 !important; position: relative; }
     .swal2-container { z-index: 100000 !important; }
+    .swal2-popup { border-radius: 28px !important; background: #0a0c14 !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }
   </style>
 </head>
 <body class="no-scrollbar">
@@ -48,7 +45,7 @@
         <div class="glass-card p-8 space-y-4">
             <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl">
             <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl">
-            <button onclick="executarAuth()" id="btnAcessar" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs active:opacity-70">Entrar</button>
+            <button onclick="executarAuth()" id="btnAcessar" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs">Entrar</button>
             <button onclick="alternarModoAuth()" id="btnTrocarAuth" class="w-full text-[9px] font-black uppercase opacity-40">Criar Nova Conta</button>
         </div>
     </div>
@@ -58,7 +55,10 @@
   <main class="p-4 md:p-8 max-w-2xl mx-auto space-y-6">
     
     <header class="flex justify-between items-center py-4">
-        <h2 class="text-xl font-black italic uppercase">Home</h2>
+        <div class="flex items-center gap-3">
+            <h2 class="text-xl font-black italic uppercase">Home</h2>
+            <button onclick="toggleAnonimo()" class="bg-white/5 p-2 rounded-lg text-lg" title="Modo Privacidade">👁️</button>
+        </div>
         <div class="flex gap-2">
             <button onclick="abrirHistorico()" class="bg-white/5 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-white/10">📜 Histórico</button>
             <button onclick="sairDoSistema()" class="bg-rose-500/10 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase">Sair</button>
@@ -68,13 +68,13 @@
     <div id="step-saude" class="glass-card p-6">
         <div class="flex justify-between items-center mb-2">
             <span class="text-[9px] font-black uppercase opacity-40">Saúde Patrimonial</span>
-            <span id="txtSaude" class="text-[9px] font-black uppercase text-emerald-400">Excelente</span>
+            <span id="txtSaude" class="text-[9px] font-black uppercase text-emerald-400">Status: OK</span>
         </div>
         <div class="hp-bar"><div id="hpFill" class="hp-fill bg-emerald-500" style="width: 100%"></div></div>
         <div class="grid grid-cols-3 gap-2 mt-6">
-            <div class="text-center"><p class="text-[7px] opacity-40 uppercase font-black">Previsão</p><h4 id="receitaTotal" class="text-xs font-black text-emerald-400">R$ 0</h4></div>
-            <div class="text-center border-x border-white/5"><p class="text-[7px] opacity-40 uppercase font-black">Saldo Real</p><h4 id="saldoReal" class="text-xs font-black text-purple-400">R$ 0</h4></div>
-            <div class="text-center"><p class="text-[7px] opacity-40 uppercase font-black">Dívidas</p><h4 id="despesaTotal" class="text-xs font-black text-rose-500">R$ 0</h4></div>
+            <div class="text-center"><p class="text-[7px] opacity-40 uppercase font-black">Previsão</p><h4 id="receitaTotal" class="money-val text-xs font-black text-emerald-400">R$ 0</h4></div>
+            <div class="text-center border-x border-white/5"><p class="text-[7px] opacity-40 uppercase font-black">Saldo Real</p><h4 id="saldoReal" class="money-val text-xs font-black text-purple-400">R$ 0</h4></div>
+            <div class="text-center"><p class="text-[7px] opacity-40 uppercase font-black">Dívidas</p><h4 id="despesaTotal" class="money-val text-xs font-black text-rose-500">R$ 0</h4></div>
         </div>
     </div>
 
@@ -85,7 +85,7 @@
                 <button onclick="setTipo('divida')" id="tabDivida" class="text-[10px] font-black uppercase opacity-40 pb-1">💸 Saída</button>
             </div>
             
-            <input id="fNome" type="text" placeholder="O que você comprou/ganhou?" class="w-full p-4 rounded-xl text-xs">
+            <input id="fNome" type="text" placeholder="Descrição" class="w-full p-4 rounded-xl text-xs">
             
             <div class="grid grid-cols-2 gap-2">
                 <input id="fValor" type="number" placeholder="Valor R$" class="p-4 rounded-xl text-xs">
@@ -93,7 +93,6 @@
             </div>
 
             <div class="space-y-2">
-                <p class="text-[8px] font-black uppercase opacity-30 px-1">Categoria</p>
                 <div class="grid grid-cols-4 gap-2">
                     <button onclick="setCat('🛒', this)" class="cat-btn p-3 rounded-xl flex flex-col items-center gap-1 active"><span class="text-sm">🛒</span><span class="text-[7px] font-bold">Mercado</span></button>
                     <button onclick="setCat('🏠', this)" class="cat-btn p-3 rounded-xl flex flex-col items-center gap-1"><span class="text-sm">🏠</span><span class="text-[7px] font-bold">Fixo</span></button>
@@ -118,7 +117,7 @@
     <section id="secGestao" class="hidden space-y-6">
         <div class="glass-card p-8 flex flex-col items-center">
             <canvas id="chartGestao" class="max-w-[180px]"></canvas>
-            <h2 id="totalGestao" class="text-xl font-black mt-4 text-rose-500">R$ 0</h2>
+            <h2 id="totalGestao" class="money-val text-xl font-black mt-4 text-rose-500">R$ 0</h2>
         </div>
         <div id="listaDetalhada" class="space-y-1"></div>
     </section>
