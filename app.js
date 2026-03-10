@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
@@ -15,49 +15,46 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let userUID = null, tipoAtual = 'ganho', catAtual = '🛒', chartInst = null;
+let userUID = null, tipoAtual = 'divida', catAtual = '💸', chartInst = null;
 let fin = { previsto: 0, saldoReal: 0, dividas: 0, lista: [] };
-let dadosCarregados = false;
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- NOVO TUTORIAL "SYSTEM BOOT" ---
-async function iniciarTutorial() {
-    // Dispara assim que os dados carregam, sem delay
-    const { value: ok } = await Swal.fire({
-        title: 'SISTEMA INICIALIZADO 🧠',
-        text: 'Pronto para assumir o controle do seu império financeiro? Calibração rápida necessária.',
-        confirmButtonText: 'CALIBRAR AGORA',
-        confirmButtonColor: '#a855f7',
-        background: '#0a0c14',
-        color: '#fff'
-    });
-    if (!ok) return;
-
-    const passos = [
-        { el: 'step-saude', txt: 'SENSORES PATRIMONIAIS: Fique no verde para manter o sistema estável.' },
-        { el: 'step-registro', txt: 'NÚCLEO DE REGISTRO: Alimente os dados com o seletor de categorias.' }
-    ];
-
-    for (let p of passos) {
-        document.getElementById(p.el).scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await new Promise(r => setTimeout(r, 400));
-        document.getElementById(p.el).classList.add('tutorial-highlight');
-        await Swal.fire({ text: p.txt, confirmButtonText: 'OK', confirmButtonColor: '#a855f7' });
-        document.getElementById(p.el).classList.remove('tutorial-highlight');
+// --- SMART INPUT (INOVAÇÃO) ---
+window.processarComando = (val) => {
+    const partes = val.split(' ');
+    const valorEncontrado = partes.find(p => !isNaN(p.replace(',', '.')) && p !== "");
+    
+    if (valorEncontrado) {
+        document.getElementById('fValorManual').value = valorEncontrado.replace(',', '.');
     }
-    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+
+    // Auto-Categoria
+    const texto = val.toLowerCase();
+    if(texto.includes('mercado') || texto.includes('comida')) setCat('🛒');
+    else if(texto.includes('aluguel') || texto.includes('luz') || texto.includes('casa')) setCat('🏠');
+    else if(texto.includes('uber') || texto.includes('ifood') || texto.includes('lanche')) setCat('🍔');
+    else if(texto.includes('invest') || texto.includes('nubank')) setCat('🚀');
+};
+
+// --- TUTORIAL ---
+async function iniciarTutorial() {
+    await Swal.fire({
+        title: 'SISTEMA INICIALIZADO 🧠',
+        text: 'Bem-vindo ao seu novo terminal. Menos cliques, mais velocidade.',
+        confirmButtonText: 'VAMOS LÁ',
+        confirmButtonColor: '#a855f7',
+        background: '#0a0c14', color: '#fff'
+    });
 }
 
 // --- PRIVACIDADE ---
-window.toggleAnonimo = () => {
-    document.body.classList.toggle('blur-mode');
-};
+window.toggleAnonimo = () => document.body.classList.toggle('blur-mode');
 
 // --- AUTH ---
 window.alternarModoAuth = () => {
     const btn = document.getElementById('btnAcessar');
-    btn.innerText = btn.innerText === "ENTRAR" ? "CRIAR CONTA" : "ENTRAR";
+    btn.innerText = btn.innerText === "Entrar no Terminal" ? "Criar Conta" : "Entrar no Terminal";
 };
 
 window.executarAuth = () => {
@@ -65,12 +62,8 @@ window.executarAuth = () => {
     const s = document.getElementById('senha').value.trim();
     const modo = document.getElementById('btnAcessar').innerText;
     if(!e || !s) return;
-
-    if(modo === "CRIAR CONTA") {
-        createUserWithEmailAndPassword(auth, e, s).then(c => {
-            localStorage.setItem('novo_user_'+c.user.uid, '1');
-            // O tutorial vai disparar via onAuthStateChanged
-        }).catch(a => alert(a.message));
+    if(modo === "Criar Conta") {
+        createUserWithEmailAndPassword(auth, e, s).then(c => localStorage.setItem('novo_user_'+c.user.uid, '1')).catch(a => alert(a.message));
     } else {
         signInWithEmailAndPassword(auth, e, s).catch(() => alert("Erro no login"));
     }
@@ -83,11 +76,11 @@ onAuthStateChanged(auth, user => {
         userUID = user.uid; 
         document.getElementById('loginTela').style.display = 'none'; 
         document.getElementById('dashboard').classList.add('show-dash'); 
+        document.getElementById('dataHoje').innerText = new Date().toLocaleDateString('pt-br', {weekday:'long', day:'numeric'});
         iniciarRealtime(); 
-        // Checagem imediata de novo usuário
         if(localStorage.getItem('novo_user_'+userUID)) {
             localStorage.removeItem('novo_user_'+userUID);
-            setTimeout(iniciarTutorial, 1000); // Pequena folga para os dados entrarem
+            setTimeout(iniciarTutorial, 1000);
         }
     } else { document.getElementById('loginTela').style.display = 'flex'; }
 });
@@ -103,21 +96,8 @@ function iniciarRealtime() {
             }
             fin.lista.push(i);
         });
-        fin.previsto=p; fin.saldoReal=r; fin.dividas=d; dadosCarregados=true;
+        fin.previsto=p; fin.saldoReal=r-d; fin.dividas=d;
         atualizarUI();
-    });
-
-    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "ativa")), snap => {
-        const grid = document.getElementById('rankingGrid'); grid.innerHTML = "";
-        snap.forEach(ds => {
-            const m = { ...ds.data(), id: ds.id };
-            const done = (m.checklist || []).filter(c => c.done).length;
-            const perc = m.checklist?.length ? (done / m.checklist.length) * 100 : 0;
-            grid.innerHTML += `<div class="glass-card p-6 border-l-4 border-purple-500">
-                <div class="flex justify-between mb-2"><h4 class="text-xs font-black uppercase">${m.nome}</h4><span>${perc.toFixed(0)}%</span></div>
-                <div class="hp-bar"><div class="hp-fill bg-purple-500" style="width: ${perc}%"></div></div>
-            </div>`;
-        });
     });
 }
 
@@ -127,34 +107,38 @@ function atualizarUI() {
     document.getElementById('despesaTotal').innerText = BRL(fin.dividas);
     const perc = Math.max(0, 100 - (fin.dividas / (fin.previsto || 1) * 100));
     document.getElementById('hpFill').style.width = perc + "%";
+    document.getElementById('txtSaude').innerText = perc > 70 ? "SISTEMA ESTÁVEL" : "ALERTA DE CAIXA";
     
     const t = document.getElementById('listaTimeline'); t.innerHTML = "";
-    fin.lista.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
+    fin.lista.sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0, 8).forEach(i => {
         t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'}" onclick="abrirAcao('${i.id}')">
-            <div><h4 class="text-[10px] font-black uppercase">${i.categoria || '💸'} ${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
+            <div class="flex items-center gap-3">
+                <span class="text-xl">${i.categoria || '💸'}</span>
+                <div><h4 class="text-[10px] font-black uppercase">${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
+            </div>
             <b class="money-val text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
         </div>`;
     });
 }
 
-// --- BOTOES ---
-window.setTipo = (t) => {
-    tipoAtual = t;
-    document.getElementById('tabGanho').className = t==='ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
-    document.getElementById('tabDivida').className = t==='divida' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
-};
-
-window.setCat = (emoji, btn) => {
-    catAtual = emoji;
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-};
-
 window.salvarLancamento = async () => {
-    const n = document.getElementById('fNome').value, v = Number(document.getElementById('fValor').value), d = document.getElementById('fData').value;
-    if(n && v && d) {
-        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tipoAtual, categoria: catAtual, userId: userUID, status: 'pendente' });
-        document.getElementById('fNome').value = ""; document.getElementById('fValor').value = "";
+    const smart = document.getElementById('smartInput').value;
+    const manualValor = document.getElementById('fValorManual').value;
+    const data = document.getElementById('fData').value || new Date().toISOString().split('T')[0];
+    
+    if(smart && manualValor) {
+        await addDoc(collection(db, "fluxo"), {
+            nome: smart.split(' ')[0],
+            valor: parseFloat(manualValor),
+            data: data,
+            tipo: tipoAtual,
+            categoria: catAtual,
+            userId: userUID,
+            status: 'pendente'
+        });
+        document.getElementById('smartInput').value = "";
+        document.getElementById('fValorManual').value = "";
+        confetti({ particleCount: 50, spread: 60 });
     }
 };
 
@@ -164,33 +148,9 @@ window.abrirAcao = async (id) => {
     else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
 };
 
-window.abrirHistorico = () => {
-    let h = `<div class="space-y-2 text-left">`;
-    fin.lista.forEach(i => h += `<div class="p-3 bg-white/5 rounded-xl text-[10px] uppercase font-black money-val">${i.nome} - ${BRL(i.valor)}</div>`);
-    Swal.fire({ title: 'HISTÓRICO', html: h + '</div>', showConfirmButton: false });
-};
-
 window.navegar = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
     document.querySelectorAll('.nav-btn-m').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    if(id === 'secGestao') renderGestao();
 };
-
-window.modalNovaMeta = async () => {
-    const { value: n } = await Swal.fire({ title: 'Nova Meta', input: 'text', confirmButtonColor: '#a855f7' });
-    if(n) await addDoc(collection(db, "metas"), { nome: n, status: 'ativa', checklist: [], userId: userUID });
-};
-
-function renderGestao() {
-    const ctx = document.getElementById('chartGestao');
-    if(chartInst) chartInst.destroy();
-    const divs = fin.lista.filter(f => f.tipo === 'divida');
-    document.getElementById('totalGestao').innerText = BRL(fin.dividas);
-    chartInst = new Chart(ctx, {
-        type: 'doughnut',
-        data: { datasets: [{ data: divs.length ? divs.map(d => d.valor) : [1], backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#4ade80'], borderWidth: 0 }] },
-        options: { cutout: '85%', plugins: { legend: { display: false } } }
-    });
-}
