@@ -21,26 +21,38 @@ let dadosCarregados = false;
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- TUTORIAL ---
+// --- NOVO TUTORIAL "SYSTEM BOOT" ---
 async function iniciarTutorial() {
-    while(!dadosCarregados) { await new Promise(r => setTimeout(r, 100)); }
-    const { value: ok } = await Swal.fire({ title: 'BEM-VINDO!', text: 'Quer um tour rápido?', icon: 'info', showCancelButton: true, confirmButtonText: 'Sim!', confirmButtonColor: '#a855f7' });
+    // Dispara assim que os dados carregam, sem delay
+    const { value: ok } = await Swal.fire({
+        title: 'SISTEMA INICIALIZADO 🧠',
+        text: 'Pronto para assumir o controle do seu império financeiro? Calibração rápida necessária.',
+        confirmButtonText: 'CALIBRAR AGORA',
+        confirmButtonColor: '#a855f7',
+        background: '#0a0c14',
+        color: '#fff'
+    });
     if (!ok) return;
 
     const passos = [
-        { el: 'step-saude', txt: 'Seu HP financeiro. Mantenha as dívidas baixas!' },
-        { el: 'step-registro', txt: 'REGISTRO: Escolha a categoria e salve seus gastos.' }
+        { el: 'step-saude', txt: 'SENSORES PATRIMONIAIS: Fique no verde para manter o sistema estável.' },
+        { el: 'step-registro', txt: 'NÚCLEO DE REGISTRO: Alimente os dados com o seletor de categorias.' }
     ];
 
     for (let p of passos) {
         document.getElementById(p.el).scrollIntoView({ behavior: 'smooth', block: 'center' });
         await new Promise(r => setTimeout(r, 400));
         document.getElementById(p.el).classList.add('tutorial-highlight');
-        await Swal.fire({ text: p.txt, confirmButtonText: 'PRÓXIMO', confirmButtonColor: '#a855f7' });
+        await Swal.fire({ text: p.txt, confirmButtonText: 'OK', confirmButtonColor: '#a855f7' });
         document.getElementById(p.el).classList.remove('tutorial-highlight');
     }
-    confetti({ particleCount: 100 });
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 }
+
+// --- PRIVACIDADE ---
+window.toggleAnonimo = () => {
+    document.body.classList.toggle('blur-mode');
+};
 
 // --- AUTH ---
 window.alternarModoAuth = () => {
@@ -55,7 +67,10 @@ window.executarAuth = () => {
     if(!e || !s) return;
 
     if(modo === "CRIAR CONTA") {
-        createUserWithEmailAndPassword(auth, e, s).then(c => localStorage.setItem('novo_user_'+c.user.uid, '1')).catch(a => alert(a.message));
+        createUserWithEmailAndPassword(auth, e, s).then(c => {
+            localStorage.setItem('novo_user_'+c.user.uid, '1');
+            // O tutorial vai disparar via onAuthStateChanged
+        }).catch(a => alert(a.message));
     } else {
         signInWithEmailAndPassword(auth, e, s).catch(() => alert("Erro no login"));
     }
@@ -69,11 +84,15 @@ onAuthStateChanged(auth, user => {
         document.getElementById('loginTela').style.display = 'none'; 
         document.getElementById('dashboard').classList.add('show-dash'); 
         iniciarRealtime(); 
-        if(localStorage.getItem('novo_user_'+userUID)) { localStorage.removeItem('novo_user_'+userUID); iniciarTutorial(); }
+        // Checagem imediata de novo usuário
+        if(localStorage.getItem('novo_user_'+userUID)) {
+            localStorage.removeItem('novo_user_'+userUID);
+            setTimeout(iniciarTutorial, 1000); // Pequena folga para os dados entrarem
+        }
     } else { document.getElementById('loginTela').style.display = 'flex'; }
 });
 
-// --- CORE ---
+// --- ENGINE ---
 function iniciarRealtime() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let p=0, r=0, d=0; fin.lista = [];
@@ -91,7 +110,7 @@ function iniciarRealtime() {
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "ativa")), snap => {
         const grid = document.getElementById('rankingGrid'); grid.innerHTML = "";
         snap.forEach(ds => {
-            const m = ds.data();
+            const m = { ...ds.data(), id: ds.id };
             const done = (m.checklist || []).filter(c => c.done).length;
             const perc = m.checklist?.length ? (done / m.checklist.length) * 100 : 0;
             grid.innerHTML += `<div class="glass-card p-6 border-l-4 border-purple-500">
@@ -113,12 +132,12 @@ function atualizarUI() {
     fin.lista.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
         t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'}" onclick="abrirAcao('${i.id}')">
             <div><h4 class="text-[10px] font-black uppercase">${i.categoria || '💸'} ${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
-            <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
+            <b class="money-val text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
         </div>`;
     });
 }
 
-// --- WINDOW FUNCTIONS (PARA OS BOTÕES FUNCIONAREM) ---
+// --- BOTOES ---
 window.setTipo = (t) => {
     tipoAtual = t;
     document.getElementById('tabGanho').className = t==='ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
@@ -147,7 +166,7 @@ window.abrirAcao = async (id) => {
 
 window.abrirHistorico = () => {
     let h = `<div class="space-y-2 text-left">`;
-    fin.lista.forEach(i => h += `<div class="p-3 bg-white/5 rounded-xl text-[10px] uppercase font-black">${i.nome} - ${BRL(i.valor)}</div>`);
+    fin.lista.forEach(i => h += `<div class="p-3 bg-white/5 rounded-xl text-[10px] uppercase font-black money-val">${i.nome} - ${BRL(i.valor)}</div>`);
     Swal.fire({ title: 'HISTÓRICO', html: h + '</div>', showConfirmButton: false });
 };
 
