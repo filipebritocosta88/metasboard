@@ -7,9 +7,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
   <style>
-    :root { --primary: #a855f7; --bg: #000000; --card: #0a0c14; }
+    :root { --primary: #a855f7; --bg: #000000; }
     body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
     .glass-card { background: rgba(10, 12, 20, 0.7); border: 1px solid rgba(255,255,255,0.08); border-radius: 28px; backdrop-filter: blur(12px); }
     .nav-btn-m.active { color: var(--primary); font-weight: 900; filter: drop-shadow(0 0 8px var(--primary)); }
@@ -17,104 +18,106 @@
     input, select { font-size: 16px !important; color: white !important; background: rgba(255,255,255,0.03) !important; border: 1px solid rgba(255,255,255,0.1) !important; outline: none !important; }
     .hp-bar { height: 6px; border-radius: 10px; background: rgba(255,255,255,0.1); overflow: hidden; }
     .hp-fill { height: 100%; transition: width 1s ease-in-out; }
-    .blur-value { filter: blur(8px); pointer-events: none; }
+    .chat-bubble { position: fixed; bottom: 100px; right: 20px; z-index: 1000; }
+    .chat-window { position: fixed; bottom: 100px; right: 20px; width: 320px; height: 450px; z-index: 1001; display: none; flex-direction: column; }
   </style>
 </head>
 <body class="overflow-x-hidden no-scrollbar">
 
 <div id="loginTela" class="flex items-center justify-center min-h-screen p-6 fixed inset-0 z-[9999] bg-black">
-  <div class="glass-card p-10 w-full max-w-md text-center border-t-2 border-purple-500/30">
+  <div class="glass-card p-10 w-full max-w-md text-center">
     <h1 class="text-4xl font-black mb-2 italic">METAS<span class="text-purple-500">BOARD</span></h1>
-    <div id="authInputs" class="space-y-4 mt-8">
+    <div class="space-y-4 mt-8">
       <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl">
       <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl">
-      <div id="containerConfirmar" class="hidden"><input id="senhaConfirm" type="password" placeholder="Confirmar Senha" class="w-full p-4 rounded-2xl"></div>
-      <button onclick="executarAuth()" id="btnAuth" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs tracking-widest">Acessar</button>
-      <button onclick="alternarModoAuth()" id="btnTrocar" class="text-slate-500 text-[9px] font-black uppercase tracking-widest mt-4 block w-full text-center">Criar Nova Conta</button>
+      <button onclick="executarAuth()" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs">Entrar</button>
+      <button onclick="alternarModoAuth()" class="text-slate-500 text-[9px] font-black uppercase mt-4">Criar conta</button>
     </div>
   </div>
 </div>
 
 <div id="dashboard" class="hidden min-h-screen pb-28">
   <main class="p-4 md:p-8 max-w-5xl mx-auto space-y-6">
-    
-    <header class="flex justify-between items-center pt-4 px-2">
-        <h2 class="text-2xl font-black italic uppercase">Metas<span class="text-purple-500">Board</span></h2>
-        <button onclick="sairDoSistema()" class="bg-rose-500/10 text-rose-500 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-rose-500/20">Sair</button>
+    <header class="flex justify-between items-center pt-4">
+        <h2 class="text-2xl font-black italic uppercase">HOME</h2>
+        <div class="flex gap-2">
+            <button onclick="abrirHistorico()" class="p-3 glass-card rounded-xl text-xs">📜 Histórico</button>
+            <button onclick="sairDoSistema()" class="p-3 bg-rose-500/20 text-rose-500 rounded-xl text-xs font-black uppercase">Sair</button>
+        </div>
     </header>
 
     <div class="glass-card p-6 relative">
-        <button onclick="togglePrivacidade()" class="absolute top-6 right-6 text-lg opacity-50 hover:opacity-100">👁️</button>
-        <div class="flex justify-between items-center mb-3">
-            <span class="text-[10px] font-black uppercase tracking-widest">Saúde da Carteira</span>
-            <span id="hpStatus" class="text-[10px] font-black uppercase text-emerald-400">Estável</span>
-        </div>
-        <div class="hp-bar"><div id="hpFill" class="hp-fill bg-emerald-500" style="width: 100%"></div></div>
-        <div id="valoresPrivados" class="grid grid-cols-3 gap-2 mt-6">
-            <div class="text-center"><p class="text-[8px] opacity-40 uppercase font-black">Renda</p><h4 id="receitaTotal" class="text-sm font-black text-emerald-400">R$ 0</h4></div>
+        <button onclick="document.getElementById('valores').classList.toggle('blur-sm')" class="absolute top-4 right-4 opacity-50">👁️</button>
+        <span class="text-[9px] font-black uppercase tracking-widest opacity-40">Saúde Financeira</span>
+        <div class="hp-bar my-2"><div id="hpFill" class="hp-fill bg-emerald-500" style="width: 100%"></div></div>
+        <div id="valores" class="grid grid-cols-3 gap-2 mt-4 transition-all">
+            <div class="text-center"><p class="text-[8px] opacity-40 uppercase font-black">Salário</p><h4 id="receitaTotal" class="text-sm font-black text-emerald-400">R$ 0</h4></div>
             <div class="text-center border-x border-white/5"><p class="text-[8px] opacity-40 uppercase font-black">Dívidas</p><h4 id="despesaTotal" class="text-sm font-black text-rose-500">R$ 0</h4></div>
-            <div class="text-center"><p class="text-[8px] opacity-40 uppercase font-black">Saldo Meta</p><h4 id="saldoTotal" class="text-sm font-black">R$ 0</h4></div>
+            <div class="text-center"><p class="text-[8px] opacity-40 uppercase font-black">Livre</p><h4 id="saldoTotal" class="text-sm font-black">R$ 0</h4></div>
         </div>
     </div>
 
     <section id="secDashboard" class="space-y-6">
         <div class="glass-card p-6">
-            <div class="flex gap-4 mb-6 overflow-x-auto no-scrollbar pb-2">
-                <button onclick="setTipo('ganho')" id="tabGanho" class="text-[10px] font-black uppercase text-purple-400 border-b-2 border-purple-500 pb-1">💰 Renda/Salário</button>
-                <button onclick="setTipo('divida')" id="tabDivida" class="text-[10px] font-black uppercase opacity-40 pb-1">💸 Conta/Dívida</button>
+            <div class="flex gap-4 mb-4">
+                <button onclick="setTipo('ganho')" id="tabGanho" class="text-[10px] font-black uppercase text-purple-400 border-b-2 border-purple-500 pb-1">Salário/Extra</button>
+                <button onclick="setTipo('divida')" id="tabDivida" class="text-[10px] font-black uppercase opacity-40 pb-1">Dívida/Mensal</button>
             </div>
             <div class="space-y-3">
-                <input id="fNome" type="text" placeholder="Ex: Salário Mensal" class="w-full p-4 rounded-2xl text-xs font-bold">
+                <input id="fNome" type="text" placeholder="Descrição" class="w-full p-4 rounded-2xl text-xs font-bold">
                 <div class="grid grid-cols-2 gap-2">
-                    <input id="fValor" type="number" placeholder="Valor R$" class="p-4 rounded-2xl text-xs font-bold">
+                    <input id="fValor" type="number" placeholder="R$" class="p-4 rounded-2xl text-xs font-bold">
                     <input id="fData" type="date" class="p-4 rounded-2xl text-[10px]">
                 </div>
-                <div class="flex items-center gap-2 p-2">
-                    <input type="checkbox" id="fMensal" class="w-4 h-4">
-                    <label for="fMensal" class="text-[10px] font-black uppercase opacity-60 italic">Repetir todo mês (Fixo)</label>
-                </div>
-                <button onclick="salvarLancamento()" class="w-full bg-purple-600 p-4 rounded-2xl font-black uppercase text-xs">Agendar Registro</button>
+                <button onclick="salvarLancamento()" class="w-full bg-purple-600 p-4 rounded-2xl font-black uppercase text-xs">Salvar Registro</button>
             </div>
         </div>
-
-        <div id="iaCard" class="glass-card p-6 border-l-4 border-purple-500">
-            <h4 class="text-[10px] font-black uppercase text-purple-400 mb-2">✦ Mentor Estratégico</h4>
-            <p id="iaTexto" class="text-xs italic opacity-90 leading-relaxed">Analise de viabilidade pendente...</p>
-        </div>
-
         <div id="listaTimeline" class="space-y-3"></div>
     </section>
 
     <section id="secMetas" class="hidden space-y-6">
-        <div class="flex justify-between items-center px-2">
-            <h3 class="text-xs font-black uppercase tracking-widest italic">Metas Pro</h3>
-            <button onclick="modalNovaMeta()" class="bg-white text-black px-4 py-2 rounded-xl text-[9px] font-black uppercase italic">+ Criar Alvo</button>
+        <div class="flex justify-between items-center">
+            <h3 class="text-xs font-black uppercase tracking-widest">Metas em Foco</h3>
+            <div class="flex gap-2">
+                <button onclick="verMetasConcluidas()" class="text-[9px] font-black opacity-50 uppercase">🏆 Batidas</button>
+                <button onclick="modalNovaMeta()" class="bg-white text-black px-4 py-2 rounded-xl text-[9px] font-black uppercase">+ Nova</button>
+            </div>
         </div>
         <div id="rankingGrid" class="space-y-4"></div>
     </section>
 
     <section id="secGestao" class="hidden space-y-6">
         <div class="glass-card p-8 flex flex-col items-center">
-            <canvas id="chartGestao" class="max-w-[180px]"></canvas>
-            <h2 id="totalGestao" class="text-2xl font-black mt-4">R$ 0</h2>
-            <p class="text-[9px] font-black opacity-30 uppercase tracking-widest">Total de Saídas</p>
+            <canvas id="chartGestao" class="max-w-[150px]"></canvas>
+            <h2 id="totalGestao" class="text-2xl font-black mt-4 text-rose-500">R$ 0</h2>
+            <p class="text-[9px] font-black opacity-30 uppercase">Total Comprometido</p>
         </div>
         <div id="listaDetalhada" class="space-y-3"></div>
     </section>
-
   </main>
 </div>
 
-<nav class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[1000] border-t-white/10 shadow-2xl">
-    <button onclick="navegar('secDashboard', this)" class="nav-btn-m active p-3 flex flex-col items-center gap-1">
-        <span class="text-xl">🏠</span><span class="text-[8px] font-black uppercase">Home</span>
-    </button>
-    <button onclick="navegar('secMetas', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1">
-        <span class="text-xl">🎯</span><span class="text-[8px] font-black uppercase">Metas</span>
-    </button>
-    <button onclick="navegar('secGestao', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1">
-        <span class="text-xl">📊</span><span class="text-[8px] font-black uppercase">Gestão</span>
-    </button>
+<button onclick="toggleChat()" class="chat-bubble w-14 h-14 bg-purple-600 rounded-full flex items-center justify-center shadow-2xl text-2xl active:scale-90 transition-all">✨</button>
+<div id="chatWindow" class="chat-window glass-card p-4 shadow-2xl overflow-hidden border-2 border-purple-500/20">
+    <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400">MetasBoard IA</h4>
+        <button onclick="toggleChat()" class="opacity-50 font-bold">✕</button>
+    </div>
+    <div id="chatContent" class="flex-1 overflow-y-auto space-y-3 no-scrollbar mb-4 text-xs italic">
+        <p class="bg-purple-900/20 p-3 rounded-2xl rounded-tl-none">Olá! Sou sua inteligência financeira. O que vamos fazer hoje?</p>
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+        <button onclick="aiMenu('tutorial')" class="bg-white/5 p-2 rounded-xl text-[9px] font-black uppercase">Tutorial</button>
+        <button onclick="aiMenu('conversao')" class="bg-white/5 p-2 rounded-xl text-[9px] font-black uppercase">Conversão</button>
+        <button onclick="aiMenu('dicas')" class="bg-white/5 p-2 rounded-xl text-[9px] font-black uppercase">Dicas Pro</button>
+        <button onclick="aiMenu('analise')" class="bg-white/5 p-2 rounded-xl text-[9px] font-black uppercase">Dívidas</button>
+    </div>
+</div>
+
+<nav class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[900]">
+    <button onclick="navegar('secDashboard', this)" class="nav-btn-m active p-3 flex flex-col items-center"><span class="text-xl">🏠</span></button>
+    <button onclick="navegar('secMetas', this)" class="nav-btn-m p-3 flex flex-col items-center"><span class="text-xl">🎯</span></button>
+    <button onclick="navegar('secGestao', this)" class="nav-btn-m p-3 flex flex-col items-center"><span class="text-xl">📊</span></button>
 </nav>
 
 <script type="module" src="app.js"></script>
