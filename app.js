@@ -15,13 +15,43 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let userUID = null, tipoAtual = 'ganho', chartInst = null;
+let userUID = null, tipoAtual = 'ganho', chartInst = null, modoRegistro = false;
 let fin = { previsto: 0, saldoReal: 0, dividas: 0, lista: [] };
 let metasAtivas = [];
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- AUX: 5º DIA ÚTIL ---
+// --- GESTÃO DE ACESSO ---
+window.alternarModoAuth = () => {
+    modoRegistro = !modoRegistro;
+    document.getElementById('btnTrocarAuth').innerText = modoRegistro ? "Já tenho conta" : "Criar Nova Conta";
+};
+
+window.executarAuth = () => {
+    const e = document.getElementById('email').value, s = document.getElementById('senha').value;
+    if(!e || !s) return alert("Preencha os campos!");
+    if(modoRegistro) {
+        createUserWithEmailAndPassword(auth, e, s).catch(err => alert("Erro: " + err.message));
+    } else {
+        signInWithEmailAndPassword(auth, e, s).catch(() => alert("Acesso negado!"));
+    }
+};
+
+window.sairDoSistema = () => signOut(auth).then(() => location.reload());
+
+onAuthStateChanged(auth, user => {
+    if (user) { 
+        userUID = user.uid; 
+        document.getElementById('loginTela').style.display = 'none'; 
+        document.getElementById('dashboard').style.display = 'block'; 
+        iniciarRealtime(); 
+    } else { 
+        document.getElementById('loginTela').style.display = 'flex'; 
+        document.getElementById('dashboard').style.display = 'none'; 
+    }
+});
+
+// --- LÓGICA DE CALENDÁRIO ---
 function getQuintoDiaUtil() {
     let d = new Date(); d.setDate(1); let c = 0;
     while (c < 5) {
@@ -32,24 +62,8 @@ function getQuintoDiaUtil() {
     return d;
 }
 
-// --- AUTH ---
-window.executarAuth = () => {
-    const e = document.getElementById('email').value, s = document.getElementById('senha').value;
-    signInWithEmailAndPassword(auth, e, s).catch(() => createUserWithEmailAndPassword(auth, e, s));
-};
-window.sairDoSistema = () => signOut(auth).then(() => location.reload());
-
-onAuthStateChanged(auth, user => {
-    if (user) { 
-        userUID = user.uid; 
-        document.getElementById('loginTela').classList.add('hidden'); 
-        document.getElementById('dashboard').classList.remove('hidden'); 
-        iniciarRealtime(); 
-    } else { document.getElementById('loginTela').classList.remove('hidden'); }
-});
-
+// --- ENGINE REALTIME ---
 function iniciarRealtime() {
-    // Escuta Fluxo Financeiro
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let prev = 0, real = 0, div = 0; fin.lista = [];
         const hoje = new Date();
@@ -70,15 +84,14 @@ function iniciarRealtime() {
         atualizarUI();
     });
 
-    // Escuta Metas Ativas
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "ativa")), snap => {
         metasAtivas = [];
         const grid = document.getElementById('rankingGrid'); grid.innerHTML = "";
         snap.forEach(ds => {
             const m = { ...ds.data(), id: ds.id }; metasAtivas.push(m);
             const check = m.checklist || [];
-            const doneCount = check.filter(c => c.done).length;
-            const perc = check.length > 0 ? (doneCount / check.length) * 100 : 0;
+            const done = check.filter(c => c.done).length;
+            const perc = check.length > 0 ? (done / check.length) * 100 : 0;
 
             grid.innerHTML += `
             <div class="glass-card p-6 border-l-4 border-purple-500">
@@ -89,95 +102,40 @@ function iniciarRealtime() {
                 <div class="hp-bar mb-4"><div class="hp-fill bg-purple-600" style="width: ${perc}%"></div></div>
                 <div class="space-y-2 mb-4">
                     ${check.map((c, idx) => `
-                        <div onclick="toggleSubmeta('${m.id}', ${idx}, ${c.done})" class="submeta-item p-3 rounded-xl flex justify-between items-center text-[10px] ${c.done ? 'done' : ''}">
-                            <span>${c.item}</span>
-                            <span>${c.done ? '✅' : '⭕'}</span>
+                        <div onclick="toggleSubmeta('${m.id}', ${idx}, ${c.done})" class="submeta-item p-4 rounded-2xl flex justify-between items-center text-[10px] font-bold ${c.done ? 'done' : ''}">
+                            <span>${c.item}</span><span>${c.done ? '✅' : '⭕'}</span>
                         </div>
                     `).join('')}
                 </div>
-                <div class="flex gap-2">
-                    <button onclick="addSubmeta('${m.id}')" class="flex-1 bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">+ Requisito</button>
-                    <button onclick="excluirMeta('${m.id}')" class="p-3 bg-white/5 rounded-xl">🗑️</button>
-                </div>
+                <button onclick="addSubmeta('${m.id}')" class="w-full bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">+ Adicionar Requisito</button>
             </div>`;
         });
     });
 }
 
-// --- HISTÓRICO FUNCIONAL ---
-window.abrirHistorico = () => {
-    let html = `
-    <div class="text-left space-y-4">
-        <div class="flex justify-between border-b border-white/10 pb-2">
-            <button onclick="apagarSelecionados()" class="text-[9px] font-black text-rose-500 uppercase">Apagar Selecionados</button>
-            <button onclick="Swal.close()" class="text-[9px] font-black opacity-40 uppercase">Fechar</button>
-        </div>
-        <div class="max-h-72 overflow-y-auto no-scrollbar space-y-2">
-            ${fin.lista.map(i => `
-                <label class="flex items-center gap-3 p-4 bg-white/5 rounded-2xl cursor-pointer">
-                    <input type="checkbox" value="${i.id}" class="hist-check w-4 h-4 accent-purple-500">
-                    <div class="flex-1 text-[10px] uppercase font-black">
-                        ${i.nome} <span class="block text-[8px] opacity-40 font-normal">${i.data} • ${BRL(i.valor)}</span>
-                    </div>
-                </label>
-            `).join('')}
-        </div>
-        <button onclick="apagarTudo()" class="w-full p-4 bg-rose-500/20 text-rose-500 rounded-2xl text-[9px] font-black uppercase">Limpar Todo o Histórico</button>
-    </div>`;
+// --- MENTOR E GESTÃO ---
+function atualizarMentor() {
+    const conselho = document.getElementById('conselhoMentor');
+    const ratio = fin.dividas / (fin.previsto || 1);
+    
+    if (fin.previsto === 0) conselho.innerText = "Cadastre sua renda para eu começar a te mentorar!";
+    else if (ratio > 0.7) conselho.innerText = "ALERTA: Suas dívidas consomem 70%+ da sua renda. Foque em quitar os requisitos menores das metas antes de novos gastos.";
+    else if (fin.saldoReal > fin.dividas) conselho.innerText = "Excelente! Seu saldo real cobre suas dívidas. Momento ideal para aportar em um requisito de meta de alto valor.";
+    else conselho.innerText = "Seu fluxo está estável. Mantenha os pagamentos em dia para liberar o saldo do 5º dia útil para suas metas.";
+}
 
-    Swal.fire({ title: 'HISTÓRICO', html, showConfirmButton: false });
-};
-
-window.apagarSelecionados = async () => {
-    const ids = Array.from(document.querySelectorAll('.hist-check:checked')).map(c => c.value);
-    for(const id of ids) await deleteDoc(doc(db, "fluxo", id));
-    Swal.fire({ icon: 'success', title: 'Removido!', toast: true, position: 'top', showConfirmButton: false, timer: 1000 });
-};
-
-window.apagarTudo = async () => {
-    if(confirm("Apagar TUDO definitivamente?")) {
-        for(const i of fin.lista) await deleteDoc(doc(db, "fluxo", i.id));
-        Swal.close();
-    }
-};
-
-// --- METAS E SUBMETAS ---
-window.toggleSubmeta = async (mId, idx, status) => {
-    const m = metasAtivas.find(x => x.id === mId);
-    let nova = [...m.checklist];
-    nova[idx].done = !status;
-    await updateDoc(doc(db, "metas", mId), { checklist: nova });
-
-    if(nova.every(c => c.done)) {
-        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-        await updateDoc(doc(db, "metas", mId), { status: 'concluida' });
-        Swal.fire({ title: '🏆 META CONCLUÍDA!', text: 'Seu objetivo foi movido para o arquivo de vitórias.', icon: 'success' });
-    }
-};
-
-window.verMetasConcluidas = () => {
-    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "concluida")), snap => {
-        let h = `<div class="space-y-2">`;
-        snap.forEach(d => h += `<div class="p-4 glass-card text-emerald-400 text-[10px] font-black uppercase italic">🏆 ${d.data().nome}</div>`);
-        Swal.fire({ title: 'VITÓRIAS', html: h || 'Nenhuma meta concluída ainda.' });
-    });
-};
-
-// --- GESTÃO E GRÁFICO ---
 function renderGestao() {
     const ctx = document.getElementById('chartGestao');
     if(chartInst) chartInst.destroy();
-    
     const divs = fin.lista.filter(f => f.tipo === 'divida');
     document.getElementById('totalGestao').innerText = BRL(fin.dividas);
     
     chartInst = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: divs.map(d => d.nome),
             datasets: [{
                 data: divs.map(d => d.valor),
-                backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#ef4444'],
+                backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#4f46e5', '#ef4444'],
                 borderWidth: 0,
                 borderRadius: 5
             }]
@@ -187,12 +145,20 @@ function renderGestao() {
 
     const list = document.getElementById('listaDetalhada'); list.innerHTML = "";
     divs.forEach(d => {
-        list.innerHTML += `<div class="flex justify-between p-4 bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase">
-            <span class="opacity-70">${d.nome}</span><span class="text-rose-500">${BRL(d.valor)}</span></div>`;
+        list.innerHTML += `<div class="flex justify-between p-4 bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase"><span class="opacity-60">${d.nome}</span><span>${BRL(d.valor)}</span></div>`;
     });
+    atualizarMentor();
 }
 
-// --- ENGINE ---
+// --- CONVERSOR DE MOEDAS ---
+window.converterMoedas = () => {
+    const brl = Number(document.getElementById('convValor').value);
+    document.getElementById('resDolar').innerText = "$ " + (brl / 5.10).toFixed(2);
+    document.getElementById('resEuro').innerText = "€ " + (brl / 5.50).toFixed(2);
+    document.getElementById('resPeso').innerText = "$ " + (brl * 170).toFixed(0);
+};
+
+// --- CORE ---
 window.salvarLancamento = async () => {
     const n = document.getElementById('fNome').value, v = Number(document.getElementById('fValor').value), d = document.getElementById('fData').value, s = document.getElementById('f5Dia').checked;
     if(n && v && d) {
@@ -205,7 +171,17 @@ function atualizarUI() {
     document.getElementById('receitaTotal').innerText = BRL(fin.previsto);
     document.getElementById('saldoReal').innerText = BRL(fin.saldoReal);
     document.getElementById('despesaTotal').innerText = BRL(fin.dividas);
-    document.getElementById('hpFill').style.width = Math.max(0, 100 - (fin.dividas / (fin.previsto || 1) * 100)) + "%";
+    const perc = Math.max(0, 100 - (fin.dividas / (fin.previsto || 1) * 100));
+    document.getElementById('hpFill').style.width = perc + "%";
+    document.getElementById('txtSaude').innerText = perc > 70 ? "Excelente" : perc > 40 ? "Alerta" : "Crítico";
+    
+    const t = document.getElementById('listaTimeline'); t.innerHTML = "";
+    fin.lista.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(i => {
+        t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'} active:scale-95" onclick="abrirAcao('${i.id}')">
+            <div><h4 class="text-[10px] font-black uppercase">${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
+            <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
+        </div>`;
+    });
 }
 
 window.navegar = (id, btn) => {
@@ -216,28 +192,42 @@ window.navegar = (id, btn) => {
     if(id === 'secGestao') renderGestao();
 };
 
+window.toggleSubmeta = async (mId, idx, status) => {
+    const m = metasAtivas.find(x => x.id === mId);
+    let nova = [...m.checklist];
+    nova[idx].done = !status;
+    await updateDoc(doc(db, "metas", mId), { checklist: nova });
+    if(nova.every(c => c.done)) {
+        confetti({ particleCount: 150, spread: 70 });
+        await updateDoc(doc(db, "metas", mId), { status: 'concluida' });
+    }
+};
+
+window.abrirAcao = async (id) => {
+    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Marcar Pago', del: '🗑️ Excluir' }, background: '#0a0c14', color: '#fff' });
+    if(a === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
+    else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
+};
+
 window.modalNovaMeta = async () => {
-    const { value: n } = await Swal.fire({ title: 'Nova Meta Principal', input: 'text', placeholder: 'Ex: Trocar de Carro' });
+    const { value: n } = await Swal.fire({ title: 'Meta Principal', input: 'text', placeholder: 'Ex: Viagem Japão' });
     if(n) await addDoc(collection(db, "metas"), { nome: n, status: 'ativa', checklist: [], userId: userUID });
 };
 
 window.addSubmeta = async (id) => {
-    const { value: i } = await Swal.fire({ title: 'Requisito', input: 'text', placeholder: 'Ex: Guardar R$ 500' });
+    const { value: i } = await Swal.fire({ title: 'Submeta', input: 'text', placeholder: 'Ex: Comprar Passagem' });
     if(i) await updateDoc(doc(db, "metas", id), { checklist: arrayUnion({ item: i, done: false }) });
 };
 
-window.excluirMeta = async (id) => { await deleteDoc(doc(db, "metas", id)); };
-window.toggleChat = () => { const w = document.getElementById('chatWindow'); w.style.display = w.style.display === 'flex' ? 'none' : 'flex'; };
+window.toggleChat = () => { const w = document.getElementById('chatWindow'); w.classList.toggle('hidden'); w.classList.toggle('flex'); };
 window.setTipo = (t) => {
     tipoAtual = t;
-    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black text-purple-400 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
-    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black text-purple-400 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
+    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500" : "text-[10px] opacity-40";
+    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500" : "text-[10px] opacity-40";
 };
 
-window.aiMenu = (op) => {
-    const c = document.getElementById('chatContent'); let r = "";
-    if(op === 'status') r = metasAtivas.length > 0 ? `Você tem ${metasAtivas.length} meta(s) em andamento. Foco nos requisitos!` : "Sem metas ativas.";
-    if(op === 'previsao') r = `Seu salário cairá no 5º dia útil (${getQuintoDiaUtil().toLocaleDateString()}).`;
-    c.innerHTML += `<p class="bg-purple-600/30 p-3 rounded-2xl rounded-tl-none ml-4 self-end">${r}</p>`;
-    c.scrollTop = c.scrollHeight;
+window.abrirHistorico = () => {
+    let h = `<div class="space-y-2 text-left">`;
+    fin.lista.forEach(i => h += `<div class="p-3 bg-white/5 rounded-xl text-[10px] uppercase font-black">${i.nome} - ${BRL(i.valor)}</div>`);
+    Swal.fire({ title: 'HISTÓRICO', html: h + '</div>', showConfirmButton: false });
 };
