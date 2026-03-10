@@ -11,33 +11,43 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&display=swap" rel="stylesheet">
   <style>
     :root { --primary: #a855f7; --bg: #000000; }
-    body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+    body { background-color: var(--bg); color: white; font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; overflow-x: hidden; margin: 0; padding: 0; }
+    
+    /* Overlay de Login Prioritária */
+    #loginTela { 
+        position: fixed; inset: 0; z-index: 99999; background: #000; 
+        display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px;
+    }
+    
     .glass-card { background: rgba(10, 12, 20, 0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; backdrop-filter: blur(15px); }
     .nav-btn-m.active { color: var(--primary); filter: drop-shadow(0 0 5px var(--primary)); }
     .no-scrollbar::-webkit-scrollbar { display: none; }
-    input, select { font-size: 16px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; outline: none; }
+    
+    /* Correção para iPhone: Inputs não dão zoom e botões respondem ao toque */
+    input { font-size: 16px !important; background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; outline: none; -webkit-appearance: none; }
+    button { cursor: pointer; touch-action: manipulation; }
+
     .hp-bar { height: 8px; border-radius: 10px; background: rgba(255,255,255,0.1); overflow: hidden; }
     .hp-fill { height: 100%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
-    .submeta-item { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); }
     .submeta-item.done { opacity: 0.3; text-decoration: line-through; border-color: #a855f7; }
-    /* Garantia de bloqueio total sem login */
-    #dashboard { display: none; }
-    #loginTela { display: flex; }
+    
+    #dashboard { display: none; opacity: 0; transition: opacity 0.5s ease; }
+    .show-dash { display: block !important; opacity: 1 !important; }
   </style>
 </head>
 <body class="no-scrollbar">
 
-<div id="loginTela" class="fixed inset-0 z-[10000] bg-black flex flex-col items-center justify-center p-6 text-center">
+<div id="loginTela">
     <div class="w-full max-w-sm space-y-8">
         <div>
             <h1 class="text-5xl font-black italic tracking-tighter">METAS<span class="text-purple-500">BOARD</span></h1>
-            <p class="text-[10px] uppercase font-bold opacity-40 mt-2 tracking-[0.3em]">Seu Ecossistema de Conquistas</p>
+            <p class="text-[10px] uppercase font-bold opacity-40 mt-2 tracking-[0.3em]">Ecossistema Pessoal</p>
         </div>
         <div class="glass-card p-8 space-y-4 border-t-2 border-purple-500/50">
             <input id="email" type="email" placeholder="E-mail" class="w-full p-4 rounded-2xl">
             <input id="senha" type="password" placeholder="Senha" class="w-full p-4 rounded-2xl">
-            <button onclick="executarAuth()" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs tracking-widest active:scale-95 transition-all">Entrar no Board</button>
-            <button onclick="alternarModoAuth()" id="btnTrocarAuth" class="text-[9px] font-black uppercase opacity-40">Criar Nova Conta</button>
+            <button onclick="executarAuth()" id="btnAcessar" class="w-full bg-white text-black p-4 rounded-2xl font-black uppercase text-xs tracking-widest active:opacity-70 transition-all">Entrar no Board</button>
+            <button onclick="alternarModoAuth()" id="btnTrocarAuth" class="w-full text-[9px] font-black uppercase opacity-40 py-2">Criar Nova Conta</button>
         </div>
     </div>
 </div>
@@ -56,9 +66,9 @@
     <div class="glass-card p-6">
         <div class="flex justify-between items-center mb-2">
             <span class="text-[9px] font-black uppercase opacity-40">Saúde Patrimonial</span>
-            <span id="txtSaude" class="text-[9px] font-black uppercase text-emerald-400">Excelente</span>
+            <span id="txtSaude" class="text-[9px] font-black uppercase text-emerald-400">Calculando...</span>
         </div>
-        <div class="hp-bar"><div id="hpFill" class="hp-fill bg-emerald-500" style="width: 100%"></div></div>
+        <div class="hp-bar"><div id="hpFill" class="hp-fill bg-emerald-500" style="width: 0%"></div></div>
         <div class="grid grid-cols-3 gap-2 mt-6">
             <div class="text-center"><p class="text-[7px] opacity-40 uppercase font-black">Previsão</p><h4 id="receitaTotal" class="text-xs font-black text-emerald-400">R$ 0</h4></div>
             <div class="text-center border-x border-white/5"><p class="text-[7px] opacity-40 uppercase font-black">Saldo Real</p><h4 id="saldoReal" class="text-xs font-black text-purple-400">R$ 0</h4></div>
@@ -69,8 +79,8 @@
     <section id="secDashboard" class="space-y-6">
         <div class="glass-card p-6 space-y-4">
             <div class="flex gap-4">
-                <button onclick="setTipo('ganho')" id="tabGanho" class="text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500">💰 Renda</button>
-                <button onclick="setTipo('divida')" id="tabDivida" class="text-[10px] font-black uppercase opacity-40">💸 Saída</button>
+                <button onclick="setTipo('ganho')" id="tabGanho" class="text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1">💰 Renda</button>
+                <button onclick="setTipo('divida')" id="tabDivida" class="text-[10px] font-black uppercase opacity-40 pb-1">💸 Saída</button>
             </div>
             <input id="fNome" type="text" placeholder="Descrição" class="w-full p-4 rounded-xl text-xs">
             <div class="grid grid-cols-2 gap-2">
@@ -81,7 +91,7 @@
                 <input type="checkbox" id="f5Dia" class="w-4 h-4 accent-purple-500">
                 <span class="text-[9px] font-black uppercase">Salário (5º Dia Útil)</span>
             </label>
-            <button onclick="salvarLancamento()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-xs">Adicionar</button>
+            <button onclick="salvarLancamento()" class="w-full bg-purple-600 p-4 rounded-xl font-black uppercase text-xs active:scale-95 transition-all">Adicionar Registro</button>
         </div>
         <div id="listaTimeline" class="space-y-3"></div>
     </section>
@@ -106,11 +116,11 @@
             <div class="flex items-center gap-3 mb-4">
                 <span class="text-2xl">🧠</span>
                 <div>
-                    <h4 class="text-[10px] font-black uppercase tracking-widest text-purple-400">Mentor de Patrimônio</h4>
-                    <p class="text-[8px] opacity-40 uppercase">Análise em tempo real</p>
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-purple-400">Mentor Estratégico</h4>
+                    <p class="text-[8px] opacity-40 uppercase">Análise Patrimonial</p>
                 </div>
             </div>
-            <p id="conselhoMentor" class="text-[11px] italic leading-relaxed opacity-80">Aguardando dados para analisar sua carteira...</p>
+            <p id="conselhoMentor" class="text-[11px] italic leading-relaxed opacity-80">Carregando inteligência...</p>
         </div>
         <div id="listaDetalhada" class="space-y-1"></div>
     </section>
@@ -119,9 +129,9 @@
 </div>
 
 <button onclick="toggleChat()" class="fixed bottom-24 right-6 w-14 h-14 bg-emerald-600 rounded-full flex items-center justify-center shadow-2xl z-[1000] text-2xl active:scale-90">💵</button>
-<div id="chatWindow" class="fixed bottom-24 right-6 w-72 h-96 glass-card p-4 hidden flex-col z-[1001] border-2 border-emerald-500/20">
+<div id="chatWindow" class="fixed bottom-24 right-6 w-72 h-auto glass-card p-4 hidden flex-col z-[1001] border-2 border-emerald-500/20">
     <div class="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
-        <h4 class="text-[9px] font-black uppercase text-emerald-400">Conversor de Câmbio</h4>
+        <h4 class="text-[9px] font-black uppercase text-emerald-400">Conversor Express</h4>
         <button onclick="toggleChat()">✕</button>
     </div>
     <div class="space-y-4">
@@ -129,7 +139,7 @@
             <label class="text-[8px] font-black opacity-40 uppercase">Valor em Real (BRL)</label>
             <input id="convValor" type="number" oninput="converterMoedas()" placeholder="R$ 0,00" class="w-full p-3 rounded-xl text-sm">
         </div>
-        <div class="grid grid-cols-1 gap-2 pt-2">
+        <div class="grid grid-cols-1 gap-2">
             <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center">
                 <span class="text-[10px] font-bold">🇺🇸 Dólar</span>
                 <span id="resDolar" class="text-xs font-black text-emerald-400">$ 0.00</span>
@@ -138,16 +148,11 @@
                 <span class="text-[10px] font-bold">🇪🇺 Euro</span>
                 <span id="resEuro" class="text-xs font-black text-blue-400">€ 0.00</span>
             </div>
-            <div class="p-3 bg-white/5 rounded-xl flex justify-between items-center">
-                <span class="text-[10px] font-bold">🇦🇷 Peso Arg</span>
-                <span id="resPeso" class="text-xs font-black text-orange-400">$ 0.00</span>
-            </div>
         </div>
-        <p class="text-[8px] opacity-30 text-center italic mt-4">Valores aproximados baseados em taxas médias de mercado.</p>
     </div>
 </div>
 
-<nav class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[900] border-t-white/10 shadow-2xl">
+<nav class="fixed bottom-6 left-6 right-6 glass-card p-2 flex justify-around items-center z-[900] shadow-2xl">
     <button onclick="navegar('secDashboard', this)" class="nav-btn-m active p-3 flex flex-col items-center gap-1"><span class="text-xl">🏠</span><span class="text-[8px] font-black uppercase">Home</span></button>
     <button onclick="navegar('secMetas', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">🎯</span><span class="text-[8px] font-black uppercase">Metas</span></button>
     <button onclick="navegar('secGestao', this)" class="nav-btn-m p-3 flex flex-col items-center gap-1"><span class="text-xl">📊</span><span class="text-[8px] font-black uppercase">Gestão</span></button>
