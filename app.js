@@ -23,33 +23,49 @@ const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL
 
 // --- TUTORIAL / ONBOARDING ---
 async function iniciarTutorial() {
+    // Pequeno delay para garantir que o dashboard renderizou no iPhone
+    await new Promise(r => setTimeout(r, 500));
+
     const { value: aceitou } = await Swal.fire({
         title: 'BEM-VINDO AO METASBOARD',
-        text: 'Este é o seu novo ecossistema de produtividade e controle financeiro. Quer que eu te mostre como funciona?',
+        text: 'Este é o seu ecossistema de metas e controle financeiro. Vamos dar um tour?',
         icon: 'info',
         showCancelButton: true,
-        confirmButtonText: 'Sim, me ensine!',
+        confirmButtonText: 'Bora aprender!',
         cancelButtonText: 'Pular',
-        confirmButtonColor: '#a855f7'
+        confirmButtonColor: '#a855f7',
+        cancelButtonColor: 'rgba(255,255,255,0.1)',
+        position: 'center'
     });
 
     if (!aceitou) return;
 
     const passos = [
-        { el: 'step-saude', txt: 'Aqui você vê sua Saúde Patrimonial. O HP desce conforme suas dívidas aumentam!' },
-        { el: 'step-registro', txt: 'Nesta área você registra o que ganha e o que gasta. Use o check do 5º dia útil para salários!' },
-        { el: 'step-nav', txt: 'Navegue entre o Início, suas Metas e a Gestão detalhada por aqui.' },
-        { el: 'step-conversor', txt: 'Precisa converter R$ para Dólar ou Euro para suas metas internacionais? Clique aqui!' }
+        { el: 'step-saude', txt: 'Sua SAÚDE PATRIMONIAL. Se as dívidas subirem demais, o HP cai. Fique no verde!' },
+        { el: 'step-registro', txt: 'Aqui você REGISTRA ganhos e gastos. Não esqueça de marcar o 5º dia útil para salários.' },
+        { el: 'step-nav', txt: 'Use o MENU para transitar entre Início, Metas e sua Gestão Estratégica.' },
+        { el: 'step-conversor', txt: 'CONVERSOR EXPRESS: Saiba na hora quanto suas metas custam em Dólar ou Euro.' }
     ];
 
     for (let p of passos) {
         const item = document.getElementById(p.el);
+        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
         item.classList.add('tutorial-highlight');
-        await Swal.fire({ text: p.txt, toast: true, position: 'top', showConfirmButton: true, confirmButtonText: 'Próximo' });
+        
+        await Swal.fire({ 
+            text: p.txt, 
+            toast: false, 
+            position: 'center', 
+            showConfirmButton: true, 
+            confirmButtonText: 'Entendi!', 
+            confirmButtonColor: '#a855f7'
+        });
+        
         item.classList.remove('tutorial-highlight');
     }
 
-    Swal.fire({ title: 'Tudo pronto!', text: 'Agora é com você. Conquiste seus objetivos!', icon: 'success', timer: 3000 });
+    confetti({ particleCount: 100, spread: 70 });
+    Swal.fire({ title: 'Tudo pronto!', text: 'Conquiste seus objetivos agora.', icon: 'success', timer: 2000, showConfirmButton: false });
 }
 
 // --- AUTH ---
@@ -79,10 +95,10 @@ onAuthStateChanged(auth, user => {
     if (user) { 
         userUID = user.uid; 
         document.getElementById('loginTela').style.display = 'none'; 
-        document.getElementById('dashboard').classList.add('show-dash'); 
+        const dash = document.getElementById('dashboard');
+        dash.classList.add('show-dash'); 
         iniciarRealtime(); 
         
-        // Checa se é o primeiro acesso
         if (localStorage.getItem('novo_user_' + userUID)) {
             localStorage.removeItem('novo_user_' + userUID);
             iniciarTutorial();
@@ -93,7 +109,7 @@ onAuthStateChanged(auth, user => {
     }
 });
 
-// --- CORE ---
+// --- ENGINE ---
 function getQuintoDiaUtil() {
     let d = new Date(); d.setDate(1); let c = 0;
     while (c < 5) {
@@ -124,8 +140,7 @@ function iniciarRealtime() {
     });
 
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "ativa")), snap => {
-        metasAtivas = [];
-        const grid = document.getElementById('rankingGrid'); grid.innerHTML = "";
+        const grid = document.getElementById('rankingGrid'); grid.innerHTML = ""; metasAtivas = [];
         snap.forEach(ds => {
             const m = { ...ds.data(), id: ds.id }; metasAtivas.push(m);
             const check = m.checklist || [];
@@ -133,10 +148,7 @@ function iniciarRealtime() {
             const perc = check.length > 0 ? (done / check.length) * 100 : 0;
             grid.innerHTML += `
             <div class="glass-card p-6 border-l-4 border-purple-500">
-                <div class="flex justify-between mb-2">
-                    <h4 class="text-sm font-black italic uppercase">${m.nome}</h4>
-                    <span class="text-purple-400 font-black text-xs">${perc.toFixed(0)}%</span>
-                </div>
+                <div class="flex justify-between mb-2"><h4 class="text-sm font-black uppercase">${m.nome}</h4><span class="text-purple-400 font-black text-xs">${perc.toFixed(0)}%</span></div>
                 <div class="hp-bar mb-4"><div class="hp-fill bg-purple-600" style="width: ${perc}%"></div></div>
                 <div class="space-y-2 mb-4">
                     ${check.map((c, idx) => `
@@ -178,9 +190,8 @@ function renderGestao() {
         data: { datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#a855f7', '#7c3aed', '#6366f1'], borderWidth: 0 }] },
         options: { cutout: '85%', plugins: { legend: { display: false } } }
     });
-    const conselho = document.getElementById('conselhoMentor');
-    const ratio = fin.dividas / (fin.previsto || 1);
-    conselho.innerText = ratio > 0.6 ? "Cuidado com os gastos!" : "Finanças saudáveis para novos sonhos.";
+    const mentor = document.getElementById('conselhoMentor');
+    mentor.innerText = (fin.dividas / (fin.previsto || 1)) > 0.6 ? "Alerta: Reduza despesas para liberar suas metas." : "Fluxo estável. Suas metas agradecem!";
 }
 
 window.navegar = (id, btn) => {
@@ -217,7 +228,7 @@ window.abrirAcao = async (id) => {
 };
 
 window.modalNovaMeta = async () => {
-    const { value: n } = await Swal.fire({ title: 'Meta Principal', input: 'text' });
+    const { value: n } = await Swal.fire({ title: 'Nova Meta', input: 'text' });
     if(n) await addDoc(collection(db, "metas"), { nome: n, status: 'ativa', checklist: [], userId: userUID });
 };
 
