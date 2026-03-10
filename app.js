@@ -15,26 +15,44 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let userUID = null, tipoAtual = 'ganho', chart = null;
+let userUID = null, modoRegistro = false, tipoAtual = 'ganho', chart = null;
 let fin = { ganhos: 0, dividas: 0, lista: [] };
 let metas = [];
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 // --- AUTH ---
+window.alternarModoAuth = () => {
+    modoRegistro = !modoRegistro;
+    document.getElementById('btnAuth').innerText = modoRegistro ? 'Criar Conta' : 'Acessar';
+    document.getElementById('containerConfirmar').classList.toggle('hidden', !modoRegistro);
+    document.getElementById('btnTrocar').innerText = modoRegistro ? 'Já tenho conta' : 'Criar Nova Conta';
+};
+
 window.executarAuth = () => {
     const e = document.getElementById('email').value, s = document.getElementById('senha').value;
-    signInWithEmailAndPassword(auth, e, s).catch(() => {
+    if (modoRegistro) {
+        if(s !== document.getElementById('senhaConfirm').value) return alert('Senhas não batem');
         createUserWithEmailAndPassword(auth, e, s).catch(err => alert(err.message));
-    });
+    } else {
+        signInWithEmailAndPassword(auth, e, s).catch(() => alert('Erro no acesso'));
+    }
 };
+
 window.sairDoSistema = () => signOut(auth).then(() => location.reload());
 
 onAuthStateChanged(auth, user => {
-    if (user) { userUID = user.uid; document.getElementById('loginTela').classList.add('hidden'); document.getElementById('dashboard').classList.remove('hidden'); iniciarRealtime(); }
-    else { document.getElementById('loginTela').classList.remove('hidden'); }
+    if (user) { 
+        userUID = user.uid; 
+        document.getElementById('loginTela').classList.add('hidden'); 
+        document.getElementById('dashboard').classList.remove('hidden'); 
+        iniciarRealtime(); 
+    } else { 
+        document.getElementById('loginTela').classList.remove('hidden'); 
+    }
 });
 
+// --- REALTIME ENGINE ---
 function iniciarRealtime() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let g = 0, d = 0; fin.lista = [];
@@ -59,7 +77,7 @@ function iniciarRealtime() {
                 const perc = Math.min(100, (m.atual / m.alvo) * 100);
                 grid.innerHTML += `
                 <div class="glass-card p-6 border-l-4 border-purple-500">
-                    <div class="flex justify-between items-start mb-2"><h4 class="text-xs font-black uppercase">${m.nome}</h4><b>${perc.toFixed(0)}%</b></div>
+                    <div class="flex justify-between items-start mb-2"><h4 class="text-xs font-black uppercase italic">${m.nome}</h4><b>${perc.toFixed(0)}%</b></div>
                     <div class="hp-bar mb-4"><div class="hp-fill bg-purple-600" style="width: ${perc}%"></div></div>
                     <div class="flex gap-2">
                         <button onclick="aportarMeta('${m.id}', ${m.atual}, ${m.alvo})" class="flex-1 bg-white/5 py-3 rounded-xl text-[9px] font-black">APORTAR</button>
@@ -71,75 +89,120 @@ function iniciarRealtime() {
     });
 }
 
-// --- HISTÓRICO E GESTÃO ---
+// --- HISTÓRICO AVANÇADO ---
 window.abrirHistorico = () => {
-    let html = `<div class="space-y-2 max-h-60 overflow-y-auto no-scrollbar">`;
-    fin.lista.forEach(item => {
-        html += `<div class="flex justify-between p-3 bg-white/5 rounded-xl text-[10px] items-center">
-            <span>${item.nome} (${BRL(item.valor)})</span>
-            <div class="flex gap-2">
-                <button onclick="excluirRegistro('${item.id}')" class="text-rose-500">Apagar</button>
+    let html = `
+    <div class="text-left">
+        <div class="flex justify-between mb-4 border-b border-white/10 pb-2">
+            <button onclick="marcarTodosHistorico()" class="text-[9px] font-black text-purple-400 uppercase">Marcar Todos</button>
+            <button onclick="apagarSelecionados()" class="text-[9px] font-black text-rose-500 uppercase">Apagar Marcados</button>
+        </div>
+        <div id="listaCheck" class="space-y-2 max-h-72 overflow-y-auto no-scrollbar">`;
+    
+    fin.lista.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(item => {
+        html += `
+        <label class="flex items-center gap-3 p-4 bg-white/5 rounded-2xl cursor-pointer hover:bg-white/10 transition-all">
+            <input type="checkbox" value="${item.id}" class="historico-check w-4 h-4">
+            <div class="flex-1">
+                <p class="text-[10px] font-black uppercase text-white/90">${item.nome}</p>
+                <p class="text-[8px] opacity-40">${item.data} • ${BRL(item.valor)}</p>
             </div>
-        </div>`;
+        </label>`;
     });
-    Swal.fire({ title: 'HISTÓRICO', html: html + '</div>', background: '#0a0c14', color: '#fff' });
+
+    html += `</div>
+        <button onclick="apagarTudoConfirmar()" class="w-full mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl text-[10px] font-black text-rose-500 uppercase">⚠️ Limpar Tudo</button>
+    </div>`;
+
+    Swal.fire({ title: 'HISTÓRICO', html: html, showConfirmButton: false, background: '#0a0c14', color: '#fff' });
 };
 
-window.excluirRegistro = async (id) => {
-    await deleteDoc(doc(db, "fluxo", id));
-    Swal.fire({ title: 'Excluído!', icon: 'success', toast: true, position: 'top', showConfirmButton: false, timer: 1000 });
+window.marcarTodosHistorico = () => {
+    const checks = document.querySelectorAll('.historico-check');
+    const todos = Array.from(checks).every(c => c.checked);
+    checks.forEach(c => c.checked = !todos);
 };
 
-// --- METAS CONCLUÍDAS E ANIMAÇÃO ---
+window.apagarSelecionados = async () => {
+    const ids = Array.from(document.querySelectorAll('.historico-check:checked')).map(c => c.value);
+    if(ids.length === 0) return;
+    if(confirm(`Apagar ${ids.length} itens?`)) {
+        for(const id of ids) await deleteDoc(doc(db, "fluxo", id));
+        Swal.close();
+    }
+};
+
+window.apagarTudoConfirmar = async () => {
+    if(confirm("Deseja apagar TODOS os registros?")) {
+        for(const item of fin.lista) await deleteDoc(doc(db, "fluxo", item.id));
+        Swal.close();
+    }
+};
+
+// --- GESTÃO MINIMALISTA ---
+function renderGestao() {
+    const ctx = document.getElementById('chartGestao');
+    if(chart) chart.destroy();
+    const divs = fin.lista.filter(f => f.tipo === 'divida');
+    document.getElementById('totalGestao').innerText = BRL(fin.dividas);
+    chart = new Chart(ctx, { 
+        type: 'doughnut', 
+        data: { datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#a855f7','#7c3aed','#6366f1','#ef4444'], borderWidth: 0 }] }, 
+        options: { cutout: '85%', plugins: { legend: { display: false } } } 
+    });
+    const list = document.getElementById('listaDetalhada'); list.innerHTML = "";
+    divs.forEach(d => {
+        list.innerHTML += `<div class="flex justify-between p-4 bg-white/[0.02] border-b border-white/5 last:border-0"><span class="text-[10px] font-black uppercase opacity-70">${d.nome}</span><span class="text-[10px] font-black text-rose-500">${BRL(d.valor)}</span></div>`;
+    });
+}
+
+// --- METAS E ANIMAÇÃO ---
 window.aportarMeta = async (id, atual, alvo) => {
     const { value: v } = await Swal.fire({ title: 'Quanto aportar?', input: 'number', background: '#0a0c14', color: '#fff' });
     if(v) {
-        const novoValor = atual + Number(v);
-        await updateDoc(doc(db, "metas", id), { atual: novoValor });
-        if(novoValor >= alvo) {
-            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#a855f7', '#ffffff'] });
+        const novo = atual + Number(v);
+        await updateDoc(doc(db, "metas", id), { atual: novo });
+        if(novo >= alvo) {
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#a855f7','#ffffff'] });
             await updateDoc(doc(db, "metas", id), { status: 'concluida' });
-            Swal.fire({ title: 'META BATIDA! 🏆', text: 'Objetivo movido para a galeria de conquistas.', icon: 'success', background: '#0a0c14', color: '#fff' });
+            Swal.fire({ title: 'META BATIDA! 🏆', background: '#0a0c14', color: '#fff' });
         }
     }
 };
 
 window.verMetasConcluidas = () => {
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "concluida")), snap => {
-        let html = `<div class="space-y-2">`;
-        snap.forEach(d => { html += `<div class="p-4 glass-card text-emerald-400 text-xs font-black uppercase">🏆 ${d.data().nome} - ${BRL(d.data().alvo)}</div>`; });
-        Swal.fire({ title: 'CONQUISTAS', html: html || 'Nenhuma meta concluída ainda.', background: '#0a0c14', color: '#fff' });
+        let h = `<div class="space-y-2">`;
+        snap.forEach(d => { h += `<div class="p-4 glass-card text-emerald-400 text-xs font-black uppercase">🏆 ${d.data().nome}</div>`; });
+        Swal.fire({ title: 'BATIDAS', html: h || 'Nenhuma meta concluída.', background: '#0a0c14', color: '#fff' });
     });
 };
 
-// --- CHAT IA MENU ---
+// --- CHAT IA ---
 window.toggleChat = () => {
-    const win = document.getElementById('chatWindow');
-    win.style.display = win.style.display === 'flex' ? 'none' : 'flex';
+    const w = document.getElementById('chatWindow');
+    w.style.display = w.style.display === 'flex' ? 'none' : 'flex';
 };
 
-window.aiMenu = (opcao) => {
-    const cont = document.getElementById('chatContent');
-    let resposta = "";
-    if(opcao === 'tutorial') resposta = "Para começar, cadastre seu salário na Home. Depois, agende suas dívidas. O site vai te avisar se o dinheiro sobra para as Metas!";
-    if(opcao === 'conversao') {
-        const val = prompt("Valor em R$:");
-        resposta = `O valor de R$ ${val} equivale a aproximadamente $ ${(val/5.10).toFixed(2)} USD ou € ${(val/5.50).toFixed(2)} EUR.`;
+window.aiMenu = (op) => {
+    const c = document.getElementById('chatContent');
+    let r = "";
+    if(op === 'tutorial') r = "Cadastre seu salário na Home. Agende dívidas. O sistema dirá se sobra dinheiro para as Metas.";
+    if(op === 'conversao') {
+        const v = prompt("R$:");
+        r = `R$ ${v} = $ ${(v/5.10).toFixed(2)} USD ou € ${(v/5.50).toFixed(2)} EUR.`;
     }
-    if(opcao === 'dicas') resposta = "Siga a regra 50/30/20: 50% para necessidades, 30% para desejos e 20% para suas METAS.";
-    if(opcao === 'analise') {
-        const meses = Math.ceil(fin.dividas / (fin.ganhos || 1));
-        resposta = `Você tem ${BRL(fin.dividas)} em dívidas. Com seu salário de ${BRL(fin.ganhos)}, você levaria cerca de ${meses} mês(es) para quitar tudo se usasse 100% da renda.`;
-    }
-    cont.innerHTML += `<p class="bg-purple-600/40 p-3 rounded-2xl rounded-tr-none ml-4 self-end text-white opacity-100">${resposta}</p>`;
-    cont.scrollTop = cont.scrollHeight;
+    if(op === 'dicas') r = "Use a regra 50/30/20 para equilibrar sua vida financeira.";
+    if(op === 'analise') r = `Dívidas totais: ${BRL(fin.dividas)}. Salário: ${BRL(fin.ganhos)}.`;
+    c.innerHTML += `<p class="bg-purple-600/40 p-3 rounded-2xl rounded-tr-none ml-4 self-end">${r}</p>`;
+    c.scrollTop = c.scrollHeight;
 };
 
-// (Auxiliares de Navegação e Salvar mantidos da versão anterior para garantir o fluxo)
+// --- FUNÇÕES HOME ---
 window.setTipo = (t) => {
     tipoAtual = t;
-    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black text-purple-400 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
-    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black text-purple-400 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
+    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black uppercase text-purple-400 border-b-2 border-purple-500 pb-1" : "text-[10px] font-black uppercase opacity-40 pb-1";
+    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black uppercase text-purple-400 border-b-2 border-purple-500 pb-1" : "text-[10px] font-black uppercase opacity-40 pb-1";
 };
 
 window.salvarLancamento = async () => {
@@ -163,11 +226,26 @@ function atualizarUI() {
     document.getElementById('despesaTotal').innerText = BRL(fin.dividas);
     document.getElementById('saldoTotal').innerText = BRL(fin.ganhos - fin.dividas);
     document.getElementById('hpFill').style.width = Math.max(0, 100 - (fin.dividas / (fin.ganhos || 1) * 100)) + "%";
+
+    const t = document.getElementById('listaTimeline'); t.innerHTML = "";
+    fin.lista.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(i => {
+        t.innerHTML += `
+        <div onclick="abrirAcao('${i.id}', '${i.nome}', ${i.valor})" class="glass-card p-5 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'}">
+            <div><h4 class="text-xs font-black uppercase">${i.nome}</h4><p class="text-[9px] opacity-40">${i.data}</p></div>
+            <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
+        </div>`;
+    });
 }
+
+window.abrirAcao = async (id, nome) => {
+    const { value: a } = await Swal.fire({ title: nome, input: 'select', inputOptions: { paga: '✅ Pago', del: '🗑️ Deletar' }, background: '#0a0c14', color: '#fff' });
+    if(a === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
+    else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
+};
 
 window.modalNovaMeta = async () => {
     const { value: f } = await Swal.fire({
-        title: 'Nova Meta',
+        title: 'Novo Alvo',
         html: '<input id="mn" placeholder="Nome" class="swal2-input"><input id="ma" type="number" placeholder="Alvo R$" class="swal2-input">',
         background: '#0a0c14', color: '#fff',
         preConfirm: () => [document.getElementById('mn').value, document.getElementById('ma').value]
@@ -176,13 +254,3 @@ window.modalNovaMeta = async () => {
 };
 
 window.excluirMeta = async (id) => { await deleteDoc(doc(db, "metas", id)); };
-
-function renderGestao() {
-    const ctx = document.getElementById('chartGestao');
-    if(chart) chart.destroy();
-    const divs = fin.lista.filter(f => f.tipo === 'divida');
-    document.getElementById('totalGestao').innerText = BRL(fin.dividas);
-    chart = new Chart(ctx, { type: 'doughnut', data: { datasets: [{ data: divs.map(d => d.valor), backgroundColor: ['#a855f7','#7c3aed','#ef4444'], borderWidth: 0 }] }, options: { cutout: '80%' } });
-    const list = document.getElementById('listaDetalhada'); list.innerHTML = "";
-    divs.forEach(d => { list.innerHTML += `<div class="p-4 glass-card flex justify-between text-[10px] uppercase font-bold"><span>${d.nome}</span><button onclick="excluirRegistro('${d.id}')" class="text-rose-500">Apagar</button></div>`; });
-}
