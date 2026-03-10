@@ -15,9 +15,8 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let userUID = null, tipoAtual = 'ganho', chartInst = null, modoRegistro = false;
+let userUID = null, tipoAtual = 'ganho', catAtual = '🛒', chartInst = null;
 let fin = { previsto: 0, saldoReal: 0, dividas: 0, lista: [] };
-let metasAtivas = [];
 let dadosCarregados = false;
 
 const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -25,59 +24,44 @@ const BRL = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL
 // --- TUTORIAL ---
 async function iniciarTutorial() {
     while(!dadosCarregados) { await new Promise(r => setTimeout(r, 100)); }
-
-    const { value: aceitou } = await Swal.fire({
-        title: 'BEM-VINDO!',
-        text: 'Este é o MetasBoard. Quer um tour rápido?',
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonText: 'Sim!',
-        cancelButtonText: 'Não',
-        confirmButtonColor: '#a855f7'
-    });
-
-    if (!aceitou) return;
+    const { value: ok } = await Swal.fire({ title: 'BEM-VINDO!', text: 'Quer um tour rápido?', icon: 'info', showCancelButton: true, confirmButtonText: 'Sim!', confirmButtonColor: '#a855f7' });
+    if (!ok) return;
 
     const passos = [
-        { el: 'step-saude', txt: 'Sua SAÚDE PATRIMONIAL. O HP cai se as dívidas subirem.' },
-        { el: 'step-registro', txt: 'REGISTRO: Adicione ganhos e gastos aqui.' },
-        { el: 'step-nav', txt: 'MENU: Navegue entre Início, Metas e Gestão Estratégica.' },
-        { el: 'step-conversor', txt: 'CONVERSOR: Calcule Dólar e Euro em tempo real!' }
+        { el: 'step-saude', txt: 'Seu HP financeiro. Mantenha as dívidas baixas!' },
+        { el: 'step-registro', txt: 'REGISTRO: Escolha a categoria e salve seus gastos.' }
     ];
 
     for (let p of passos) {
-        const item = document.getElementById(p.el);
-        document.activeElement.blur();
-        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        document.getElementById(p.el).scrollIntoView({ behavior: 'smooth', block: 'center' });
         await new Promise(r => setTimeout(r, 400));
-        item.classList.add('tutorial-highlight');
+        document.getElementById(p.el).classList.add('tutorial-highlight');
         await Swal.fire({ text: p.txt, confirmButtonText: 'PRÓXIMO', confirmButtonColor: '#a855f7' });
-        item.classList.remove('tutorial-highlight');
+        document.getElementById(p.el).classList.remove('tutorial-highlight');
     }
-    confetti({ particleCount: 150, spread: 60 });
+    confetti({ particleCount: 100 });
 }
 
 // --- AUTH ---
 window.alternarModoAuth = () => {
-    modoRegistro = !modoRegistro;
-    document.getElementById('btnAcessar').innerText = modoRegistro ? "CRIAR CONTA" : "ENTRAR NO BOARD";
-    document.getElementById('btnTrocarAuth').innerText = modoRegistro ? "JÁ TENHO CONTA" : "CRIAR NOVA CONTA";
+    const btn = document.getElementById('btnAcessar');
+    btn.innerText = btn.innerText === "ENTRAR" ? "CRIAR CONTA" : "ENTRAR";
 };
 
 window.executarAuth = () => {
     const e = document.getElementById('email').value.trim();
     const s = document.getElementById('senha').value.trim();
+    const modo = document.getElementById('btnAcessar').innerText;
     if(!e || !s) return;
-    if(modoRegistro) {
-        createUserWithEmailAndPassword(auth, e, s).then((cred) => {
-            localStorage.setItem('novo_user_' + cred.user.uid, 'true');
-        }).catch(err => alert("Erro: " + err.message));
+
+    if(modo === "CRIAR CONTA") {
+        createUserWithEmailAndPassword(auth, e, s).then(c => localStorage.setItem('novo_user_'+c.user.uid, '1')).catch(a => alert(a.message));
     } else {
-        signInWithEmailAndPassword(auth, e, s).catch(() => alert("Dados incorretos."));
+        signInWithEmailAndPassword(auth, e, s).catch(() => alert("Erro no login"));
     }
 };
 
-window.sairDoSistema = () => signOut(auth).then(() => { localStorage.clear(); location.reload(); });
+window.sairDoSistema = () => signOut(auth).then(() => location.reload());
 
 onAuthStateChanged(auth, user => {
     if (user) { 
@@ -85,64 +69,34 @@ onAuthStateChanged(auth, user => {
         document.getElementById('loginTela').style.display = 'none'; 
         document.getElementById('dashboard').classList.add('show-dash'); 
         iniciarRealtime(); 
-        if (localStorage.getItem('novo_user_' + userUID)) {
-            localStorage.removeItem('novo_user_' + userUID);
-            iniciarTutorial();
-        }
-    } else { 
-        document.getElementById('loginTela').style.display = 'flex'; 
-    }
+        if(localStorage.getItem('novo_user_'+userUID)) { localStorage.removeItem('novo_user_'+userUID); iniciarTutorial(); }
+    } else { document.getElementById('loginTela').style.display = 'flex'; }
 });
 
-// --- CORE FUNCTIONS ---
-function getQuintoDiaUtil() {
-    let d = new Date(); d.setDate(1); let c = 0;
-    while (c < 5) {
-        let day = d.getDay();
-        if (day !== 0 && day !== 6) c++;
-        if (c < 5) d.setDate(d.getDate() + 1);
-    }
-    return d;
-}
-
+// --- CORE ---
 function iniciarRealtime() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
-        let prev = 0, real = 0, div = 0; fin.lista = [];
-        const hoje = new Date(), quinto = getQuintoDiaUtil();
+        let p=0, r=0, d=0; fin.lista = [];
         snap.forEach(ds => {
             const i = { ...ds.data(), id: ds.id };
-            if (i.status !== 'paga') {
-                if (i.tipo === 'ganho') {
-                    prev += i.valor;
-                    if (i.isSalario) { if (hoje >= quinto) real += i.valor; }
-                    else { if (hoje >= new Date(i.data)) real += i.valor; }
-                } else { div += i.valor; }
+            if(i.status !== 'paga') {
+                if(i.tipo === 'ganho') { p += i.valor; r += i.valor; } else { d += i.valor; }
             }
             fin.lista.push(i);
         });
-        fin.previsto = prev; fin.saldoReal = real; fin.dividas = div;
-        dadosCarregados = true;
+        fin.previsto=p; fin.saldoReal=r; fin.dividas=d; dadosCarregados=true;
         atualizarUI();
     });
 
     onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID), where("status", "==", "ativa")), snap => {
-        const grid = document.getElementById('rankingGrid'); grid.innerHTML = ""; metasAtivas = [];
+        const grid = document.getElementById('rankingGrid'); grid.innerHTML = "";
         snap.forEach(ds => {
-            const m = { ...ds.data(), id: ds.id }; metasAtivas.push(m);
-            const check = m.checklist || [];
-            const done = check.filter(c => c.done).length;
-            const perc = check.length > 0 ? (done / check.length) * 100 : 0;
-            grid.innerHTML += `
-            <div class="glass-card p-6 border-l-4 border-purple-500">
-                <div class="flex justify-between mb-2"><h4 class="text-sm font-black uppercase">${m.nome}</h4><span class="text-purple-400 font-black text-xs">${perc.toFixed(0)}%</span></div>
-                <div class="hp-bar mb-4"><div class="hp-fill bg-purple-600" style="width: ${perc}%"></div></div>
-                <div class="space-y-2 mb-4">
-                    ${check.map((c, idx) => `<div onclick="toggleSubmeta('${m.id}', ${idx}, ${c.done})" class="submeta-item p-4 rounded-2xl flex justify-between items-center text-[10px] font-bold ${c.done ? 'done' : ''}"><span>${c.item}</span><span>${c.done ? '✅' : '⭕'}</span></div>`).join('')}
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="addSubmeta('${m.id}')" class="bg-white/5 py-3 rounded-xl text-[9px] font-black uppercase">+ Requisito</button>
-                    <button onclick="deletarMeta('${m.id}')" class="bg-rose-500/10 text-rose-500 py-3 rounded-xl text-[9px] font-black uppercase">Excluir</button>
-                </div>
+            const m = ds.data();
+            const done = (m.checklist || []).filter(c => c.done).length;
+            const perc = m.checklist?.length ? (done / m.checklist.length) * 100 : 0;
+            grid.innerHTML += `<div class="glass-card p-6 border-l-4 border-purple-500">
+                <div class="flex justify-between mb-2"><h4 class="text-xs font-black uppercase">${m.nome}</h4><span>${perc.toFixed(0)}%</span></div>
+                <div class="hp-bar"><div class="hp-fill bg-purple-500" style="width: ${perc}%"></div></div>
             </div>`;
         });
     });
@@ -154,18 +108,49 @@ function atualizarUI() {
     document.getElementById('despesaTotal').innerText = BRL(fin.dividas);
     const perc = Math.max(0, 100 - (fin.dividas / (fin.previsto || 1) * 100));
     document.getElementById('hpFill').style.width = perc + "%";
-    document.getElementById('txtSaude').innerText = perc > 70 ? "Excelente" : "Alerta";
     
     const t = document.getElementById('listaTimeline'); t.innerHTML = "";
-    fin.lista.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(i => {
+    fin.lista.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
         t.innerHTML += `<div class="glass-card p-4 flex justify-between border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'}" onclick="abrirAcao('${i.id}')">
-            <div><h4 class="text-[10px] font-black uppercase">${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
+            <div><h4 class="text-[10px] font-black uppercase">${i.categoria || '💸'} ${i.nome}</h4><p class="text-[8px] opacity-40">${i.data}</p></div>
             <b class="text-xs ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-500'}">${BRL(i.valor)}</b>
         </div>`;
     });
 }
 
-// --- BOTÕES NAVEGAÇÃO ---
+// --- WINDOW FUNCTIONS (PARA OS BOTÕES FUNCIONAREM) ---
+window.setTipo = (t) => {
+    tipoAtual = t;
+    document.getElementById('tabGanho').className = t==='ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
+    document.getElementById('tabDivida').className = t==='divida' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] opacity-40 pb-1";
+};
+
+window.setCat = (emoji, btn) => {
+    catAtual = emoji;
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+};
+
+window.salvarLancamento = async () => {
+    const n = document.getElementById('fNome').value, v = Number(document.getElementById('fValor').value), d = document.getElementById('fData').value;
+    if(n && v && d) {
+        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tipoAtual, categoria: catAtual, userId: userUID, status: 'pendente' });
+        document.getElementById('fNome').value = ""; document.getElementById('fValor').value = "";
+    }
+};
+
+window.abrirAcao = async (id) => {
+    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Pago', del: '🗑️ Excluir' }, confirmButtonColor: '#a855f7' });
+    if(a === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
+    else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
+};
+
+window.abrirHistorico = () => {
+    let h = `<div class="space-y-2 text-left">`;
+    fin.lista.forEach(i => h += `<div class="p-3 bg-white/5 rounded-xl text-[10px] uppercase font-black">${i.nome} - ${BRL(i.valor)}</div>`);
+    Swal.fire({ title: 'HISTÓRICO', html: h + '</div>', showConfirmButton: false });
+};
+
 window.navegar = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -174,57 +159,11 @@ window.navegar = (id, btn) => {
     if(id === 'secGestao') renderGestao();
 };
 
-// --- BOTÕES LANÇAMENTO ---
-window.setTipo = (t) => {
-    tipoAtual = t;
-    document.getElementById('tabGanho').className = t === 'ganho' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] font-black uppercase opacity-40 pb-1";
-    document.getElementById('tabDivida').className = t === 'divida' ? "text-[10px] font-black uppercase text-purple-500 border-b-2 border-purple-500 pb-1" : "text-[10px] font-black uppercase opacity-40 pb-1";
-};
-
-window.salvarLancamento = async () => {
-    const n = document.getElementById('fNome').value, v = Number(document.getElementById('fValor').value), d = document.getElementById('fData').value, s = document.getElementById('f5Dia').checked;
-    if(n && v && d) {
-        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tipoAtual, isSalario: s, status: 'pendente', userId: userUID });
-        document.getElementById('fNome').value = ""; document.getElementById('fValor').value = "";
-    } else { alert("Preencha todos os campos."); }
-};
-
-window.abrirAcao = async (id) => {
-    const { value: a } = await Swal.fire({ title: 'Ação', input: 'select', inputOptions: { paga: '✅ Confirmar', del: '🗑️ Excluir' }, confirmButtonColor: '#a855f7' });
-    if(a === 'paga') await updateDoc(doc(db, "fluxo", id), { status: 'paga' });
-    else if(a === 'del') await deleteDoc(doc(db, "fluxo", id));
-};
-
-window.abrirHistorico = () => {
-    let h = `<div class="space-y-2 text-left">`;
-    fin.lista.forEach(i => h += `<div class="p-3 bg-white/5 rounded-xl text-[10px] uppercase font-black">${i.nome} - ${BRL(i.valor)}</div>`);
-    Swal.fire({ title: 'HISTÓRICO', html: h + (fin.lista.length ? '' : 'Vazio') + '</div>', showConfirmButton: false });
-};
-
-// --- BOTÕES METAS ---
 window.modalNovaMeta = async () => {
     const { value: n } = await Swal.fire({ title: 'Nova Meta', input: 'text', confirmButtonColor: '#a855f7' });
     if(n) await addDoc(collection(db, "metas"), { nome: n, status: 'ativa', checklist: [], userId: userUID });
 };
 
-window.addSubmeta = async (id) => {
-    const { value: i } = await Swal.fire({ title: 'Requisito', input: 'text', confirmButtonColor: '#a855f7' });
-    if(i) await updateDoc(doc(db, "metas", id), { checklist: arrayUnion({ item: i, done: false }) });
-};
-
-window.toggleSubmeta = async (mId, idx, status) => {
-    const m = metasAtivas.find(x => x.id === mId);
-    let nova = [...m.checklist];
-    nova[idx].done = !status;
-    await updateDoc(doc(db, "metas", mId), { checklist: nova });
-};
-
-window.deletarMeta = async (id) => {
-    const { isConfirmed } = await Swal.fire({ title: 'Excluir Meta?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#f43f5e' });
-    if(isConfirmed) await deleteDoc(doc(db, "metas", id));
-};
-
-// --- GESTÃO E CONVERSOR ---
 function renderGestao() {
     const ctx = document.getElementById('chartGestao');
     if(chartInst) chartInst.destroy();
@@ -235,12 +174,4 @@ function renderGestao() {
         data: { datasets: [{ data: divs.length ? divs.map(d => d.valor) : [1], backgroundColor: ['#a855f7', '#7c3aed', '#6366f1', '#4ade80'], borderWidth: 0 }] },
         options: { cutout: '85%', plugins: { legend: { display: false } } }
     });
-    document.getElementById('conselhoMentor').innerText = (fin.dividas / (fin.previsto || 1)) > 0.6 ? "Cuidado! Suas dívidas estão altas." : "Tudo sob controle. Continue focando nas metas!";
 }
-
-window.toggleChat = () => { const w = document.getElementById('chatWindow'); w.classList.toggle('hidden'); w.classList.toggle('flex'); };
-window.converterMoedas = () => {
-    const brl = Number(document.getElementById('convValor').value);
-    document.getElementById('resDolar').innerText = "$ " + (brl / 5.10).toFixed(2);
-    document.getElementById('resEuro').innerText = "€ " + (brl / 5.50).toFixed(2);
-};
