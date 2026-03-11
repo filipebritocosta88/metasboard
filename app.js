@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
@@ -15,105 +15,55 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let userUID = null, tAtual = 'divida', cAtual = '💰';
+let userUID = null, tAtual = 'divida', chart = null;
 const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- RECONHECIMENTO DE VOZ MELHORADO ---
-const recognition = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) 
-    ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() 
-    : null;
-
+// --- COMANDO DE VOZ REFINADO ---
+const recognition = ('webkitSpeechRecognition' in window) ? new webkitSpeechRecognition() : null;
 if (recognition) {
     recognition.lang = 'pt-BR';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    recognition.onresult = (event) => {
-        const fala = event.results[0][0].transcript;
-        console.log("Ouvido:", fala);
+    recognition.onresult = (e) => {
+        const txt = e.results[0][0].transcript.toLowerCase();
+        document.getElementById('masterInput').value = txt;
         
-        // Escreve a frase inteira no campo principal
-        document.getElementById('masterInput').value = fala;
-        
-        // Processa os dados (valor e categoria)
-        window.processarVozInteligente(fala);
-        
+        // Extração Inteligente: "Coxinha 20 reais"
+        const valorMatch = txt.match(/\d+([.,]\d+)?/);
+        if(valorMatch) {
+            document.getElementById('valManual').value = valorMatch[0].replace(',', '.');
+            const desc = txt.replace(valorMatch[0], '').replace('reais', '').replace('real', '').trim();
+            document.getElementById('masterInput').value = desc;
+        }
         document.getElementById('audioBtn').classList.remove('recording');
-        Swal.fire({ toast: true, position: 'top', timer: 1500, title: "Lido!", icon: 'success', showConfirmButton: false, background: '#111', color: '#fff' });
     };
-
-    recognition.onerror = () => document.getElementById('audioBtn').classList.remove('recording');
-    recognition.onend = () => document.getElementById('audioBtn').classList.remove('recording');
 }
 
 window.toggleAudio = () => {
-    if (!recognition) return Swal.fire("Erro", "Voz não suportada neste celular.", "error");
-    const btn = document.getElementById('audioBtn');
-    if (btn.classList.contains('recording')) {
-        recognition.stop();
-    } else {
-        btn.classList.add('recording');
-        recognition.start();
-    }
+    if (!recognition) return alert("Voz não suportada");
+    document.getElementById('audioBtn').classList.add('recording');
+    recognition.start();
 };
 
-window.processarVozInteligente = (frase) => {
-    const texto = frase.toLowerCase();
-    
-    // 1. Extrair Valor: Procura por números na frase
-    const numeros = texto.match(/\d+([.,]\d+)?/);
-    if (numeros) {
-        document.getElementById('valManual').value = numeros[0].replace(',', '.');
-        // Remove o valor do texto para deixar apenas a descrição
-        const descricaoSugerida = texto.replace(numeros[0], '').replace('reais', '').replace('real', '').trim();
-        if(descricaoSugerida) document.getElementById('masterInput').value = descricaoSugerida;
-    }
-
-    // 2. Definir Categoria por palavras-chave
-    if (texto.includes('comer') || texto.includes('coxinha') || texto.includes('lanche') || texto.includes('ifood')) setCat('🍔');
-    else if (texto.includes('mercado') || texto.includes('compras')) setCat('🛒');
-    else if (texto.includes('casa') || texto.includes('aluguel') || texto.includes('luz')) setCat('🏠');
-    else if (texto.includes('investir') || texto.includes('nubank')) setCat('🚀');
+// --- NAVEGAÇÃO ---
+window.nav = (id, btn) => {
+    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('nav-active'));
+    btn.classList.add('nav-active');
+    if(id === 'secGestao') initChart();
 };
 
-window.setCat = (cat) => {
-    cAtual = cat;
-    Swal.fire({ toast: true, position: 'top', timer: 1000, title: `Categoria: ${cat}`, showConfirmButton: false, background: '#111', color: '#fff' });
-};
-
-window.mudarTipo = (t) => {
-    tAtual = t;
-    document.getElementById('t-div').className = t === 'divida' ? 'text-[10px] px-6 py-2 rounded-lg bg-purple-600 font-black transition-all' : 'text-[10px] px-6 py-2 rounded-lg opacity-20 font-black transition-all';
-    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[10px] px-6 py-2 rounded-lg bg-purple-600 font-black transition-all' : 'text-[10px] px-6 py-2 rounded-lg opacity-20 font-black transition-all';
-};
-
-// --- AUTH ---
+// --- AUTENTICAÇÃO ---
 window.alternarAuth = () => {
     const b = document.getElementById('btnAuth');
-    const t = document.getElementById('txtAuth');
-    if (b.innerText === 'ENTRAR') {
-        b.innerText = 'CRIAR ACESSO';
-        t.innerText = 'VOLTAR AO LOGIN';
-        document.getElementById('authTitle').innerText = 'Novo Registro';
-    } else {
-        b.innerText = 'ENTRAR';
-        t.innerText = 'CRIAR NOVA CHAVE DE ACESSO';
-        document.getElementById('authTitle').innerText = 'Identificação';
-    }
+    b.innerText = b.innerText === 'ENTRAR' ? 'CRIAR CONTA' : 'ENTRAR';
 };
 
 window.executarAuth = () => {
-    const e = document.getElementById('email').value.trim();
-    const s = document.getElementById('senha').value.trim();
+    const e = document.getElementById('email').value;
+    const s = document.getElementById('senha').value;
     const modo = document.getElementById('btnAuth').innerText;
-
-    if (!e || !s) return Swal.fire('Ops!', 'Preencha os campos de acesso.', 'warning');
-
-    if (modo === 'ENTRAR') {
-        signInWithEmailAndPassword(auth, e, s).catch(() => Swal.fire('Erro', 'Acesso negado. Verifique os dados.', 'error'));
-    } else {
-        createUserWithEmailAndPassword(auth, e, s).catch(() => Swal.fire('Erro', 'Não foi possível criar esse acesso.', 'error'));
-    }
+    if(modo === 'ENTRAR') signInWithEmailAndPassword(auth, e, s);
+    else createUserWithEmailAndPassword(auth, e, s);
 };
 
 window.sair = () => signOut(auth).then(() => location.reload());
@@ -123,82 +73,188 @@ onAuthStateChanged(auth, u => {
         userUID = u.uid;
         document.getElementById('loginTela').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
-        document.getElementById('dataRef').innerText = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+        document.getElementById('dataRef').innerText = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
+        processarSalarioAgendado();
         initData();
-    } else {
-        document.getElementById('loginTela').classList.remove('hidden');
-        document.getElementById('app').classList.add('hidden');
+        initMetas();
     }
 });
 
-// --- CORE ---
+// --- LÓGICA DE SALÁRIO (5º DIA ÚTIL) ---
+async function processarSalarioAgendado() {
+    const docRef = doc(db, "configs", userUID);
+    const snap = await getDocs(query(collection(db, "configs"), where("userId", "==", userUID)));
+    
+    let config = { valorSalario: 0, ultimoMesPago: "" };
+    snap.forEach(d => config = d.data());
+
+    const hoje = new Date();
+    const mesAtual = (hoje.getMonth() + 1) + "/" + hoje.getFullYear();
+    
+    if (config.ultimoMesPago !== mesAtual && eQuintoDiaUtil(hoje)) {
+        await addDoc(collection(db, "fluxo"), {
+            nome: "SALÁRIO MENSAL (Automático)",
+            valor: config.valorSalario,
+            tipo: "ganho",
+            data: hoje.toISOString().split('T')[0],
+            userId: userUID,
+            ts: serverTimestamp()
+        });
+        // Atualiza que já pagou esse mês
+        const configDoc = doc(db, "configs", snap.docs[0].id);
+        await updateDoc(configDoc, { ultimoMesPago: mesAtual });
+    }
+    document.getElementById('txtProximoSalario').innerText = fmt(config.valorSalario || 0);
+}
+
+function eQuintoDiaUtil(data) {
+    let diasUteis = 0;
+    let d = new Date(data.getFullYear(), data.getMonth(), 1);
+    while (diasUteis < 5) {
+        let diaSemana = d.getDay();
+        if (diaSemana !== 0 && diaSemana !== 6) diasUteis++;
+        if (diasUteis < 5) d.setDate(d.getDate() + 1);
+    }
+    return data.getDate() === d.getDate();
+}
+
+window.configurarSalario = async () => {
+    const val = parseFloat(document.getElementById('inputSalarioBase').value);
+    const snap = await getDocs(query(collection(db, "configs"), where("userId", "==", userUID)));
+    if(snap.empty) {
+        await addDoc(collection(db, "configs"), { userId: userUID, valorSalario: val, ultimoMesPago: "" });
+    } else {
+        await updateDoc(doc(db, "configs", snap.docs[0].id), { valorSalario: val });
+    }
+    Swal.fire("Sucesso", "Salário atualizado!", "success");
+};
+
+// --- GESTÃO DE METAS (Meta dentro de Meta) ---
+window.abrirModalMeta = async () => {
+    const { value: formValues } = await Swal.fire({
+        title: 'Nova Meta Estratégica',
+        html: '<input id="swal-n" class="swal2-input" placeholder="Nome da Meta">' +
+              '<input id="swal-v" class="swal2-input" type="number" placeholder="Valor Total">',
+        focusConfirm: false,
+        preConfirm: () => [document.getElementById('swal-n').value, document.getElementById('swal-v').value]
+    });
+    if(formValues) {
+        await addDoc(collection(db, "metas"), {
+            nome: formValues[0],
+            valorTotal: parseFloat(formValues[1]),
+            pago: 0,
+            userId: userUID,
+            submetas: []
+        });
+    }
+};
+
+function initMetas() {
+    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
+        const container = document.getElementById('listaMetas');
+        container.innerHTML = '';
+        snap.forEach(d => {
+            const meta = d.data();
+            const pct = (meta.pago / meta.valorTotal) * 100;
+            container.innerHTML += `
+                <div class="glass p-5 space-y-3">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-xs font-black uppercase">${meta.nome}</p>
+                            <p class="text-[10px] opacity-40">${fmt(meta.pago)} de ${fmt(meta.valorTotal)}</p>
+                        </div>
+                        <div class="flex gap-2">
+                             <button onclick="adicionarSubmeta('${d.id}')" class="text-[15px]">➕</button>
+                             <button onclick="excluirMeta('${d.id}')" class="text-[15px]">🗑️</button>
+                        </div>
+                    </div>
+                    <div class="progress-bg"><div class="progress-fill" style="width: ${pct}%"></div></div>
+                    <div id="subs-${d.id}" class="pl-4 border-l border-white/10 space-y-2">
+                        ${meta.submetas.map(s => `<div class="flex justify-between text-[9px] opacity-60"><span>${s.n}</span><span>${fmt(s.v)}</span></div>`).join('')}
+                    </div>
+                </div>`;
+        });
+    });
+}
+
+window.adicionarSubmeta = async (id) => {
+    const { value: form } = await Swal.fire({
+        title: 'Adicionar Item',
+        html: '<input id="sub-n" class="swal2-input" placeholder="Ex: Placa de Vídeo">' +
+              '<input id="sub-v" class="swal2-input" type="number" placeholder="Valor">',
+        preConfirm: () => ({ n: document.getElementById('sub-n').value, v: parseFloat(document.getElementById('sub-v').value) })
+    });
+    if(form) {
+        const docRef = doc(db, "metas", id);
+        const snap = await getDocs(query(collection(db, "metas"), where("__name__", "==", id)));
+        const meta = snap.docs[0].data();
+        const novasSub = [...meta.submetas, form];
+        await updateDoc(docRef, { submetas: novasSub, pago: meta.pago + form.v });
+    }
+};
+
+window.excluirMeta = async (id) => { if(confirm("Excluir meta?")) await deleteDoc(doc(db, "metas", id)); };
+
+// --- ENGINE PRINCIPAL ---
 window.salvar = async () => {
     const n = document.getElementById('masterInput').value;
     const v = parseFloat(document.getElementById('valManual').value);
-    const d = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
-
-    if(!n || isNaN(v)) return Swal.fire('Dados Inválidos', 'Informe a descrição e o valor.', 'info');
-
-    try {
-        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tAtual, categoria: cAtual, userId: userUID, ts: serverTimestamp() });
-        document.getElementById('masterInput').value = '';
-        document.getElementById('valManual').value = '';
-        confetti({ particleCount: 150, spread: 70, origin: { y: 0.7 }, colors: ['#a855f7', '#ffffff'] });
-    } catch(e) {
-        Swal.fire('Erro', 'Falha ao salvar no banco.', 'error');
-    }
+    if(!n || !v) return;
+    await addDoc(collection(db, "fluxo"), {
+        nome: n, valor: v, data: document.getElementById('dateManual').value || new Date().toISOString().split('T')[0],
+        tipo: tAtual, userId: userUID, ts: serverTimestamp()
+    });
+    document.getElementById('masterInput').value = '';
+    document.getElementById('valManual').value = '';
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 };
 
 function initData() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
-        let r=0, d=0; const lista = [];
+        let r=0, d=0; const items = [];
         snap.forEach(doc => {
-            const item = { ...doc.data(), id: doc.id };
+            const item = doc.data();
             if(item.tipo === 'ganho') r += item.valor; else d += item.valor;
-            lista.push(item);
+            items.push({...item, id: doc.id});
         });
-        updateUI(r, d, lista);
+        updateUI(r, d, items);
     });
 }
 
-function updateUI(r, d, lista) {
+function updateUI(r, d, items) {
     const saldo = r - d;
-    const hp = r > 0 ? Math.min(100, Math.max(0, (saldo / r) * 100)) : (d > 0 ? 0 : 100);
-    
     document.getElementById('saldoReal').innerText = fmt(saldo);
-    document.getElementById('txtReceita').innerText = fmt(r);
-    document.getElementById('txtDespesa').innerText = fmt(d);
-    document.getElementById('txtPrevisto').innerText = fmt(r); 
-    document.getElementById('hpFill').style.width = hp + '%';
-    document.getElementById('hpPorcentagem').innerText = Math.round(hp) + '%';
+    document.getElementById('hpFill').style.width = Math.min(100, (saldo/r)*100) + '%';
     
-    const status = document.getElementById('hpTexto');
-    if (hp > 70) { status.innerText = 'EFICIENTE'; status.style.color = '#22c55e'; }
-    else if (hp > 30) { status.innerText = 'MODERADO'; status.style.color = '#eab308'; }
-    else { status.innerText = 'CRÍTICO'; status.style.color = '#ef4444'; }
-
     const feed = document.getElementById('feed');
     feed.innerHTML = '';
-    lista.sort((a,b) => b.ts - a.ts).slice(0,10).forEach(i => {
+    items.sort((a,b) => b.ts - a.ts).slice(0,5).forEach(i => {
         feed.innerHTML += `
-            <div class="glass p-5 flex justify-between items-center border-r-2 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'} card-entry">
-                <div class="flex items-center gap-4">
-                    <span class="text-2xl opacity-80">${i.categoria || '💰'}</span>
-                    <div><p class="text-[10px] font-black uppercase tracking-widest">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div>
-                </div>
-                <div class="text-right">
-                    <p class="money font-black ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-400'}">${fmt(i.valor)}</p>
-                    <button onclick="deletar('${i.id}')" class="text-[7px] opacity-20 hover:opacity-100 uppercase font-black text-rose-500 tracking-tighter">Deletar</button>
-                </div>
+            <div class="glass p-4 flex justify-between items-center border-l-4 ${i.tipo==='ganho'?'border-emerald-500':'border-rose-500'}">
+                <div><p class="text-[10px] font-black uppercase">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div>
+                <p class="money font-bold ${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</p>
             </div>`;
+    });
+
+    // Mentor
+    const mentor = document.getElementById('textoMentor');
+    if(saldo < 0) mentor.innerText = "Cuidado! Suas saídas superaram as entradas. Evite compras parceladas este mês.";
+    else if(saldo > r * 0.3) mentor.innerText = "Excelente! Você está poupando 30% da renda. Que tal acelerar uma de suas metas?";
+    else mentor.innerText = "Seu fluxo está equilibrado, mas tente reduzir gastos pequenos para sobrar mais para o seu PC.";
+}
+
+function initChart() {
+    const ctx = document.getElementById('meuGrafico').getContext('2d');
+    if(chart) chart.destroy();
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'], datasets: [{ label: 'Fluxo R$', data: [1200, 1900, 3000, 2500], borderColor: '#a855f7', tension: 0.4 }] },
+        options: { plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false } } } }
     });
 }
 
-window.deletar = async (id) => { if(confirm('Excluir este registro?')) await deleteDoc(doc(db, "fluxo", id)); };
-
-window.nav = (id, btn) => {
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('nav-active'));
-    btn.classList.add('nav-active');
+window.mudarTipo = (t) => {
+    tAtual = t;
+    document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-4 py-1.5 rounded-md bg-purple-600 font-black' : 'text-[9px] px-4 py-1.5 rounded-md opacity-30 font-black';
+    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-4 py-1.5 rounded-md bg-purple-600 font-black' : 'text-[9px] px-4 py-1.5 rounded-md opacity-30 font-black';
 };
