@@ -18,60 +18,87 @@ const db = getFirestore(app);
 let userUID = null, tAtual = 'divida', cAtual = '💰';
 const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- RECONHECIMENTO DE VOZ ---
-const recognition = 'webkitSpeechRecognition' in window ? new webkitSpeechRecognition() : null;
+// --- RECONHECIMENTO DE VOZ MELHORADO ---
+const recognition = ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) 
+    ? new (window.SpeechRecognition || window.webkitSpeechRecognition)() 
+    : null;
+
 if (recognition) {
     recognition.lang = 'pt-BR';
-    recognition.onresult = (e) => {
-        const res = e.results[0][0].transcript;
-        document.getElementById('masterInput').value = res;
-        window.ajudaInteligente(res);
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event) => {
+        const fala = event.results[0][0].transcript;
+        console.log("Ouvido:", fala);
+        
+        // Escreve a frase inteira no campo principal
+        document.getElementById('masterInput').value = fala;
+        
+        // Processa os dados (valor e categoria)
+        window.processarVozInteligente(fala);
+        
         document.getElementById('audioBtn').classList.remove('recording');
+        Swal.fire({ toast: true, position: 'top', timer: 1500, title: "Lido!", icon: 'success', showConfirmButton: false, background: '#111', color: '#fff' });
     };
+
     recognition.onerror = () => document.getElementById('audioBtn').classList.remove('recording');
+    recognition.onend = () => document.getElementById('audioBtn').classList.remove('recording');
 }
 
 window.toggleAudio = () => {
-    if (!recognition) return alert("Voz indisponível");
+    if (!recognition) return Swal.fire("Erro", "Voz não suportada neste celular.", "error");
     const btn = document.getElementById('audioBtn');
-    btn.classList.toggle('recording') ? recognition.start() : recognition.stop();
+    if (btn.classList.contains('recording')) {
+        recognition.stop();
+    } else {
+        btn.classList.add('recording');
+        recognition.start();
+    }
 };
 
-window.ajudaInteligente = (v) => {
-    const n = v.match(/\d+([.,]\d+)?/);
-    if(n) document.getElementById('valManual').value = n[0].replace(',', '.');
-    const t = v.toLowerCase();
-    if(t.includes('mercado')) setCat('🛒');
-    else if(t.includes('lanche')) setCat('🍔');
-    else if(t.includes('casa')) setCat('🏠');
+window.processarVozInteligente = (frase) => {
+    const texto = frase.toLowerCase();
+    
+    // 1. Extrair Valor: Procura por números na frase
+    const numeros = texto.match(/\d+([.,]\d+)?/);
+    if (numeros) {
+        document.getElementById('valManual').value = numeros[0].replace(',', '.');
+        // Remove o valor do texto para deixar apenas a descrição
+        const descricaoSugerida = texto.replace(numeros[0], '').replace('reais', '').replace('real', '').trim();
+        if(descricaoSugerida) document.getElementById('masterInput').value = descricaoSugerida;
+    }
+
+    // 2. Definir Categoria por palavras-chave
+    if (texto.includes('comer') || texto.includes('coxinha') || texto.includes('lanche') || texto.includes('ifood')) setCat('🍔');
+    else if (texto.includes('mercado') || texto.includes('compras')) setCat('🛒');
+    else if (texto.includes('casa') || texto.includes('aluguel') || texto.includes('luz')) setCat('🏠');
+    else if (texto.includes('investir') || texto.includes('nubank')) setCat('🚀');
 };
 
-window.setCat = (e) => {
-    cAtual = e;
-    document.querySelectorAll('#cats button').forEach(b => b.classList.add('grayscale'));
-    Swal.fire({ toast: true, position: 'top', timer: 800, showConfirmButton: false, title: e });
+window.setCat = (cat) => {
+    cAtual = cat;
+    Swal.fire({ toast: true, position: 'top', timer: 1000, title: `Categoria: ${cat}`, showConfirmButton: false, background: '#111', color: '#fff' });
 };
 
 window.mudarTipo = (t) => {
     tAtual = t;
-    document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-5 py-2 rounded-lg bg-purple-600 font-black' : 'text-[9px] px-5 py-2 rounded-lg opacity-30 font-black';
-    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-5 py-2 rounded-lg bg-purple-600 font-black' : 'text-[9px] px-5 py-2 rounded-lg opacity-30 font-black';
+    document.getElementById('t-div').className = t === 'divida' ? 'text-[10px] px-6 py-2 rounded-lg bg-purple-600 font-black transition-all' : 'text-[10px] px-6 py-2 rounded-lg opacity-20 font-black transition-all';
+    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[10px] px-6 py-2 rounded-lg bg-purple-600 font-black transition-all' : 'text-[10px] px-6 py-2 rounded-lg opacity-20 font-black transition-all';
 };
 
-// --- AUTENTICAÇÃO CORRIGIDA ---
+// --- AUTH ---
 window.alternarAuth = () => {
-    const btn = document.getElementById('btnAuth');
-    const txt = document.getElementById('txtAuth');
-    const title = document.getElementById('authTitle');
-    
-    if (btn.innerText === 'ENTRAR NO SISTEMA') {
-        btn.innerText = 'CRIAR MINHA CONTA';
-        txt.innerText = 'JÁ POSSUO CADASTRO';
-        title.innerText = 'Novo Recrutamento';
+    const b = document.getElementById('btnAuth');
+    const t = document.getElementById('txtAuth');
+    if (b.innerText === 'ENTRAR') {
+        b.innerText = 'CRIAR ACESSO';
+        t.innerText = 'VOLTAR AO LOGIN';
+        document.getElementById('authTitle').innerText = 'Novo Registro';
     } else {
-        btn.innerText = 'ENTRAR NO SISTEMA';
-        txt.innerText = 'NOVO POR AQUI? CRIAR CONTA';
-        title.innerText = 'Bem-vindo de volta';
+        b.innerText = 'ENTRAR';
+        t.innerText = 'CRIAR NOVA CHAVE DE ACESSO';
+        document.getElementById('authTitle').innerText = 'Identificação';
     }
 };
 
@@ -80,16 +107,16 @@ window.executarAuth = () => {
     const s = document.getElementById('senha').value.trim();
     const modo = document.getElementById('btnAuth').innerText;
 
-    if (!e || !s) return Swal.fire('Erro', 'Preencha os campos', 'warning');
+    if (!e || !s) return Swal.fire('Ops!', 'Preencha os campos de acesso.', 'warning');
 
-    if (modo === 'ENTRAR NO SISTEMA') {
-        signInWithEmailAndPassword(auth, e, s).catch(() => Swal.fire('Erro', 'E-mail ou senha inválidos', 'error'));
+    if (modo === 'ENTRAR') {
+        signInWithEmailAndPassword(auth, e, s).catch(() => Swal.fire('Erro', 'Acesso negado. Verifique os dados.', 'error'));
     } else {
-        createUserWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro no Cadastro', 'E-mail em uso ou inválido', 'error'));
+        createUserWithEmailAndPassword(auth, e, s).catch(() => Swal.fire('Erro', 'Não foi possível criar esse acesso.', 'error'));
     }
 };
 
-window.sair = () => signOut(auth);
+window.sair = () => signOut(auth).then(() => location.reload());
 
 onAuthStateChanged(auth, u => {
     if(u) {
@@ -104,18 +131,22 @@ onAuthStateChanged(auth, u => {
     }
 });
 
-// --- ENGINE ---
+// --- CORE ---
 window.salvar = async () => {
     const n = document.getElementById('masterInput').value;
     const v = parseFloat(document.getElementById('valManual').value);
     const d = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
 
-    if(!n || isNaN(v)) return Swal.fire('Atenção', 'Nome e valor obrigatórios', 'info');
+    if(!n || isNaN(v)) return Swal.fire('Dados Inválidos', 'Informe a descrição e o valor.', 'info');
 
-    await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tAtual, categoria: cAtual, userId: userUID, ts: serverTimestamp() });
-    document.getElementById('masterInput').value = '';
-    document.getElementById('valManual').value = '';
-    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#a855f7', '#ffffff'] });
+    try {
+        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data: d, tipo: tAtual, categoria: cAtual, userId: userUID, ts: serverTimestamp() });
+        document.getElementById('masterInput').value = '';
+        document.getElementById('valManual').value = '';
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.7 }, colors: ['#a855f7', '#ffffff'] });
+    } catch(e) {
+        Swal.fire('Erro', 'Falha ao salvar no banco.', 'error');
+    }
 };
 
 function initData() {
@@ -132,37 +163,38 @@ function initData() {
 
 function updateUI(r, d, lista) {
     const saldo = r - d;
-    const hp = r > 0 ? Math.min(100, Math.max(0, (saldo / r) * 100)) : 0;
+    const hp = r > 0 ? Math.min(100, Math.max(0, (saldo / r) * 100)) : (d > 0 ? 0 : 100);
     
     document.getElementById('saldoReal').innerText = fmt(saldo);
     document.getElementById('txtReceita').innerText = fmt(r);
     document.getElementById('txtDespesa').innerText = fmt(d);
-    document.getElementById('txtPrevisto').innerText = fmt(r * 1.1); // Simulação de previsto
+    document.getElementById('txtPrevisto').innerText = fmt(r); 
     document.getElementById('hpFill').style.width = hp + '%';
     document.getElementById('hpPorcentagem').innerText = Math.round(hp) + '%';
     
     const status = document.getElementById('hpTexto');
-    status.innerText = hp > 50 ? 'ESTÁVEL' : 'CRÍTICO';
-    status.className = `text-[10px] font-orbitron px-3 py-1 rounded-full bg-white/5 border ${hp > 50 ? 'border-emerald-500/30 text-emerald-400' : 'border-rose-500/30 text-rose-400'}`;
+    if (hp > 70) { status.innerText = 'EFICIENTE'; status.style.color = '#22c55e'; }
+    else if (hp > 30) { status.innerText = 'MODERADO'; status.style.color = '#eab308'; }
+    else { status.innerText = 'CRÍTICO'; status.style.color = '#ef4444'; }
 
     const feed = document.getElementById('feed');
     feed.innerHTML = '';
-    lista.sort((a,b) => b.ts - a.ts).slice(0,8).forEach(i => {
+    lista.sort((a,b) => b.ts - a.ts).slice(0,10).forEach(i => {
         feed.innerHTML += `
-            <div class="glass p-5 flex justify-between items-center border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'} card-entry">
+            <div class="glass p-5 flex justify-between items-center border-r-2 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'} card-entry">
                 <div class="flex items-center gap-4">
-                    <span class="text-2xl">${i.categoria}</span>
-                    <div><p class="text-[10px] font-black uppercase tracking-wider">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div>
+                    <span class="text-2xl opacity-80">${i.categoria || '💰'}</span>
+                    <div><p class="text-[10px] font-black uppercase tracking-widest">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div>
                 </div>
                 <div class="text-right">
-                    <p class="money font-bold ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-400'}">${fmt(i.valor)}</p>
-                    <button onclick="deletar('${i.id}')" class="text-[7px] opacity-20 hover:opacity-100 uppercase font-black text-rose-500">Remover</button>
+                    <p class="money font-black ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-400'}">${fmt(i.valor)}</p>
+                    <button onclick="deletar('${i.id}')" class="text-[7px] opacity-20 hover:opacity-100 uppercase font-black text-rose-500 tracking-tighter">Deletar</button>
                 </div>
             </div>`;
     });
 }
 
-window.deletar = async (id) => { if(confirm('Apagar?')) await deleteDoc(doc(db, "fluxo", id)); };
+window.deletar = async (id) => { if(confirm('Excluir este registro?')) await deleteDoc(doc(db, "fluxo", id)); };
 
 window.nav = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
