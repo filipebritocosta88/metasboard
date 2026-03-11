@@ -15,8 +15,31 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let userUID = null, tAtual = 'divida', cAtual = '💰', gInst = null;
+let userUID = null, tAtual = 'divida', cAtual = '💰';
 const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+// --- RECONHECIMENTO DE VOZ (NOVO) ---
+const recognition = 'webkitSpeechRecognition' in window ? new webkitSpeechRecognition() : null;
+if (recognition) {
+    recognition.lang = 'pt-BR';
+    recognition.onresult = (e) => {
+        const result = e.results[0][0].transcript;
+        document.getElementById('masterInput').value = result;
+        window.ajudaInteligente(result);
+        toggleAudio();
+    };
+}
+
+window.toggleAudio = () => {
+    const btn = document.getElementById('audioBtn');
+    if (btn.classList.contains('recording')) {
+        recognition.stop();
+        btn.classList.remove('recording');
+    } else {
+        recognition.start();
+        btn.classList.add('recording');
+    }
+};
 
 // --- SMART ENGINE ---
 window.ajudaInteligente = (val) => {
@@ -24,15 +47,15 @@ window.ajudaInteligente = (val) => {
     if(num) document.getElementById('valManual').value = num[0].replace(',', '.');
     
     const t = val.toLowerCase();
-    if(t.includes('mercado') || t.includes('comer')) setCat('🛒');
-    else if(t.includes('casa') || t.includes('aluguel')) setCat('🏠');
-    else if(t.includes('uber') || t.includes('ifood')) setCat('🍔');
-    else if(t.includes('invest') || t.includes('guardar')) setCat('🚀');
+    if(t.includes('mercado') || t.includes('comer') || t.includes('comida')) setCat('🛒');
+    else if(t.includes('casa') || t.includes('aluguel') || t.includes('luz')) setCat('🏠');
+    else if(t.includes('uber') || t.includes('ifood') || t.includes('lanche')) setCat('🍔');
+    else if(t.includes('investir') || t.includes('guardar')) setCat('🚀');
 };
 
 window.setCat = (e) => {
     cAtual = e;
-    Swal.fire({ toast: true, position: 'top-end', timer: 1000, showConfirmButton: false, title: `Categoria: ${e}`, background: '#111', color: '#fff' });
+    Swal.fire({ toast: true, position: 'top', timer: 1000, showConfirmButton: false, title: `Categoria: ${e}`, background: '#111', color: '#fff' });
 };
 
 window.mudarTipo = (t) => {
@@ -41,41 +64,30 @@ window.mudarTipo = (t) => {
     document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-3 py-1 rounded-md bg-purple-600 font-black' : 'text-[9px] px-3 py-1 rounded-md opacity-40 font-black';
 };
 
-// --- CORE FUNCTIONS ---
-window.salvar = async () => {
-    const nome = document.getElementById('masterInput').value;
-    const valor = parseFloat(document.getElementById('valManual').value);
-    const data = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
-
-    if(!nome || !valor) return Swal.fire('Erro', 'Preencha o comando e o valor', 'error');
-
-    await addDoc(collection(db, "fluxo"), {
-        nome, valor, data, tipo: tAtual, categoria: cAtual, userId: userUID, status: 'ok'
-    });
-
-    document.getElementById('masterInput').value = '';
-    document.getElementById('valManual').value = '';
-    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#a855f7', '#ffffff'] });
-};
-
-window.sair = () => signOut(auth).then(() => location.reload());
-
+// --- AUTH (CORRIGIDO) ---
 window.alternarAuth = () => {
     const b = document.getElementById('btnAuth');
     const t = document.getElementById('txtAuth');
-    b.innerText = b.innerText === 'Inicializar' ? 'Criar Conta' : 'Inicializar';
+    b.innerText = b.innerText === 'Acessar Terminal' ? 'Criar ID' : 'Acessar Terminal';
     t.innerText = t.innerText === 'Novo por aqui? Criar ID' ? 'Já tenho ID? Acessar' : 'Novo por aqui? Criar ID';
 };
 
 window.executarAuth = () => {
-    const e = document.getElementById('email').value;
-    const s = document.getElementById('senha').value;
-    if(document.getElementById('btnAuth').innerText === 'Inicializar') {
-        signInWithEmailAndPassword(auth, e, s).catch(err => alert("Falha na inicialização"));
+    const e = document.getElementById('email').value.trim();
+    const s = document.getElementById('senha').value.trim();
+    if(!e || !s) return Swal.fire('Erro', 'Preencha os campos', 'error');
+
+    if(document.getElementById('btnAuth').innerText === 'Acessar Terminal') {
+        signInWithEmailAndPassword(auth, e, s)
+            .catch(err => Swal.fire('Erro', 'Login falhou: ' + err.message, 'error'));
     } else {
-        createUserWithEmailAndPassword(auth, e, s).catch(err => alert("Erro ao criar ID"));
+        createUserWithEmailAndPassword(auth, e, s)
+            .then(() => Swal.fire('Sucesso', 'ID criado!', 'success'))
+            .catch(err => Swal.fire('Erro', 'Cadastro falhou: ' + err.message, 'error'));
     }
 };
+
+window.sair = () => signOut(auth).then(() => location.reload());
 
 onAuthStateChanged(auth, u => {
     if(u) {
@@ -86,8 +98,26 @@ onAuthStateChanged(auth, u => {
         initData();
     } else {
         document.getElementById('loginTela').classList.remove('hidden');
+        document.getElementById('app').classList.add('hidden');
     }
 });
+
+// --- DATA LOGIC ---
+window.salvar = async () => {
+    const nome = document.getElementById('masterInput').value;
+    const valor = parseFloat(document.getElementById('valManual').value);
+    const data = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
+
+    if(!nome || !valor) return Swal.fire('Erro', 'Preencha o nome e valor', 'error');
+
+    await addDoc(collection(db, "fluxo"), {
+        nome, valor, data, tipo: tAtual, categoria: cAtual, userId: userUID
+    });
+
+    document.getElementById('masterInput').value = '';
+    document.getElementById('valManual').value = '';
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+};
 
 function initData() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
@@ -109,8 +139,10 @@ function updateUI(r, d, lista) {
     
     const hp = r > 0 ? Math.min(100, Math.max(0, (saldo / r) * 100)) : 0;
     document.getElementById('hpFill').style.width = hp + '%';
-    document.getElementById('hpTexto').innerText = hp > 50 ? 'ESTÁVEL' : (hp > 20 ? 'ALERTA' : 'CRÍTICO');
-    document.getElementById('hpTexto').className = `text-xl font-orbitron ${hp > 50 ? 'text-green-500' : (hp > 20 ? 'text-yellow-500' : 'text-red-500')}`;
+    
+    const txt = document.getElementById('hpTexto');
+    txt.innerText = hp > 60 ? 'SISTEMA SEGURO' : (hp > 25 ? 'ALERTA DE CAIXA' : 'RISCO CRÍTICO');
+    txt.className = `text-xl font-orbitron ${hp > 60 ? 'text-green-500' : (hp > 25 ? 'text-yellow-500' : 'text-red-500')}`;
 
     const feed = document.getElementById('feed');
     feed.innerHTML = '';
@@ -125,8 +157,7 @@ function updateUI(r, d, lista) {
                     <p class="money font-bold ${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-400'}">${fmt(i.valor)}</p>
                     <button onclick="deletar('${i.id}')" class="text-[7px] opacity-20 hover:opacity-100 uppercase font-bold">Remover</button>
                 </div>
-            </div>
-        `;
+            </div>`;
     });
 }
 
