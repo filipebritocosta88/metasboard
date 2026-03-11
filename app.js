@@ -18,51 +18,40 @@ const db = getFirestore(app);
 let userUID = null, tAtual = 'divida', chart = null;
 const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- VOICE ENGINE (PRESERVADO E OTIMIZADO) ---
+// --- VOZ ---
 const recognition = ('webkitSpeechRecognition' in window) ? new webkitSpeechRecognition() : null;
 if (recognition) {
     recognition.lang = 'pt-BR';
     recognition.onresult = (e) => {
         const txt = e.results[0][0].transcript.toLowerCase();
         document.getElementById('masterInput').value = txt;
-        const valMatch = txt.match(/\d+([.,]\d+)?/);
-        if(valMatch) {
-            document.getElementById('valManual').value = valMatch[0].replace(',', '.');
-            document.getElementById('masterInput').value = txt.replace(valMatch[0], '').replace('reais', '').replace('real', '').trim();
+        const val = txt.match(/\d+([.,]\d+)?/);
+        if(val) {
+            document.getElementById('valManual').value = val[0].replace(',', '.');
+            document.getElementById('masterInput').value = txt.replace(val[0], '').replace('reais', '').trim();
         }
         document.getElementById('audioBtn').classList.remove('recording');
     };
 }
+window.toggleAudio = () => { recognition && recognition.start(); document.getElementById('audioBtn').classList.add('recording'); };
 
-window.toggleAudio = () => {
-    if (!recognition) return Swal.fire("Erro", "Voz não suportada", "error");
-    document.getElementById('audioBtn').classList.add('recording');
-    recognition.start();
-};
-
-// --- NAVEGAÇÃO E UX ---
+// --- NAVEGAÇÃO ---
 window.nav = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
     document.querySelectorAll('nav button').forEach(b => { b.classList.remove('nav-active'); b.classList.add('opacity-40'); });
-    btn.classList.add('nav-active');
-    btn.classList.remove('opacity-40');
+    btn.classList.add('nav-active'); btn.classList.remove('opacity-40');
     if(id === 'secGestao') initChart();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if(id === 'secSimulador') initSimulador();
 };
 
 // --- AUTH ---
-window.alternarAuth = () => {
-    const b = document.getElementById('btnAuth');
-    b.innerText = b.innerText === 'ENTRAR' ? 'CRIAR CONTA' : 'ENTRAR';
-};
-
+window.alternarAuth = () => { const b = document.getElementById('btnAuth'); b.innerText = b.innerText === 'ENTRAR' ? 'CRIAR CONTA' : 'ENTRAR'; };
 window.executarAuth = () => {
     const e = document.getElementById('email').value, s = document.getElementById('senha').value;
-    if(document.getElementById('btnAuth').innerText === 'ENTRAR') signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire("Erro", "Credenciais Inválidas", "error"));
+    if(document.getElementById('btnAuth').innerText === 'ENTRAR') signInWithEmailAndPassword(auth, e, s);
     else createUserWithEmailAndPassword(auth, e, s);
 };
-
 window.sair = () => signOut(auth).then(() => location.reload());
 
 onAuthStateChanged(auth, u => {
@@ -73,203 +62,200 @@ onAuthStateChanged(auth, u => {
         document.getElementById('dataRef').innerText = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
         initData();
         initMetas();
-        processarSalarioAgendado();
+        verificarSalario();
     }
 });
 
-// --- SALÁRIO 5º DIA ÚTIL (BLINDADO) ---
-async function processarSalarioAgendado() {
+// --- GESTÃO DE SALÁRIO ---
+async function verificarSalario() {
     const snap = await getDoc(doc(db, "configs", userUID));
     if(snap.exists()) {
         const config = snap.data();
-        document.getElementById('txtProximoSalario').innerText = fmt(config.valorSalario || 0);
-        const hoje = new Date(), mesAtual = (hoje.getMonth() + 1) + "/" + hoje.getFullYear();
-        if (config.ultimoMesPago !== mesAtual && eQuintoDiaUtil(hoje)) {
-            await addDoc(collection(db, "fluxo"), { 
-                nome: "SALÁRIO AUTOMÁTICO", valor: config.valorSalario, tipo: "ganho", 
-                data: hoje.toISOString().split('T')[0], userId: userUID, ts: serverTimestamp() 
-            });
-            await updateDoc(doc(db, "configs", userUID), { ultimoMesPago: mesAtual });
+        document.getElementById('valSalario').value = config.salario || 0;
+        const hoje = new Date(), ref = (hoje.getMonth()+1)+"/"+hoje.getFullYear();
+        if(config.ultimoSalario !== ref && eQuintoDiaUtil(hoje)) {
+            await addDoc(collection(db, "fluxo"), { nome: "SALÁRIO AUTOMÁTICO", valor: config.salario, tipo: "ganho", data: hoje.toISOString().split('T')[0], userId: userUID, ts: serverTimestamp() });
+            await updateDoc(doc(db, "configs", userUID), { ultimoSalario: ref });
         }
     }
 }
-
 function eQuintoDiaUtil(data) {
-    let diasUteis = 0, d = new Date(data.getFullYear(), data.getMonth(), 1);
-    while (diasUteis < 5) {
-        let ds = d.getDay();
-        if (ds !== 0 && ds !== 6) diasUteis++;
-        if (diasUteis < 5) d.setDate(d.getDate() + 1);
-    }
+    let du = 0, d = new Date(data.getFullYear(), data.getMonth(), 1);
+    while(du < 5) { let s = d.getDay(); if(s !== 0 && s !== 6) du++; if(du < 5) d.setDate(d.getDate()+1); }
     return data.getDate() === d.getDate();
 }
-
-window.configurarSalario = async () => {
-    const val = parseFloat(document.getElementById('inputSalarioBase').value);
-    await setDoc(doc(db, "configs", userUID), { valorSalario: val, userId: userUID }, { merge: true });
-    Swal.fire("Sucesso", "Salário configurado para o 5º DU", "success");
-    processarSalarioAgendado();
+window.salvarSalario = async () => {
+    const v = parseFloat(document.getElementById('valSalario').value);
+    await setDoc(doc(db, "configs", userUID), { salario: v, userId: userUID }, { merge: true });
+    Swal.fire("OK", "Salário fixado!", "success");
 };
 
-// --- METAS: HIERARQUIA, EDIÇÃO E INCENTIVOS ---
-window.abrirModalMeta = async () => {
-    const { value: f } = await Swal.fire({
-        title: 'Novo Grande Objetivo',
-        html: `<input id="mn" class="swal2-input" placeholder="O que você quer conquistar?">
-               <input id="mv" class="swal2-input" type="number" placeholder="Valor Estimado">
-               <input id="mi" class="swal2-input" placeholder="Incentivo: 'Pelo meu conforto'">`,
-        preConfirm: () => [document.getElementById('mn').value, document.getElementById('mv').value, document.getElementById('mi').value]
-    });
-    if(f && f[0]) {
-        await addDoc(collection(db, "metas"), { 
-            nome: f[0], valorTotal: parseFloat(f[1]) || 0, pago: 0, 
-            incentivo: f[2] || "Foco no objetivo!", submetas: [], 
-            userId: userUID, ts: serverTimestamp() 
-        });
-    }
-};
-
-function initMetas() {
-    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
-        const container = document.getElementById('listaMetas');
-        container.innerHTML = '';
-        snap.forEach(d => {
-            const m = d.data(), pct = m.valorTotal > 0 ? (m.pago / m.valorTotal) * 100 : 0;
-            container.innerHTML += `
-                <div class="glass p-6 space-y-4 border-l-4 border-purple-500 card-anim">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h4 class="font-orbitron text-[12px] text-purple-400 uppercase tracking-widest">${m.nome}</h4>
-                            <p class="text-[9px] opacity-60 italic mt-1">"${m.incentivo}"</p>
-                        </div>
-                        <div class="flex gap-3">
-                            <button onclick="adicionarPeca('${d.id}')" class="text-xl">🧩</button>
-                            <button onclick="deletarMeta('${d.id}')" class="text-xl text-rose-500/50">🗑️</button>
-                        </div>
-                    </div>
-                    <div class="progress-bg"><div class="progress-fill" style="width: ${pct}%"></div></div>
-                    <div class="flex justify-between text-[10px] font-bold">
-                        <span>PAGO: ${fmt(m.pago)}</span>
-                        <span class="opacity-40">ALVO: ${fmt(m.valorTotal)}</span>
-                    </div>
-                    <div class="grid grid-cols-1 gap-2 pt-2">
-                        ${m.submetas.map((s, i) => `
-                            <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl text-[10px] border border-white/5">
-                                <span class="opacity-70">${s.n}</span>
-                                <div class="flex items-center gap-3">
-                                    <span class="font-bold text-emerald-400">${fmt(s.v)}</span>
-                                    <button onclick="removerPeca('${d.id}', ${i})" class="text-rose-500 opacity-40">✕</button>
-                                </div>
-                            </div>`).join('')}
-                    </div>
-                </div>`;
-        });
-    });
-}
-
-window.adicionarPeca = async (id) => {
-    const { value: f } = await Swal.fire({
-        title: 'Adicionar Item/Peça',
-        html: '<input id="sn" class="swal2-input" placeholder="Ex: Monitor 144hz"><input id="sv" class="swal2-input" type="number" placeholder="Valor">',
-        preConfirm: () => ({ n: document.getElementById('sn').value, v: parseFloat(document.getElementById('sv').value) })
-    });
-    if(f && f.n) {
-        const docRef = doc(db, "metas", id), m = (await getDoc(docRef)).data();
-        const novas = [...(m.submetas || []), f];
-        await updateDoc(docRef, { submetas: novas, pago: (m.pago || 0) + f.v });
-        confetti({ particleCount: 100, spread: 70, colors: ['#a855f7'] });
-    }
-};
-
-window.removerPeca = async (id, idx) => {
-    const docRef = doc(db, "metas", id), m = (await getDoc(docRef)).data();
-    const vRem = m.submetas[idx].v, novas = m.submetas.filter((_, i) => i !== idx);
-    await updateDoc(docRef, { submetas: novas, pago: m.pago - vRem });
-};
-
-window.deletarMeta = async (id) => { if(confirm("Deseja apagar esta meta permanentemente?")) await deleteDoc(doc(db, "metas", id)); };
-
-// --- ENGINE DE REGISTROS (RAIO-X E PARCELAS) ---
-document.getElementById('checkFixo').onchange = (e) => document.getElementById('qtdParcelas').classList.toggle('hidden', !e.target.checked);
+// --- CORE: REGISTROS & PARCELAMENTO ---
+document.getElementById('checkParcela').onchange = (e) => document.getElementById('numParcelas').classList.toggle('hidden', !e.target.checked);
 
 window.salvar = async () => {
     const n = document.getElementById('masterInput').value, v = parseFloat(document.getElementById('valManual').value), 
-          data = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
-    if(!n || isNaN(v)) return Swal.fire("Campos Vazios", "Preencha a descrição e o valor.", "warning");
+          dStr = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
+    if(!n || isNaN(v)) return;
 
-    if(document.getElementById('checkFixo').checked) {
-        const parcelas = parseInt(document.getElementById('qtdParcelas').value) || 12;
-        for(let i=0; i<parcelas; i++) {
-            let d = new Date(data); d.setMonth(d.getMonth() + i);
-            await addDoc(collection(db, "fluxo"), { nome: `${n} (${i+1}/${parcelas})`, valor: v, data: d.toISOString().split('T')[0], tipo: tAtual, userId: userUID, ts: serverTimestamp() });
+    if(document.getElementById('checkParcela').checked) {
+        const p = parseInt(document.getElementById('numParcelas').value) || 1;
+        const vPart = v / p;
+        for(let i=0; i<p; i++) {
+            let d = new Date(dStr + 'T12:00:00'); d.setMonth(d.getMonth() + i);
+            await addDoc(collection(db, "fluxo"), { nome: `${n} (${i+1}/${p})`, valor: vPart, tipo: tAtual, data: d.toISOString().split('T')[0], userId: userUID, ts: serverTimestamp() });
         }
     } else {
-        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, data, tipo: tAtual, userId: userUID, ts: serverTimestamp() });
+        await addDoc(collection(db, "fluxo"), { nome: n, valor: v, tipo: tAtual, data: dStr, userId: userUID, ts: serverTimestamp() });
     }
-    
     document.getElementById('masterInput').value = ''; document.getElementById('valManual').value = '';
-    confetti({ particleCount: 80, spread: 50, origin: { y: 0.8 } });
+    confetti({ particleCount: 50 });
 };
 
 function initData() {
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
-        let r=0, d=0, gastosMes = 0;
-        const items = [], mesAtual = new Date().getMonth();
+        let totalR=0, totalD=0, mesR=0, mesD=0, proxD=0;
+        const items = [], heatmapData = {}, hoje = new Date(), mesSeg = new Date(); mesSeg.setMonth(hoje.getMonth() + 1);
         
         snap.forEach(doc => {
-            const item = doc.data();
-            const dataItem = new Date(item.data);
-            if(item.tipo === 'ganho') r += item.valor; 
-            else {
-                d += item.valor;
-                if(dataItem.getMonth() === mesAtual) gastosMes += item.valor;
+            const i = doc.data(); const d = new Date(i.data + 'T12:00:00');
+            if(i.tipo === 'ganho') totalR += i.valor; else totalD += i.valor;
+            
+            if(d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear()) {
+                if(i.tipo === 'ganho') mesR += i.valor; else { mesD += i.valor; heatmapData[d.getDate()] = (heatmapData[d.getDate()] || 0) + i.valor; }
             }
-            items.push({...item, id: doc.id});
+            if(d.getMonth() === mesSeg.getMonth() && d.getFullYear() === mesSeg.getFullYear()) {
+                if(i.tipo === 'divida') proxD += i.valor;
+            }
+            items.push({...i, id: doc.id});
         });
-        updateUI(r, d, gastosMes, items);
+        updateUI(totalR - totalD, mesR, mesD, proxD, items, heatmapData);
     });
 }
 
-function updateUI(r, d, gastosMes, items) {
-    const saldo = r - d;
+function updateUI(saldo, rMes, dMes, dProx, items, heatmap) {
     document.getElementById('saldoReal').innerText = fmt(saldo);
-    document.getElementById('totalGastosMes').innerText = fmt(gastosMes);
-    document.getElementById('totalLivre').innerText = fmt(saldo > 0 ? saldo : 0);
-    document.getElementById('hpFill').style.width = Math.min(100, (saldo/r)*100) + '%';
+    document.getElementById('rendaMes').innerText = fmt(rMes);
+    document.getElementById('gastoMes').innerText = fmt(dMes);
+    document.getElementById('dividaProximoMes').innerText = fmt(dProx);
+    document.getElementById('totalLivre').innerText = fmt(saldo - dMes);
     
-    const feed = document.getElementById('feed');
-    feed.innerHTML = '';
-    items.sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0,8).forEach(i => {
-        feed.innerHTML += `
-            <div class="glass p-5 flex justify-between items-center border-l-2 ${i.tipo==='ganho'?'border-emerald-500':'border-rose-500'} card-anim">
-                <div><p class="text-[10px] font-black uppercase tracking-widest">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div>
-                <div class="text-right">
-                    <p class="money font-bold ${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</p>
-                    <button onclick="deletarItem('${i.id}')" class="text-[8px] text-rose-500 opacity-20 hover:opacity-100">REMOVER</button>
-                </div>
-            </div>`;
+    // Feed Home (últimos 5)
+    const feed = document.getElementById('feed'); feed.innerHTML = '';
+    items.sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0,5).forEach(i => {
+        feed.innerHTML += `<div class="glass p-4 flex justify-between border-l-2 ${i.tipo==='ganho'?'border-emerald-500':'border-rose-500'}">
+            <div><p class="text-[9px] font-black uppercase">${i.nome}</p><p class="text-[7px] opacity-30">${i.data}</p></div>
+            <p class="font-bold text-[10px] ${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</p>
+        </div>`;
     });
 
-    const m = document.getElementById('textoMentor');
-    if(saldo < 0) m.innerHTML = "STATUS CRÍTICO. Você está operando no negativo. O Mentor sugere pausar todos os gastos variáveis imediatamente para proteger seu patrimônio.";
-    else if(gastosMes > r * 0.7) m.innerHTML = "CUIDADO. Seus gastos este mês já consumiram 70% da sua renda. Evite novas parcelas até o próximo ciclo.";
-    else m.innerHTML = "SITUAÇÃO SAUDÁVEL. Seu balanço está positivo. Este é o momento ideal para injetar capital em suas metas de hardware ou investimentos fixos.";
+    // Histórico Gestão
+    const hist = document.getElementById('listaDividasFull'); hist.innerHTML = '';
+    items.forEach(i => {
+        hist.innerHTML += `<div class="bg-white/5 p-3 rounded-xl flex justify-between items-center text-[9px]">
+            <span>${i.data} - ${i.nome}</span>
+            <div class="flex items-center gap-3"><b class="${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b>
+            <button onclick="deletar('${i.id}')" class="text-rose-500 opacity-40">✕</button></div>
+        </div>`;
+    });
+
+    renderHeatmap(heatmap);
 }
 
-window.deletarItem = async (id) => await deleteDoc(doc(db, "fluxo", id));
+window.deletar = async (id) => { if(confirm("Remover este registro?")) await deleteDoc(doc(db, "fluxo", id)); };
+
+// --- MAPA DE CALOR ---
+function renderHeatmap(data) {
+    const h = document.getElementById('heatmap'); h.innerHTML = '';
+    const max = Math.max(...Object.values(data), 1);
+    for(let d=1; d<=31; d++) {
+        const val = data[d] || 0;
+        const intensity = val > 0 ? Math.min(1, val/max) : 0;
+        const color = val === 0 ? 'rgba(255,255,255,0.05)' : `rgba(239, 68, 68, ${0.2 + intensity * 0.8})`;
+        h.innerHTML += `<div class="heatmap-day" style="background: ${color}">${d}</div>`;
+    }
+}
+
+// --- METAS & MENTOR ---
+window.abrirModalMeta = async () => {
+    const { value: f } = await Swal.fire({
+        title: 'Novo Sonho',
+        html: `<input id="mn" class="swal2-input" placeholder="O que deseja? (PC, Carro, etc)">
+               <input id="mv" class="swal2-input" type="number" placeholder="Valor Estimado R$">
+               <select id="mt" class="swal2-input"><option value="hardware">Computador/Hardware</option><option value="veiculo">Carro/Moto</option><option value="celular">Celular</option></select>`,
+        preConfirm: () => ({ n: document.getElementById('mn').value, v: parseFloat(document.getElementById('mv').value), t: document.getElementById('mt').value })
+    });
+    if(f && f.n) await addDoc(collection(db, "metas"), { ...f, pago: 0, submetas: [], userId: userUID, ts: serverTimestamp() });
+};
+
+function initMetas() {
+    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
+        const c = document.getElementById('listaMetas'); c.innerHTML = '';
+        snap.forEach(doc => {
+            const m = doc.data(); const pct = (m.pago / m.valorTotal) * 100;
+            const dica = getDicaMentor(m.t, m.valorTotal);
+            c.innerHTML += `<div class="glass p-6 space-y-4 meta-card">
+                <div class="flex justify-between items-start">
+                    <div><h4 class="font-orbitron text-[10px] text-purple-400 uppercase tracking-widest">${m.n}</h4><p class="text-[8px] opacity-40">Alvo: ${fmt(m.valorTotal)}</p></div>
+                    <button onclick="adicionarSub('${doc.id}')" class="text-xl">🧩</button>
+                </div>
+                <div class="h-2 bg-white/5 rounded-full overflow-hidden"><div class="progress-fill" style="width: ${pct}%"></div></div>
+                <p class="text-[9px] italic opacity-70 text-purple-300">🤖 Dica: ${dica}</p>
+                <div class="space-y-1">${m.submetas.map(s => `<div class="flex justify-between text-[8px] bg-black/20 p-2 rounded-lg"><span>${s.n}</span><b>${fmt(s.v)}</b></div>`).join('')}</div>
+            </div>`;
+        });
+    });
+}
+
+function getDicaMentor(tipo, valor) {
+    if(tipo === 'hardware') {
+        if(valor < 3000) return "Para este valor, recomendo um setup com Ryzen 5 5600G, focado em custo-benefício.";
+        if(valor < 7000) return "Com este orçamento, já miramos em uma RTX 4060 Ti para rodar tudo no Ultra.";
+        return "Setup High-End detectado! Considere a linha i9 ou Ryzen 9 com refrigeração líquida.";
+    }
+    if(tipo === 'veiculo') {
+        if(valor < 15000) return "Nesta faixa, as motos Honda CG ou Yamaha Factor são rainhas da economia.";
+        if(valor < 50000) return "Você pode buscar carros como Onix ou HB20 seminovos, muito confiáveis.";
+        return "Orçamento para um carro Premium ou zero km. Pesquise SUVs com bom valor de revenda.";
+    }
+    return "Foque em guardar um valor fixo mensal para atingir este objetivo mais rápido!";
+}
+
+window.adicionarSub = async (id) => {
+    const { value: f } = await Swal.fire({ title: 'Adicionar Peça', html: '<input id="sn" class="swal2-input" placeholder="Item"><input id="sv" class="swal2-input" type="number" placeholder="Valor">', preConfirm: () => ({ n: document.getElementById('sn').value, v: parseFloat(document.getElementById('sv').value) }) });
+    if(f && f.n) {
+        const docRef = doc(db, "metas", id), snap = await getDoc(docRef);
+        const m = snap.data(); const novas = [...(m.submetas || []), f];
+        await updateDoc(docRef, { submetas: novas, pago: m.pago + f.v });
+        confetti({ particleCount: 100 });
+    }
+};
+
+// --- SIMULADOR & GPS ---
+async function initSimulador() {
+    const snap = await getDocs(query(collection(db, "fluxo"), where("userId", "==", userUID)));
+    let r=0, d=0; snap.forEach(doc => { const i = doc.data(); if(i.tipo==='ganho') r += i.valor; else d += i.valor; });
+    const saldo = r - d;
+    
+    // Projeção simples (Saldo atual + (Lucro mensal estimado * meses))
+    const lucroMensal = 500; // Valor base para simulação se não houver dados suficientes
+    document.getElementById('sim6').innerText = fmt(saldo + (lucroMensal * 6));
+    document.getElementById('sim12').innerText = fmt(saldo + (lucroMensal * 12));
+    document.getElementById('sim60').innerText = fmt(saldo + (lucroMensal * 60));
+
+    const gps = document.getElementById('textoGPS');
+    if(saldo < 0) gps.innerText = "GPS Financeiro: Rota perigosa detectada. Recalculando... Sugiro cortar gastos variáveis imediatamente.";
+    else gps.innerText = "GPS Financeiro: Caminho livre! Você está em rota de crescimento. Ótimo momento para acelerar suas metas.";
+}
 
 function initChart() {
     const ctx = document.getElementById('meuGrafico').getContext('2d');
     if(chart) chart.destroy();
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: { labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'], datasets: [{ data: [1200, 2100, 1800, 2900], borderColor: '#a855f7', tension: 0.4, fill: true, backgroundColor: 'rgba(168, 85, 247, 0.05)' }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#ffffff20', font: { size: 9 } } } } }
-    });
+    chart = new Chart(ctx, { type: 'line', data: { labels: ['S1', 'S2', 'S3', 'S4'], datasets: [{ data: [15, 40, 20, 50], borderColor: '#a855f7', tension: 0.4, fill: true, backgroundColor: 'rgba(168, 85, 247, 0.1)' }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { color: '#ffffff20' } } } } });
 }
 
 window.mudarTipo = (t) => {
     tAtual = t;
-    document.getElementById('t-div').className = t === 'divida' ? 'text-[10px] px-6 py-2.5 rounded-xl bg-purple-600 font-black' : 'text-[10px] px-6 py-2.5 rounded-xl opacity-20 font-black';
-    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[10px] px-6 py-2.5 rounded-xl bg-purple-600 font-black' : 'text-[10px] px-6 py-2.5 rounded-xl opacity-20 font-black';
+    document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-5 py-2 rounded-lg bg-purple-600 font-black' : 'text-[9px] px-5 py-2 rounded-lg opacity-20 font-black';
+    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-5 py-2 rounded-lg bg-purple-600 font-black' : 'text-[9px] px-5 py-2 rounded-lg opacity-20 font-black';
 };
