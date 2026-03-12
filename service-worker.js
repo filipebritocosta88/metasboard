@@ -1,9 +1,9 @@
 const cacheName = 'metasboard-v1';
 const assets = [
-  '/metasboard/',
-  '/metasboard/index.html',
-  '/metasboard/app.js',
-  '/metasboard/manifest.json'
+  './',
+  'index.html',
+  'app.js',
+  'manifest.json'
 ];
 
 self.addEventListener('install', e => {
