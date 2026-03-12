@@ -1,1 +1,17 @@
-
+{
+  "name": "Metasboard",
+  "short_name": "Metasboard",
+  "description": "Gestão Pessoal e Metas",
+  "start_url": "/metasboard/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#a855f7",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/6081/6081313.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
