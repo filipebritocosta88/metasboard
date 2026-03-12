@@ -2,7 +2,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// --- CONFIGURAÇÃO FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
     authDomain: "metasboard.firebaseapp.com",
@@ -16,7 +15,15 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// --- VARIÁVEIS GLOBAIS DE ESTADO ---
+// Registro do Service Worker para PWA
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js')
+            .then(reg => console.log('Metasboard: SW Ativo'))
+            .catch(err => console.log('Erro SW:', err));
+    });
+}
+
 let userUID = null;
 let tAtual = 'divida';
 let globalItems = [];
@@ -24,7 +31,7 @@ let globalMetas = [];
 let calorOffset = 0;
 const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- RECONHECIMENTO DE VOZ (MICROFONE) ---
+// Voz
 const recognition = ('webkitSpeechRecognition' in window) ? new webkitSpeechRecognition() : null;
 if (recognition) {
     recognition.lang = 'pt-BR';
@@ -41,7 +48,7 @@ if (recognition) {
 }
 window.toggleAudio = () => { if(recognition) { recognition.start(); document.getElementById('audioBtn').classList.add('bg-red-500'); } };
 
-// --- NAVEGAÇÃO E TELAS ---
+// Navegação
 window.nav = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -50,7 +57,7 @@ window.nav = (id, btn) => {
     if(id === 'secSimulador') { renderCalor(); calcularSimulador(); }
 };
 
-// --- CONTROLE DE ACESSO (AUTH) ---
+// Auth
 window.alternarAuth = () => { 
     const b = document.getElementById('btnAuth'); 
     b.innerText = b.innerText === 'ACESSAR TERMINAL' ? 'CRIAR NOVO ACESSO' : 'ACESSAR TERMINAL'; 
@@ -58,20 +65,16 @@ window.alternarAuth = () => {
 
 window.executarAuth = () => {
     const e = document.getElementById('email').value, s = document.getElementById('senha').value;
-    if(!e || !s) return Swal.fire('Erro', 'Preencha os campos de acesso.', 'error');
+    if(!e || !s) return Swal.fire('Erro', 'Preencha os campos.', 'error');
     if(document.getElementById('btnAuth').innerText === 'ACESSAR TERMINAL') 
-        signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Acesso Negado', 'Verifique suas credenciais.', 'error'));
+        signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro', 'Acesso negado.', 'error'));
     else 
-        createUserWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro no Cadastro', 'E-mail inválido ou já em uso.', 'error'));
+        createUserWithEmailAndPassword(auth, e, s).then(() => {
+             setDoc(doc(db, "configs", auth.currentUser.uid), { salario: 0, dividasFixas: [] });
+        }).catch(err => Swal.fire('Erro', 'Falha no cadastro.', 'error'));
 };
 
-window.sair = () => {
-    signOut(auth).then(() => {
-        userUID = null;
-        document.getElementById('app').classList.add('hidden');
-        document.getElementById('loginTela').classList.remove('hidden');
-    });
-};
+window.sair = () => signOut(auth);
 
 onAuthStateChanged(auth, u => {
     if(u) {
@@ -80,19 +83,142 @@ onAuthStateChanged(auth, u => {
         document.getElementById('app').classList.remove('hidden');
         document.getElementById('dataRef').innerText = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
         initData(); initMetas(); verificarFixos();
+    } else {
+        document.getElementById('loginTela').classList.remove('hidden');
+        document.getElementById('app').classList.add('hidden');
     }
 });
 
-// --- RENDA E DÍVIDAS FIXAS ---
-async function verificarFixos() {
+// Dados e Lógica
+async function initData() {
     if(!userUID) return;
+    const mesFiltro = document.getElementById('filtroMes').value || new Date().toISOString().slice(0, 7);
+    const q = query(collection(db, "movimentacoes"), where("uid", "==", userUID));
+    onSnapshot(q, (snap) => {
+        globalItems = [];
+        snap.forEach(d => globalItems.push({id: d.id, ...d.data()}));
+        render();
+    });
+}
+
+function render() {
+    const mesFiltro = document.getElementById('filtroMes').value || new Date().toISOString().slice(0, 7);
+    const itensMes = globalItems.filter(i => i.data.startsWith(mesFiltro));
+    
+    const entradas = itensMes.filter(i => i.tipo === 'ganho').reduce((a, b) => a + b.valor, 0);
+    const saidas = itensMes.filter(i => i.tipo === 'divida').reduce((a, b) => a + b.valor, 0);
+    
+    document.getElementById('rendaMes').innerText = fmt(entradas);
+    document.getElementById('gastoMes').innerText = fmt(saidas);
+    document.getElementById('saldoReal').innerText = fmt(entradas - saidas);
+    
+    const feed = document.getElementById('feed');
+    feed.innerHTML = itensMes.sort((a,b) => b.timestamp - a.timestamp).slice(0, 10).map(i => `
+        <div class="glass p-4 flex justify-between items-center border-l-4 ${i.tipo === 'ganho' ? 'border-emerald-500' : 'border-rose-500'}">
+            <div>
+                <p class="text-[10px] font-black uppercase">${i.desc}</p>
+                <p class="text-[8px] opacity-40">${i.data.split('-').reverse().join('/')}</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <b class="${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-400'} font-orbitron text-xs">${fmt(i.valor)}</b>
+                <button onclick="apagarItem('${i.id}')" class="opacity-20 hover:opacity-100">✕</button>
+            </div>
+        </div>
+    `).join('');
+
+    const listaFull = document.getElementById('listaDividasFull');
+    listaFull.innerHTML = itensMes.map(i => `
+        <div class="flex justify-between p-2 border-b border-white/5 text-[10px]">
+            <span class="opacity-60">${i.data.split('-').reverse().join('/')} - ${i.desc}</span>
+            <b class="${i.tipo === 'ganho' ? 'text-emerald-400' : 'text-rose-400'}">${fmt(i.valor)}</b>
+        </div>
+    `).join('');
+}
+
+window.mudarTipo = (t) => {
+    tAtual = t;
+    document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black';
+    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black';
+};
+
+window.salvar = async () => {
+    const desc = document.getElementById('masterInput').value;
+    const valor = parseFloat(document.getElementById('valManual').value);
+    const data = document.getElementById('dateManual').value || new Date().toISOString().slice(0, 10);
+    const parcelado = document.getElementById('checkParcela').checked;
+    const numP = parseInt(document.getElementById('numParcelas').value) || 1;
+
+    if(!desc || !valor) return Swal.fire('Ops', 'Dados incompletos', 'warning');
+
+    for(let i=0; i < numP; i++) {
+        let d = new Date(data + 'T12:00:00');
+        d.setMonth(d.getMonth() + i);
+        await addDoc(collection(db, "movimentacoes"), {
+            uid: userUID, desc: parcelado ? `${desc} (${i+1}/${numP})` : desc,
+            valor: parcelado ? valor / numP : valor,
+            tipo: tAtual, data: d.toISOString().slice(0, 10), timestamp: Date.now()
+        });
+    }
+    
+    if(tAtual === 'divida') confetti({ particleCount: 50, colors: ['#ff0000'] });
+    else confetti({ particleCount: 150, colors: ['#a855f7', '#ffffff'] });
+
+    document.getElementById('masterInput').value = '';
+    document.getElementById('valManual').value = '';
+};
+
+window.apagarItem = (id) => deleteDoc(doc(db, "movimentacoes", id));
+
+// Metas
+async function initMetas() {
+    onSnapshot(query(collection(db, "metas"), where("uid", "==", userUID)), snap => {
+        globalMetas = [];
+        snap.forEach(d => globalMetas.push({id: d.id, ...d.data()}));
+        renderMetas();
+    });
+}
+
+function renderMetas() {
+    const lista = document.getElementById('listaMetas');
+    lista.innerHTML = globalMetas.map(m => {
+        const perc = Math.min((m.poupado / m.objetivo) * 100, 100);
+        return `
+        <div class="glass p-6 space-y-3">
+            <div class="flex justify-between items-end">
+                <div><h4 class="font-orbitron text-sm">${m.nome}</h4><p class="text-[9px] opacity-40 uppercase">Faltam ${fmt(m.objetivo - m.poupado)}</p></div>
+                <div class="text-right"><b class="text-purple-400 font-orbitron">${perc.toFixed(1)}%</b></div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" style="width: ${perc}%"></div></div>
+            <div class="flex gap-2">
+                <button onclick="pouparMeta('${m.id}', ${m.poupado})" class="flex-1 bg-white/5 py-3 rounded-xl text-[10px] font-black">+ ADICIONAR</button>
+                <button onclick="apagarMeta('${m.id}')" class="bg-rose-500/10 text-rose-500 px-4 rounded-xl">✕</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+window.abrirModalMeta = async () => {
+    const { value: f } = await Swal.fire({
+        title: 'Nova Meta',
+        html: `<input id="mn" class="swal2-input" placeholder="O que deseja?"><input id="mv" class="swal2-input" type="number" placeholder="Valor Total">`,
+        preConfirm: () => ({ nome: document.getElementById('mn').value, objetivo: parseFloat(document.getElementById('mv').value) })
+    });
+    if(f.nome && f.objetivo) await addDoc(collection(db, "metas"), { ...f, poupado: 0, uid: userUID });
+};
+
+window.pouparMeta = async (id, atual) => {
+    const { value: v } = await Swal.fire({ title: 'Quanto poupou?', input: 'number' });
+    if(v) await updateDoc(doc(db, "metas", id), { poupado: atual + parseFloat(v) });
+};
+
+window.apagarMeta = (id) => deleteDoc(doc(db, "metas", id));
+
+// Outros
+async function verificarFixos() {
     const snap = await getDoc(doc(db, "configs", userUID));
-    const salDiv = document.getElementById('statusSalario');
-    const fixDiv = document.getElementById('statusDividaFixa');
     if(snap.exists()) {
-        const config = snap.data();
-        salDiv.innerHTML = config.salario ? `<div class="flex justify-between items-center bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10"><div><p class="text-[12px] font-black">${fmt(config.salario)}</p><p class="text-[8px] opacity-40 uppercase">Geração Automática</p></div><button onclick="removerFixo('salario')" class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">✕</button></div>` : `<button onclick="abrirModalSalario()" class="w-full py-4 border-2 border-dashed border-white/10 rounded-2xl text-[10px] font-bold opacity-40">+ Renda Mensal</button>`;
-        fixDiv.innerHTML = (config.dividasFixas || []).map((d, i) => `<div class="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10"><div><p class="text-[11px] font-black uppercase">${d.nome}</p><p class="text-[8px] opacity-40">Dia ${d.dia}</p></div><div class="flex items-center gap-4"><b class="text-rose-400 font-black">${fmt(d.valor)}</b><button onclick="removerFixo('divida', ${i})" class="text-rose-500 opacity-40">✕</button></div></div>`).join('');
+        const c = snap.data();
+        document.getElementById('statusSalario').innerHTML = c.salario > 0 ? `<div class="p-4 bg-emerald-500/10 rounded-2xl flex justify-between items-center"><span>${fmt(c.salario)}</span><button onclick="removerFixo('salario')" class="text-rose-500">✕</button></div>` : `<button onclick="abrirModalSalario()" class="w-full p-4 border-2 border-dashed border-white/10 rounded-2xl opacity-40">Definir Salário</button>`;
     }
 }
 
@@ -101,194 +227,26 @@ window.abrirModalSalario = async () => {
     if(v) { await setDoc(doc(db, "configs", userUID), { salario: parseFloat(v) }, { merge: true }); verificarFixos(); }
 };
 
-window.abrirModalDividaFixa = async () => {
-    const { value: f } = await Swal.fire({
-        title: 'Nova Conta Fixa',
-        html: `<input id="fn" class="swal2-input" placeholder="Nome"><input id="fv" class="swal2-input" type="number" placeholder="Valor"><input id="fd" class="swal2-input" type="number" placeholder="Dia">`,
-        preConfirm: () => ({ nome: document.getElementById('fn').value, valor: parseFloat(document.getElementById('fv').value), dia: parseInt(document.getElementById('fd').value) })
-    });
-    if(f && f.nome) {
-        const snap = await getDoc(doc(db, "configs", userUID));
-        const atuais = snap.exists() ? (snap.data().dividasFixas || []) : [];
-        await setDoc(doc(db, "configs", userUID), { dividasFixas: [...atuais, f] }, { merge: true });
-        verificarFixos();
-    }
-};
-
-window.removerFixo = async (tipo, idx) => {
-    const snap = await getDoc(doc(db, "configs", userUID));
-    if(tipo === 'salario') await updateDoc(doc(db, "configs", userUID), { salario: null });
-    else { let list = snap.data().dividasFixas; list.splice(idx, 1); await updateDoc(doc(db, "configs", userUID), { dividasFixas: list }); }
+window.removerFixo = async (tipo) => {
+    if(tipo === 'salario') await updateDoc(doc(db, "configs", userUID), { salario: 0 });
     verificarFixos();
 };
 
-// --- LANÇAMENTOS (DÉBITO / CRÉDITO) ---
-window.salvar = async () => {
-    const n = document.getElementById('masterInput').value, v = parseFloat(document.getElementById('valManual').value), 
-          dStr = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
-    if(!n || isNaN(v)) return Swal.fire('Oops', 'Preencha corretamente.', 'warning');
-    if(document.getElementById('checkParcela').checked) {
-        const p = parseInt(document.getElementById('numParcelas').value) || 1;
-        for(let i=0; i<p; i++) {
-            let d = new Date(dStr + 'T12:00:00'); d.setMonth(d.getMonth() + i);
-            await addDoc(collection(db, "fluxo"), { nome: `${n} (${i+1}/${p})`, valor: v/p, tipo: tAtual, data: d.toISOString().split('T')[0], userId: userUID });
-        }
-    } else { await addDoc(collection(db, "fluxo"), { nome: n, valor: v, tipo: tAtual, data: dStr, userId: userUID }); }
-    document.getElementById('masterInput').value = ''; document.getElementById('valManual').value = '';
-    confetti({ particleCount: 100, spread: 70 });
-};
-
-// --- PROCESSAMENTO DE DADOS ---
-function initData() {
-    if(!userUID) return;
-    onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
-        let carteira = 0, rMesH = 0, gMesH = 0, rMesT = 0, gMesT = 0;
-        const items = [], hoje = new Date();
-        snap.forEach(doc => {
-            const i = doc.data(); const d = new Date(i.data + 'T12:00:00');
-            if(d <= hoje) { if(i.tipo==='ganho') carteira += i.valor; else carteira -= i.valor; }
-            if(d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear()) {
-                if(i.tipo==='ganho') { rMesT += i.valor; if(d <= hoje) rMesH += i.valor; }
-                else { gMesT += i.valor; if(d <= hoje) gMesH += i.valor; }
-            }
-            items.push({...i, id: doc.id});
-        });
-        globalItems = items; updateUI(carteira, rMesH, gMesH, rMesT, gMesT);
-    });
-}
-
-async function updateUI(carteira, rH, gH, rT, gT) {
-    document.getElementById('saldoReal').innerText = fmt(carteira);
-    document.getElementById('rendaMes').innerText = fmt(rH);
-    document.getElementById('gastoMes').innerText = fmt(gH);
-    document.getElementById('saldoPrevisto').innerText = fmt(carteira + (rT - rH) - (gT - gH));
-    
-    const snap = await getDoc(doc(db, "configs", userUID));
-    const sal = snap.exists() ? (snap.data().salario || 0) : 0;
-    const fix = snap.exists() ? (snap.data().dividasFixas || []).reduce((a,b)=>a+b.valor, 0) : 0;
-    const proxM = new Date(); proxM.setMonth(proxM.getMonth() + 1);
-    const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; }).reduce((a,b)=>a+b.valor, 0);
-    const varR = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'ganho'; }).reduce((a,b)=>a+b.valor, 0);
-    document.getElementById('resumoProxMes').innerText = fmt(sal + varR - fix - varG);
-
-    const hDiv = document.getElementById('listaDividasFull'); hDiv.innerHTML = '';
-    globalItems.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
-        hDiv.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5"><div><p class="text-[11px] font-black uppercase">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div><div class="flex items-center gap-4"><b class="${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b><button onclick="deletarItem('${i.id}')" class="text-rose-500 opacity-20">✕</button></div></div>`;
-    });
-
-    const feed = document.getElementById('feed'); feed.innerHTML = '';
-    globalItems.sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0,5).forEach(i => {
-        feed.innerHTML += `<div class="glass p-4 flex justify-between items-center border-l-4 ${i.tipo==='ganho'?'border-emerald-500':'border-rose-500'}"><span class="text-[10px] font-black uppercase opacity-60">${i.nome}</span><b class="text-[11px] ${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b></div>`;
-    });
-}
-window.deletarItem = async (id) => await deleteDoc(doc(db, "fluxo", id));
-
-// --- GESTÃO DE METAS ---
-window.abrirModalMeta = async () => {
-    const { value: f } = await Swal.fire({
-        title: 'Novo Objetivo',
-        html: `<input id="mn" class="swal2-input" placeholder="O que deseja?"><input id="mv" class="swal2-input" type="number" placeholder="Valor Total">`,
-        preConfirm: () => ({ n: document.getElementById('mn').value, v: parseFloat(document.getElementById('mv').value) })
-    });
-    if(f && f.n) await addDoc(collection(db, "metas"), { ...f, pago: 0, userId: userUID, ts: Date.now() });
-};
-
-function initMetas() {
-    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
-        const c = document.getElementById('listaMetas'); c.innerHTML = '';
-        const mArr = []; snap.forEach(doc => mArr.push({...doc.data(), id: doc.id}));
-        globalMetas = mArr;
-        mArr.sort((a,b) => (b.pago/b.v) - (a.pago/a.v)).forEach((m, idx) => {
-            const pct = Math.min(100, (m.pago / m.v) * 100);
-            c.innerHTML += `<div class="glass p-6 space-y-4 border-l-4 ${idx===0?'border-yellow-500':'border-purple-500'}"><div class="flex justify-between items-start"><div><p class="text-[8px] font-black text-purple-400">RANK #${idx+1}</p><h4 class="font-orbitron text-[13px] uppercase">${m.n}</h4></div><div class="flex gap-4"><button onclick="addValorMeta('${m.id}')" class="text-xl">💰</button><button onclick="deletarMeta('${m.id}')" class="text-lg opacity-20">🗑️</button></div></div><div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div><div class="flex justify-between text-[10px] font-black"><span>${fmt(m.pago)}</span><span class="opacity-30">${fmt(m.v)}</span></div></div>`;
-        });
-    });
-}
-window.addValorMeta = async (id) => {
-    const { value: v } = await Swal.fire({ title: 'Aportar Capital', input: 'number' });
-    if(v) {
-        const docRef = doc(db, "metas", id); const m = (await getDoc(docRef)).data();
-        const novoV = m.pago + parseFloat(v); await updateDoc(docRef, { pago: novoV });
-        if(novoV >= m.v) confetti({ particleCount: 200, spread: 100 });
-    }
-};
-window.deletarMeta = async (id) => await deleteDoc(doc(db, "metas", id));
-
-// --- NOVO: SIMULADOR DE VIDA (E SE...?) ---
-window.simularCenario = () => {
-    const nome = document.getElementById('cenarioNome').value;
-    const valor = parseFloat(document.getElementById('cenarioValor').value) || 0;
-    const meses = document.getElementById('cenarioMeses').value;
-    const res = document.getElementById('resultadoCenario');
-    if(!nome || valor <= 0) return;
-    const saldoLivre = parseFloat(document.getElementById('resumoProxMes').innerText.replace(/[R$\s.]/g, '').replace(',', '.'));
-    const novoSaldo = saldoLivre - valor;
-    res.classList.remove('hidden');
-    res.innerHTML = `<h5 class="text-[9px] font-black uppercase text-purple-400">Análise: ${nome}</h5>
-        <p class="text-[11px]">Seu saldo livre cairia para <b class="${novoSaldo < 0 ? 'text-rose-500' : 'text-emerald-400'}">${fmt(novoSaldo)}</b>.</p>
-        <p class="text-[10px] opacity-60">Impacto no Score: <b>-${(valor/(saldoLivre||1)*5).toFixed(1)} pts</b></p>
-        <p class="mt-2 text-[10px] italic border-t border-white/5 pt-2">Dica: Esse valor renderia ${fmt(valor * Math.pow(1.01, meses||12))} em investimentos.</p>`;
-};
-
-// --- FUTURO, CALOR E CÂMBIO ---
-window.mudarMesCalor = (n) => { calorOffset += n; renderCalor(); };
 function renderCalor() {
-    const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
-    document.getElementById('calorDataRef').innerText = dRef.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).toUpperCase();
-    const heatmap = document.getElementById('heatmap'); heatmap.innerHTML = '';
-    for(let d=1; d<=new Date(dRef.getFullYear(), dRef.getMonth() + 1, 0).getDate(); d++) {
-        const total = globalItems.filter(i => { const dt = new Date(i.data + 'T12:00:00'); return dt.getDate() === d && dt.getMonth() === dRef.getMonth() && i.tipo === 'divida'; }).reduce((acc, c) => acc + c.valor, 0);
-        const color = total === 0 ? 'rgba(255,255,255,0.05)' : (total > 200 ? '#f43f5e' : '#fb7185');
-        heatmap.innerHTML += `<div class="heatmap-day" style="background: ${color}" onclick="verDetalheDia(${d})">${d}</div>`;
+    const h = document.getElementById('heatmap');
+    h.innerHTML = '';
+    const agora = new Date();
+    agora.setMonth(agora.getMonth() + calorOffset);
+    document.getElementById('calorDataRef').innerText = agora.toLocaleDateString('pt-BR', {month:'short', year:'numeric'});
+    
+    const diasNoMes = new Date(agora.getFullYear(), agora.getMonth()+1, 0).getDate();
+    for(let d=1; d<=diasNoMes; d++) {
+        const dataStr = `${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const temGasto = globalItems.some(i => i.data === dataStr);
+        h.innerHTML += `<div class="heatmap-day ${temGasto ? 'bg-purple-600 shadow-[0_0_10px_#a855f7]' : 'bg-white/5 opacity-20'}">${d}</div>`;
     }
 }
-window.verDetalheDia = (dia) => {
-    const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
-    const dStr = `${dRef.getFullYear()}-${String(dRef.getMonth()+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
-    const diaItems = globalItems.filter(i => i.data === dStr);
-    Swal.fire({ title: `Dia ${dia}`, html: `<div class="text-left text-xs">${diaItems.map(i => `<div class='flex justify-between py-1'><span>${i.nome}</span><b>${fmt(i.valor)}</b></div>`).join('') || 'Sem gastos.'}</div>` });
-};
+window.mudarMesCalor = (n) => { calorOffset += n; renderCalor(); };
 
-window.calcularSimulador = () => {
-    const inv = parseFloat(document.getElementById('inputInvest').value) || 0;
-    const f = (m) => inv * ((Math.pow(1.01, m) - 1) / 0.01);
-    document.getElementById('sim6').innerText = fmt(f(6));
-    document.getElementById('sim12').innerText = fmt(f(12));
-    document.getElementById('sim60').innerText = fmt(f(60));
-    const score = (inv/100) + ((globalMetas.reduce((a,b)=>a+b.pago,0)/(globalMetas.reduce((a,b)=>a+b.v,0)||1))*5);
-    document.getElementById('scoreGPS').innerText = Math.min(10.0, score).toFixed(1);
-    document.getElementById('textoGPS').innerText = score > 7 ? "Performance Excelente." : "Ajuste Necessário.";
-};
-
-window.converterMoeda = () => {
-    const brl = parseFloat(document.getElementById('convReal').value) || 0;
-    const s = document.getElementById('moedaDestino').value.split('|');
-    document.getElementById('bandeiraMoeda').innerText = s[1];
-    document.getElementById('resConversao').innerText = (brl / parseFloat(s[0])).toLocaleString('en-US', { minimumFractionDigits: 2 });
-};
-
-// --- CORE IA CHAT SYSTEM ---
 window.abrirChatIA = () => document.getElementById('chatAI').classList.add('open');
 window.fecharChatIA = () => document.getElementById('chatAI').classList.remove('open');
-window.enviarPerguntaIA = () => {
-    const input = document.getElementById('iaInput'); const msg = input.value.trim().toLowerCase(); if(!msg) return;
-    const chat = document.getElementById('chatMessages');
-    chat.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl rounded-tr-none ml-auto max-w-[80%] text-right text-xs">${input.value}</div>`;
-    let r = "Posso ajudar com dinheiro e metas. Tente: 'como economizar' ou 'como usar o site'.";
-    if(msg.includes("metas")) r = "Vá em '🎯 Metas' e use o '+ Nova Meta'. Para investir nelas, use o ícone 💰.";
-    else if(msg.includes("economizar")) r = "Use o Simulador de Vida 🔮 na aba Futuro para ver o impacto de um gasto antes de comprar!";
-    else if(msg.includes("parcelar")) r = "Na Home, marque 'Parcelar Compra'. O sistema divide o valor sozinho nos meses seguintes.";
-    setTimeout(() => { chat.innerHTML += `<div class="bg-purple-500/10 p-4 rounded-2xl rounded-tl-none border border-purple-500/20 max-w-[80%] text-xs">${r}</div>`; chat.scrollTop = chat.scrollHeight; }, 600);
-    input.value = '';
-};
-
-window.mudarTipo = (t) => { tAtual = t; document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black'; document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black'; };
-
-window.abrirDetalheProximoMes = async () => {
-    const snap = await getDoc(doc(db, "configs", userUID));
-    const config = snap.exists() ? snap.data() : {};
-    const sal = config.salario || 0; const fix = (config.dividasFixas || []).reduce((a,b)=>a+b.valor, 0);
-    const proxM = new Date(); proxM.setMonth(proxM.getMonth() + 1);
-    const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; }).reduce((a,b)=>a+b.valor, 0);
-    Swal.fire({ title: 'Projeção Próximo Mês', html: `<div class='text-left text-xs space-y-2'><div class='flex justify-between'><span>Salário:</span><b>+${fmt(sal)}</b></div><div class='flex justify-between'><span>Fixo:</span><b>-${fmt(fix)}</b></div><div class='flex justify-between'><span>Parcelas:</span><b>-${fmt(varG)}</b></div><hr><div class='flex justify-between text-orange-400'><span>Livre:</span><b>${fmt(sal-fix-varG)}</b></div></div>` });
-};
