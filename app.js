@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
+// --- CONFIGURAÇÃO FIREBASE ---
 const firebaseConfig = {
     apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
     authDomain: "metasboard.firebaseapp.com",
@@ -15,11 +16,15 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let userUID = null, tAtual = 'divida', globalItems = [], globalMetas = [];
+// --- VARIÁVEIS GLOBAIS DE ESTADO ---
+let userUID = null;
+let tAtual = 'divida';
+let globalItems = [];
+let globalMetas = [];
 let calorOffset = 0;
 const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- RECONHECIMENTO DE VOZ ---
+// --- RECONHECIMENTO DE VOZ (MICROFONE) ---
 const recognition = ('webkitSpeechRecognition' in window) ? new webkitSpeechRecognition() : null;
 if (recognition) {
     recognition.lang = 'pt-BR';
@@ -34,9 +39,9 @@ if (recognition) {
         document.getElementById('audioBtn').classList.remove('bg-red-500');
     };
 }
-window.toggleAudio = () => { recognition && recognition.start(); document.getElementById('audioBtn').classList.add('bg-red-500'); };
+window.toggleAudio = () => { if(recognition) { recognition.start(); document.getElementById('audioBtn').classList.add('bg-red-500'); } };
 
-// --- NAVEGAÇÃO ---
+// --- NAVEGAÇÃO E TELAS ---
 window.nav = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -45,7 +50,7 @@ window.nav = (id, btn) => {
     if(id === 'secSimulador') { renderCalor(); calcularSimulador(); }
 };
 
-// --- AUTH ---
+// --- CONTROLE DE ACESSO (AUTH) ---
 window.alternarAuth = () => { 
     const b = document.getElementById('btnAuth'); 
     b.innerText = b.innerText === 'ACESSAR TERMINAL' ? 'CRIAR NOVO ACESSO' : 'ACESSAR TERMINAL'; 
@@ -74,9 +79,7 @@ onAuthStateChanged(auth, u => {
         document.getElementById('loginTela').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         document.getElementById('dataRef').innerText = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
-        initData();
-        initMetas();
-        verificarFixos();
+        initData(); initMetas(); verificarFixos();
     }
 });
 
@@ -119,7 +122,7 @@ window.removerFixo = async (tipo, idx) => {
     verificarFixos();
 };
 
-// --- ENGINE PRINCIPAL ---
+// --- LANÇAMENTOS (DÉBITO / CRÉDITO) ---
 window.salvar = async () => {
     const n = document.getElementById('masterInput').value, v = parseFloat(document.getElementById('valManual').value), 
           dStr = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
@@ -135,6 +138,7 @@ window.salvar = async () => {
     confetti({ particleCount: 100, spread: 70 });
 };
 
+// --- PROCESSAMENTO DE DADOS ---
 function initData() {
     if(!userUID) return;
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
@@ -149,8 +153,7 @@ function initData() {
             }
             items.push({...i, id: doc.id});
         });
-        globalItems = items;
-        updateUI(carteira, rMesH, gMesH, rMesT, gMesT);
+        globalItems = items; updateUI(carteira, rMesH, gMesH, rMesT, gMesT);
     });
 }
 
@@ -168,9 +171,8 @@ async function updateUI(carteira, rH, gH, rT, gT) {
     const varR = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'ganho'; }).reduce((a,b)=>a+b.valor, 0);
     document.getElementById('resumoProxMes').innerText = fmt(sal + varR - fix - varG);
 
-    const fil = document.getElementById('filtroMes').value;
     const hDiv = document.getElementById('listaDividasFull'); hDiv.innerHTML = '';
-    globalItems.filter(i => !fil || i.data.startsWith(fil)).sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
+    globalItems.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
         hDiv.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5"><div><p class="text-[11px] font-black uppercase">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div><div class="flex items-center gap-4"><b class="${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b><button onclick="deletarItem('${i.id}')" class="text-rose-500 opacity-20">✕</button></div></div>`;
     });
 
@@ -181,7 +183,7 @@ async function updateUI(carteira, rH, gH, rT, gT) {
 }
 window.deletarItem = async (id) => await deleteDoc(doc(db, "fluxo", id));
 
-// --- METAS ---
+// --- GESTÃO DE METAS ---
 window.abrirModalMeta = async () => {
     const { value: f } = await Swal.fire({
         title: 'Novo Objetivo',
@@ -212,36 +214,29 @@ window.addValorMeta = async (id) => {
 };
 window.deletarMeta = async (id) => await deleteDoc(doc(db, "metas", id));
 
-// --- SIMULADOR DE VIDA (FINANCIAMENTOS E IMPACTO) ---
+// --- NOVO: SIMULADOR DE VIDA (E SE...?) ---
 window.simularCenario = () => {
     const nome = document.getElementById('cenarioNome').value;
     const valor = parseFloat(document.getElementById('cenarioValor').value) || 0;
-    const meses = parseInt(document.getElementById('cenarioMeses').value) || 0;
+    const meses = document.getElementById('cenarioMeses').value;
     const res = document.getElementById('resultadoCenario');
     if(!nome || valor <= 0) return;
-
-    // Lógica de Impacto
-    const saldoAtual = parseFloat(document.getElementById('resumoProxMes').innerText.replace('R$','').replace('.','').replace(',','.'));
-    const novoSaldo = saldoAtual - valor;
-    const impactoScore = (valor / (saldoAtual || 1)) * 5;
-    
+    const saldoLivre = parseFloat(document.getElementById('resumoProxMes').innerText.replace(/[R$\s.]/g, '').replace(',', '.'));
+    const novoSaldo = saldoLivre - valor;
     res.classList.remove('hidden');
-    res.innerHTML = `
-        <h5 class="text-[9px] font-black uppercase text-purple-400">Análise de Impacto: ${nome}</h5>
-        <p class="text-[11px]">Sobrará apenas <b class="${novoSaldo < 0 ? 'text-rose-500' : 'text-emerald-400'}">${fmt(novoSaldo)}</b> no seu mês livre.</p>
-        <p class="text-[10px] opacity-60">Seu SCORE cairá aprox. <b>${impactoScore.toFixed(1)} pontos</b> devido ao comprometimento de renda.</p>
-        <p class="text-[10px] border-t border-white/5 pt-2 italic">Dica: Esse valor mensal poderia render <b>${fmt(valor * Math.pow(1.01, meses))}</b> se fosse investido em vez de gasto.</p>
-    `;
+    res.innerHTML = `<h5 class="text-[9px] font-black uppercase text-purple-400">Análise: ${nome}</h5>
+        <p class="text-[11px]">Seu saldo livre cairia para <b class="${novoSaldo < 0 ? 'text-rose-500' : 'text-emerald-400'}">${fmt(novoSaldo)}</b>.</p>
+        <p class="text-[10px] opacity-60">Impacto no Score: <b>-${(valor/(saldoLivre||1)*5).toFixed(1)} pts</b></p>
+        <p class="mt-2 text-[10px] italic border-t border-white/5 pt-2">Dica: Esse valor renderia ${fmt(valor * Math.pow(1.01, meses||12))} em investimentos.</p>`;
 };
 
-// --- FUTURO & CALOR ---
+// --- FUTURO, CALOR E CÂMBIO ---
 window.mudarMesCalor = (n) => { calorOffset += n; renderCalor(); };
 function renderCalor() {
     const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
     document.getElementById('calorDataRef').innerText = dRef.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).toUpperCase();
     const heatmap = document.getElementById('heatmap'); heatmap.innerHTML = '';
-    const diasMes = new Date(dRef.getFullYear(), dRef.getMonth() + 1, 0).getDate();
-    for(let d=1; d<=diasMes; d++) {
+    for(let d=1; d<=new Date(dRef.getFullYear(), dRef.getMonth() + 1, 0).getDate(); d++) {
         const total = globalItems.filter(i => { const dt = new Date(i.data + 'T12:00:00'); return dt.getDate() === d && dt.getMonth() === dRef.getMonth() && i.tipo === 'divida'; }).reduce((acc, c) => acc + c.valor, 0);
         const color = total === 0 ? 'rgba(255,255,255,0.05)' : (total > 200 ? '#f43f5e' : '#fb7185');
         heatmap.innerHTML += `<div class="heatmap-day" style="background: ${color}" onclick="verDetalheDia(${d})">${d}</div>`;
@@ -251,79 +246,49 @@ window.verDetalheDia = (dia) => {
     const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
     const dStr = `${dRef.getFullYear()}-${String(dRef.getMonth()+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
     const diaItems = globalItems.filter(i => i.data === dStr);
-    const html = diaItems.length ? diaItems.map(i => `<div class="flex justify-between py-2 border-b border-white/5"><span>${i.nome}</span><b>${fmt(i.valor)}</b></div>`).join('') : "Sem registros.";
-    Swal.fire({ title: `Dia ${dia}`, html: `<div class="text-left text-xs">${html}</div>` });
+    Swal.fire({ title: `Dia ${dia}`, html: `<div class="text-left text-xs">${diaItems.map(i => `<div class='flex justify-between py-1'><span>${i.nome}</span><b>${fmt(i.valor)}</b></div>`).join('') || 'Sem gastos.'}</div>` });
 };
 
 window.calcularSimulador = () => {
     const inv = parseFloat(document.getElementById('inputInvest').value) || 0;
-    const f = (m) => inv * ((Math.pow(1 + 0.01, m) - 1) / 0.01);
+    const f = (m) => inv * ((Math.pow(1.01, m) - 1) / 0.01);
     document.getElementById('sim6').innerText = fmt(f(6));
     document.getElementById('sim12').innerText = fmt(f(12));
     document.getElementById('sim60').innerText = fmt(f(60));
-    const totalMetas = globalMetas.reduce((a,b)=>a+b.v, 0);
-    const pagoMetas = globalMetas.reduce((a,b)=>a+b.pago, 0);
-    const score = (inv/100) + ((pagoMetas/(totalMetas||1))*5);
+    const score = (inv/100) + ((globalMetas.reduce((a,b)=>a+b.pago,0)/(globalMetas.reduce((a,b)=>a+b.v,0)||1))*5);
     document.getElementById('scoreGPS').innerText = Math.min(10.0, score).toFixed(1);
     document.getElementById('textoGPS').innerText = score > 7 ? "Performance Excelente." : "Ajuste Necessário.";
 };
 
 window.converterMoeda = () => {
     const brl = parseFloat(document.getElementById('convReal').value) || 0;
-    const select = document.getElementById('moedaDestino').value.split('|');
-    const taxa = parseFloat(select[0]);
-    document.getElementById('bandeiraMoeda').innerText = select[1];
-    document.getElementById('labelMoeda').innerText = select[2];
-    document.getElementById('resConversao').innerText = (brl / taxa).toLocaleString('en-US', { minimumFractionDigits: 2 });
+    const s = document.getElementById('moedaDestino').value.split('|');
+    document.getElementById('bandeiraMoeda').innerText = s[1];
+    document.getElementById('resConversao').innerText = (brl / parseFloat(s[0])).toLocaleString('en-US', { minimumFractionDigits: 2 });
 };
 
-window.mudarTipo = (t) => {
-    tAtual = t;
-    document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black';
-    document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black';
-};
-
-// --- CHAT IA (CORE INTELLIGENCE) ---
+// --- CORE IA CHAT SYSTEM ---
 window.abrirChatIA = () => document.getElementById('chatAI').classList.add('open');
 window.fecharChatIA = () => document.getElementById('chatAI').classList.remove('open');
-
 window.enviarPerguntaIA = () => {
-    const input = document.getElementById('iaInput');
-    const msg = input.value.trim().toLowerCase();
-    if(!msg) return;
-
+    const input = document.getElementById('iaInput'); const msg = input.value.trim().toLowerCase(); if(!msg) return;
     const chat = document.getElementById('chatMessages');
     chat.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl rounded-tr-none ml-auto max-w-[80%] text-right text-xs">${input.value}</div>`;
-    
-    // IA LOGIC (Simulada para velocidade e contexto do site)
-    let resposta = "Desculpe, só posso falar sobre dinheiro, metas ou como usar o MetasBoard. Tente perguntar sobre 'como adicionar metas' ou 'dicas para economizar'.";
-    
-    if(msg.includes("metas")) resposta = "Para metas, vá na aba '🎯 Metas', clique em '+ Nova Meta', dê um nome e o valor total. Depois, use o ícone de saco de dinheiro para adicionar aportes conforme for guardando!";
-    else if(msg.includes("economizar") || msg.includes("dica")) resposta = "A dica de ouro do MetasBoard é: registre tudo no momento da compra usando o microfone 🎤. Ver o seu saldo 'Previsto Mês' diminuindo em tempo real é o melhor inibidor de compras por impulso.";
-    else if(msg.includes("gps") || msg.includes("score")) resposta = "Seu Score GPS sobe quando você aumenta seu aporte mensal no Simulador e quando completa suas metas. Um score acima de 7.0 indica que você está no caminho da riqueza.";
-    else if(msg.includes("parcelar")) resposta = "Ao registrar uma dívida, marque 'Parcelar Compra' e coloque o número de meses. O sistema vai espalhar esse gasto pelos meses futuros automaticamente.";
-    else if(msg.includes("quem é você") || msg.includes("IA")) resposta = "Eu sou o Core do MetasBoard, sua IA de inteligência financeira. Meu objetivo é manter seu Score alto e suas metas no verde.";
-
-    setTimeout(() => {
-        chat.innerHTML += `<div class="bg-purple-500/10 p-4 rounded-2xl rounded-tl-none border border-purple-500/20 max-w-[80%] text-xs">${resposta}</div>`;
-        chat.scrollTop = chat.scrollHeight;
-    }, 600);
-
+    let r = "Posso ajudar com dinheiro e metas. Tente: 'como economizar' ou 'como usar o site'.";
+    if(msg.includes("metas")) r = "Vá em '🎯 Metas' e use o '+ Nova Meta'. Para investir nelas, use o ícone 💰.";
+    else if(msg.includes("economizar")) r = "Use o Simulador de Vida 🔮 na aba Futuro para ver o impacto de um gasto antes de comprar!";
+    else if(msg.includes("parcelar")) r = "Na Home, marque 'Parcelar Compra'. O sistema divide o valor sozinho nos meses seguintes.";
+    setTimeout(() => { chat.innerHTML += `<div class="bg-purple-500/10 p-4 rounded-2xl rounded-tl-none border border-purple-500/20 max-w-[80%] text-xs">${r}</div>`; chat.scrollTop = chat.scrollHeight; }, 600);
     input.value = '';
 };
 
+window.mudarTipo = (t) => { tAtual = t; document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black'; document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black'; };
+
 window.abrirDetalheProximoMes = async () => {
-    if(!userUID) return;
     const snap = await getDoc(doc(db, "configs", userUID));
-    const sal = snap.exists() ? (snap.data().salario || 0) : 0;
-    const fixList = snap.exists() ? (snap.data().dividasFixas || []) : [];
-    const fixTotal = fixList.reduce((a,b)=>a+b.valor, 0);
+    const config = snap.exists() ? snap.data() : {};
+    const sal = config.salario || 0; const fix = (config.dividasFixas || []).reduce((a,b)=>a+b.valor, 0);
     const proxM = new Date(); proxM.setMonth(proxM.getMonth() + 1);
-    const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; });
-    const varR = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'ganho'; });
-    const vGTotal = varG.reduce((a,b)=>a+b.valor,0); const vRTotal = varR.reduce((a,b)=>a+b.valor,0);
-    Swal.fire({
-        title: 'Extrato Projetado',
-        html: `<div class="text-left text-[11px] space-y-3"><div class="flex justify-between border-b border-white/5 pb-1"><span>SALÁRIO FIXO</span><b class="text-emerald-400">+ ${fmt(sal)}</b></div><div class="flex justify-between border-b border-white/5 pb-1"><span>GANHOS EXTRAS</span><b class="text-emerald-400">+ ${fmt(vRTotal)}</b></div><div class="flex justify-between border-b border-white/5 pb-1"><span>DÍVIDAS FIXAS</span><b class="text-rose-400">- ${fmt(fixTotal)}</b></div><div class="flex justify-between border-b border-white/5 pb-1"><span>GASTOS PARCELADOS</span><b class="text-rose-400">- ${fmt(vGTotal)}</b></div><div class="flex justify-between text-lg pt-2 font-black"><span>PROJEÇÃO TOTAL</span><b class="text-orange-400">${fmt(sal + vRTotal - fixTotal - vGTotal)}</b></div></div>`
-    });
+    const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; }).reduce((a,b)=>a+b.valor, 0);
+    Swal.fire({ title: 'Projeção Próximo Mês', html: `<div class='text-left text-xs space-y-2'><div class='flex justify-between'><span>Salário:</span><b>+${fmt(sal)}</b></div><div class='flex justify-between'><span>Fixo:</span><b>-${fmt(fix)}</b></div><div class='flex justify-between'><span>Parcelas:</span><b>-${fmt(varG)}</b></div><hr><div class='flex justify-between text-orange-400'><span>Livre:</span><b>${fmt(sal-fix-varG)}</b></div></div>` });
 };
