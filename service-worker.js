@@ -6,7 +6,6 @@ const assets = [
   '/metasboard/manifest.json'
 ];
 
-// Instala o service worker e guarda os arquivos no cache
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(cacheName).then(cache => {
@@ -15,7 +14,6 @@ self.addEventListener('install', e => {
   );
 });
 
-// Responde com o cache quando estiver offline
 self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(res => {
