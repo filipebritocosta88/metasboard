@@ -22,10 +22,9 @@ let tAtual = 'divida';
 let globalItems = [];
 let globalMetas = [];
 let calorOffset = 0;
-let abaMetaAtual = 'ativas'; // Nova variável para abas
 const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-// --- RECONHECIMENTO DE VOZ ---
+// --- RECONHECIMENTO DE VOZ (MICROFONE) ---
 const recognition = ('webkitSpeechRecognition' in window) ? new webkitSpeechRecognition() : null;
 if (recognition) {
     recognition.lang = 'pt-BR';
@@ -42,7 +41,7 @@ if (recognition) {
 }
 window.toggleAudio = () => { if(recognition) { recognition.start(); document.getElementById('audioBtn').classList.add('bg-red-500'); } };
 
-// --- NAVEGAÇÃO ---
+// --- NAVEGAÇÃO E TELAS ---
 window.nav = (id, btn) => {
     document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
     document.getElementById(id).classList.remove('hidden');
@@ -51,7 +50,7 @@ window.nav = (id, btn) => {
     if(id === 'secSimulador') { renderCalor(); calcularSimulador(); }
 };
 
-// --- AUTH ---
+// --- CONTROLE DE ACESSO (AUTH) ---
 window.alternarAuth = () => { 
     const b = document.getElementById('btnAuth'); 
     b.innerText = b.innerText === 'ACESSAR TERMINAL' ? 'CRIAR NOVO ACESSO' : 'ACESSAR TERMINAL'; 
@@ -59,11 +58,11 @@ window.alternarAuth = () => {
 
 window.executarAuth = () => {
     const e = document.getElementById('email').value, s = document.getElementById('senha').value;
-    if(!e || !s) return Swal.fire('Erro', 'Preencha os campos.', 'error');
+    if(!e || !s) return Swal.fire('Erro', 'Preencha os campos de acesso.', 'error');
     if(document.getElementById('btnAuth').innerText === 'ACESSAR TERMINAL') 
-        signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro', 'Acesso negado.', 'error'));
+        signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Acesso Negado', 'Verifique suas credenciais.', 'error'));
     else 
-        createUserWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro', 'Cadastro falhou.', 'error'));
+        createUserWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro no Cadastro', 'E-mail inválido ou já em uso.', 'error'));
 };
 
 window.sair = () => {
@@ -84,7 +83,7 @@ onAuthStateChanged(auth, u => {
     }
 });
 
-// --- RENDA E FIXOS ---
+// --- RENDA E DÍVIDAS FIXAS ---
 async function verificarFixos() {
     if(!userUID) return;
     const snap = await getDoc(doc(db, "configs", userUID));
@@ -123,7 +122,7 @@ window.removerFixo = async (tipo, idx) => {
     verificarFixos();
 };
 
-// --- LANÇAMENTOS ---
+// --- LANÇAMENTOS (DÉBITO / CRÉDITO) ---
 window.salvar = async () => {
     const n = document.getElementById('masterInput').value, v = parseFloat(document.getElementById('valManual').value), 
           dStr = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
@@ -139,28 +138,22 @@ window.salvar = async () => {
     confetti({ particleCount: 100, spread: 70 });
 };
 
-// --- DATA ENGINE ---
+// --- PROCESSAMENTO DE DADOS ---
 function initData() {
     if(!userUID) return;
     onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
         let carteira = 0, rMesH = 0, gMesH = 0, rMesT = 0, gMesT = 0;
         const items = [], hoje = new Date();
-        const filtroMes = document.getElementById('filtroMes').value; // Acessando filtro de data
-
         snap.forEach(doc => {
             const i = doc.data(); const d = new Date(i.data + 'T12:00:00');
-            // Saldo da Carteira (tudo até hoje)
             if(d <= hoje) { if(i.tipo==='ganho') carteira += i.valor; else carteira -= i.valor; }
-            
-            // Lógica do Filtro na Gestão
             if(d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear()) {
                 if(i.tipo==='ganho') { rMesT += i.valor; if(d <= hoje) rMesH += i.valor; }
                 else { gMesT += i.valor; if(d <= hoje) gMesH += i.valor; }
             }
             items.push({...i, id: doc.id});
         });
-        globalItems = items; 
-        updateUI(carteira, rMesH, gMesH, rMesT, gMesT);
+        globalItems = items; updateUI(carteira, rMesH, gMesH, rMesT, gMesT);
     });
 }
 
@@ -173,24 +166,15 @@ async function updateUI(carteira, rH, gH, rT, gT) {
     const snap = await getDoc(doc(db, "configs", userUID));
     const sal = snap.exists() ? (snap.data().salario || 0) : 0;
     const fix = snap.exists() ? (snap.data().dividasFixas || []).reduce((a,b)=>a+b.valor, 0) : 0;
-    
-    // Projeção Próximo Mês
     const proxM = new Date(); proxM.setMonth(proxM.getMonth() + 1);
     const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; }).reduce((a,b)=>a+b.valor, 0);
     const varR = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'ganho'; }).reduce((a,b)=>a+b.valor, 0);
     document.getElementById('resumoProxMes').innerText = fmt(sal + varR - fix - varG);
 
-    // Histórico Filtrado (Melhorado visualmente)
-    const hDiv = document.getElementById('listaDividasFull'); 
-    const filtroData = document.getElementById('filtroMes').value;
-    hDiv.innerHTML = '';
-    
-    globalItems
-        .filter(i => !filtroData || i.data.includes(filtroData))
-        .sort((a,b) => new Date(b.data) - new Date(a.data))
-        .forEach(i => {
-            hDiv.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5"><div><p class="text-[11px] font-black uppercase">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div><div class="flex items-center gap-4"><b class="${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b><button onclick="deletarItem('${i.id}')" class="text-rose-500 opacity-20">✕</button></div></div>`;
-        });
+    const hDiv = document.getElementById('listaDividasFull'); hDiv.innerHTML = '';
+    globalItems.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
+        hDiv.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5"><div><p class="text-[11px] font-black uppercase">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div><div class="flex items-center gap-4"><b class="${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b><button onclick="deletarItem('${i.id}')" class="text-rose-500 opacity-20">✕</button></div></div>`;
+    });
 
     const feed = document.getElementById('feed'); feed.innerHTML = '';
     globalItems.sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0,5).forEach(i => {
@@ -199,42 +183,7 @@ async function updateUI(carteira, rH, gH, rT, gT) {
 }
 window.deletarItem = async (id) => await deleteDoc(doc(db, "fluxo", id));
 
-// --- METAS ENGINE ---
-window.mudarAbaMeta = (aba) => {
-    abaMetaAtual = aba;
-    document.getElementById('tabAtivas').classList.toggle('active', aba === 'ativas');
-    document.getElementById('tabConcluidas').classList.toggle('active', aba === 'concluidas');
-    renderMetas();
-};
-
-function renderMetas() {
-    const c = document.getElementById('listaMetas'); c.innerHTML = '';
-    const filtradas = globalMetas.filter(m => abaMetaAtual === 'ativas' ? m.pago < m.v : m.pago >= m.v);
-    
-    filtradas.sort((a,b) => (b.pago/b.v) - (a.pago/a.v)).forEach((m, idx) => {
-        const pct = Math.min(100, (m.pago / m.v) * 100);
-        c.innerHTML += `<div class="glass p-6 space-y-4 border-l-4 ${m.pago >= m.v ? 'border-emerald-500' : (idx===0?'border-yellow-500':'border-purple-500')}">
-            <div class="flex justify-between items-start">
-                <div><p class="text-[8px] font-black text-purple-400">${m.pago >= m.v ? 'CONCLUÍDO' : 'RANK #'+(idx+1)}</p><h4 class="font-orbitron text-[13px] uppercase">${m.n}</h4></div>
-                <div class="flex gap-4">
-                    ${m.pago < m.v ? `<button onclick="addValorMeta('${m.id}')" class="text-xl">💰</button>` : '✅'}
-                    <button onclick="deletarMeta('${m.id}')" class="text-lg opacity-20">🗑️</button>
-                </div>
-            </div>
-            <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div>
-            <div class="flex justify-between text-[10px] font-black"><span>${fmt(m.pago)}</span><span class="opacity-30">${fmt(m.v)}</span></div>
-        </div>`;
-    });
-}
-
-function initMetas() {
-    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
-        const mArr = []; snap.forEach(doc => mArr.push({...doc.data(), id: doc.id}));
-        globalMetas = mArr;
-        renderMetas();
-    });
-}
-
+// --- GESTÃO DE METAS ---
 window.abrirModalMeta = async () => {
     const { value: f } = await Swal.fire({
         title: 'Novo Objetivo',
@@ -244,6 +193,17 @@ window.abrirModalMeta = async () => {
     if(f && f.n) await addDoc(collection(db, "metas"), { ...f, pago: 0, userId: userUID, ts: Date.now() });
 };
 
+function initMetas() {
+    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
+        const c = document.getElementById('listaMetas'); c.innerHTML = '';
+        const mArr = []; snap.forEach(doc => mArr.push({...doc.data(), id: doc.id}));
+        globalMetas = mArr;
+        mArr.sort((a,b) => (b.pago/b.v) - (a.pago/a.v)).forEach((m, idx) => {
+            const pct = Math.min(100, (m.pago / m.v) * 100);
+            c.innerHTML += `<div class="glass p-6 space-y-4 border-l-4 ${idx===0?'border-yellow-500':'border-purple-500'}"><div class="flex justify-between items-start"><div><p class="text-[8px] font-black text-purple-400">RANK #${idx+1}</p><h4 class="font-orbitron text-[13px] uppercase">${m.n}</h4></div><div class="flex gap-4"><button onclick="addValorMeta('${m.id}')" class="text-xl">💰</button><button onclick="deletarMeta('${m.id}')" class="text-lg opacity-20">🗑️</button></div></div><div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div><div class="flex justify-between text-[10px] font-black"><span>${fmt(m.pago)}</span><span class="opacity-30">${fmt(m.v)}</span></div></div>`;
+        });
+    });
+}
 window.addValorMeta = async (id) => {
     const { value: v } = await Swal.fire({ title: 'Aportar Capital', input: 'number' });
     if(v) {
@@ -254,70 +214,39 @@ window.addValorMeta = async (id) => {
 };
 window.deletarMeta = async (id) => await deleteDoc(doc(db, "metas", id));
 
-// --- SIMULADOR DE VIDA ---
+// --- NOVO: SIMULADOR DE VIDA (E SE...?) ---
 window.simularCenario = () => {
     const nome = document.getElementById('cenarioNome').value;
     const valor = parseFloat(document.getElementById('cenarioValor').value) || 0;
-    const meses = document.getElementById('cenarioMeses').value || 1;
+    const meses = document.getElementById('cenarioMeses').value;
     const res = document.getElementById('resultadoCenario');
-    
-    if(!nome || valor <= 0) return Swal.fire('Erro', 'Insira nome e valor.', 'warning');
-    
-    // Pegando valor livre do elemento resumoProxMes
-    const saldoLivreStr = document.getElementById('resumoProxMes').innerText;
-    const saldoLivre = parseFloat(saldoLivreStr.replace(/[R$\s.]/g, '').replace(',', '.'));
-    
+    if(!nome || valor <= 0) return;
+    const saldoLivre = parseFloat(document.getElementById('resumoProxMes').innerText.replace(/[R$\s.]/g, '').replace(',', '.'));
     const novoSaldo = saldoLivre - valor;
     res.classList.remove('hidden');
     res.innerHTML = `<h5 class="text-[9px] font-black uppercase text-purple-400">Análise: ${nome}</h5>
-        <p class="text-[11px]">Seu saldo mensal livre cairia para <b class="${novoSaldo < 0 ? 'text-rose-500' : 'text-emerald-400'}">${fmt(novoSaldo)}</b>.</p>
+        <p class="text-[11px]">Seu saldo livre cairia para <b class="${novoSaldo < 0 ? 'text-rose-500' : 'text-emerald-400'}">${fmt(novoSaldo)}</b>.</p>
         <p class="text-[10px] opacity-60">Impacto no Score: <b>-${(valor/(saldoLivre||1)*5).toFixed(1)} pts</b></p>
-        <p class="mt-2 text-[10px] italic border-t border-white/5 pt-2">Dica: Se investisse esse valor, teria ${fmt(valor * Math.pow(1.01, meses))} em ${meses} meses.</p>`;
+        <p class="mt-2 text-[10px] italic border-t border-white/5 pt-2">Dica: Esse valor renderia ${fmt(valor * Math.pow(1.01, meses||12))} em investimentos.</p>`;
 };
 
-// --- FUTURO E MAPA ---
+// --- FUTURO, CALOR E CÂMBIO ---
 window.mudarMesCalor = (n) => { calorOffset += n; renderCalor(); };
-async function renderCalor() {
-    const snap = await getDoc(doc(db, "configs", userUID));
-    const config = snap.exists() ? snap.data() : {};
-    const sal = config.salario || 0;
-    const fixos = config.dividasFixas || [];
-
+function renderCalor() {
     const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
     document.getElementById('calorDataRef').innerText = dRef.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).toUpperCase();
     const heatmap = document.getElementById('heatmap'); heatmap.innerHTML = '';
-    
     for(let d=1; d<=new Date(dRef.getFullYear(), dRef.getMonth() + 1, 0).getDate(); d++) {
-        // Soma gastos variáveis + fixos do dia
-        const gastosVar = globalItems.filter(i => { 
-            const dt = new Date(i.data + 'T12:00:00'); 
-            return dt.getDate() === d && dt.getMonth() === dRef.getMonth() && i.tipo === 'divida'; 
-        }).reduce((acc, c) => acc + c.valor, 0);
-
-        const gastoFixoDoDia = fixos.filter(f => f.dia === d).reduce((a, b) => a + b.valor, 0);
-        const totalDia = gastosVar + gastoFixoDoDia;
-        
-        const color = totalDia === 0 ? 'rgba(255,255,255,0.05)' : (totalDia > 200 ? '#f43f5e' : '#fb7185');
+        const total = globalItems.filter(i => { const dt = new Date(i.data + 'T12:00:00'); return dt.getDate() === d && dt.getMonth() === dRef.getMonth() && i.tipo === 'divida'; }).reduce((acc, c) => acc + c.valor, 0);
+        const color = total === 0 ? 'rgba(255,255,255,0.05)' : (total > 200 ? '#f43f5e' : '#fb7185');
         heatmap.innerHTML += `<div class="heatmap-day" style="background: ${color}" onclick="verDetalheDia(${d})">${d}</div>`;
     }
 }
-
-window.verDetalheDia = async (dia) => {
-    const snap = await getDoc(doc(db, "configs", userUID));
-    const fixos = snap.exists() ? (snap.data().dividasFixas || []) : [];
+window.verDetalheDia = (dia) => {
     const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
     const dStr = `${dRef.getFullYear()}-${String(dRef.getMonth()+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
-    
     const diaItems = globalItems.filter(i => i.data === dStr);
-    const diaFixos = fixos.filter(f => f.dia === dia);
-    
-    let html = `<div class="text-left text-xs">`;
-    diaItems.forEach(i => html += `<div class='flex justify-between py-1'><span>${i.nome}</span><b>${fmt(i.valor)}</b></div>`);
-    diaFixos.forEach(f => html += `<div class='flex justify-between py-1 text-rose-400'><span>[FIXO] ${f.nome}</span><b>${fmt(f.valor)}</b></div>`);
-    if(diaItems.length === 0 && diaFixos.length === 0) html += 'Sem gastos.';
-    html += `</div>`;
-    
-    Swal.fire({ title: `Dia ${dia}`, html: html });
+    Swal.fire({ title: `Dia ${dia}`, html: `<div class="text-left text-xs">${diaItems.map(i => `<div class='flex justify-between py-1'><span>${i.nome}</span><b>${fmt(i.valor)}</b></div>`).join('') || 'Sem gastos.'}</div>` });
 };
 
 window.calcularSimulador = () => {
@@ -338,18 +267,17 @@ window.converterMoeda = () => {
     document.getElementById('resConversao').innerText = (brl / parseFloat(s[0])).toLocaleString('en-US', { minimumFractionDigits: 2 });
 };
 
-// --- CHAT IA ---
+// --- CORE IA CHAT SYSTEM ---
 window.abrirChatIA = () => document.getElementById('chatAI').classList.add('open');
 window.fecharChatIA = () => document.getElementById('chatAI').classList.remove('open');
 window.enviarPerguntaIA = () => {
     const input = document.getElementById('iaInput'); const msg = input.value.trim().toLowerCase(); if(!msg) return;
     const chat = document.getElementById('chatMessages');
     chat.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl rounded-tr-none ml-auto max-w-[80%] text-right text-xs">${input.value}</div>`;
-    
-    let r = "Sou o Metasboard AI. Posso te dar dicas sobre seu saldo de " + document.getElementById('saldoReal').innerText;
-    if(msg.includes("metas")) r = "Você tem " + globalMetas.length + " metas. A meta mais próxima de concluir é " + (globalMetas[0]?.n || "nenhuma no momento.");
-    else if(msg.includes("gastos")) r = "Neste mês você já registrou " + document.getElementById('gastoMes').innerText + " em saídas.";
-    
+    let r = "Posso ajudar com dinheiro e metas. Tente: 'como economizar' ou 'como usar o site'.";
+    if(msg.includes("metas")) r = "Vá em '🎯 Metas' e use o '+ Nova Meta'. Para investir nelas, use o ícone 💰.";
+    else if(msg.includes("economizar")) r = "Use o Simulador de Vida 🔮 na aba Futuro para ver o impacto de um gasto antes de comprar!";
+    else if(msg.includes("parcelar")) r = "Na Home, marque 'Parcelar Compra'. O sistema divide o valor sozinho nos meses seguintes.";
     setTimeout(() => { chat.innerHTML += `<div class="bg-purple-500/10 p-4 rounded-2xl rounded-tl-none border border-purple-500/20 max-w-[80%] text-xs">${r}</div>`; chat.scrollTop = chat.scrollHeight; }, 600);
     input.value = '';
 };
@@ -362,7 +290,5 @@ window.abrirDetalheProximoMes = async () => {
     const sal = config.salario || 0; const fix = (config.dividasFixas || []).reduce((a,b)=>a+b.valor, 0);
     const proxM = new Date(); proxM.setMonth(proxM.getMonth() + 1);
     const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; }).reduce((a,b)=>a+b.valor, 0);
-    Swal.fire({ title: 'Projeção Próximo Mês', html: `<div class='text-left text-xs space-y-2'><div class='flex justify-between'><span>Salário Base:</span><b>+${fmt(sal)}</b></div><div class='flex justify-between'><span>Saídas Fixas:</span><b>-${fmt(fix)}</b></div><div class='flex justify-between'><span>Parcelas Variáveis:</span><b>-${fmt(varG)}</b></div><hr><div class='flex justify-between text-orange-400'><span>Livre Projetado:</span><b>${fmt(sal-fix-varG)}</b></div></div>` });
+    Swal.fire({ title: 'Projeção Próximo Mês', html: `<div class='text-left text-xs space-y-2'><div class='flex justify-between'><span>Salário:</span><b>+${fmt(sal)}</b></div><div class='flex justify-between'><span>Fixo:</span><b>-${fmt(fix)}</b></div><div class='flex justify-between'><span>Parcelas:</span><b>-${fmt(varG)}</b></div><hr><div class='flex justify-between text-orange-400'><span>Livre:</span><b>${fmt(sal-fix-varG)}</b></div></div>` });
 };
-
-initData();
