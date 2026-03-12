@@ -1,13 +1,28 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
+  <link rel="manifest" href="/metasboard/manifest.json">
+  <meta name="theme-color" content="#a855f7">
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/metasboard/service-worker.js')
+          .then(reg => console.log("Service Worker registrado com sucesso!", reg))
+          .catch(err => console.log("Erro ao registrar Service Worker:", err));
+      });
+    }
+  </script>
+
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>MetasBoard | Intelligence v7.0</title>
+  
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
   <style>
     :root { --p: #a855f7; --bg: #050505; }
     body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
@@ -35,7 +50,6 @@
     .progress-bar { height: 12px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; position: relative; }
     .progress-fill { height: 100%; background: linear-gradient(90deg, #a855f7, #ec4899); width: 0%; transition: width 1.5s cubic-bezier(0.1, 0.8, 0.2, 1); }
 
-    /* CHAT IA FLOATING */
     #chatAI { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: translateY(100%); opacity: 0; pointer-events: none; }
     #chatAI.open { transform: translateY(0); opacity: 1; pointer-events: all; }
 
@@ -263,5 +277,6 @@
 </div>
 
 <script type="module" src="app.js"></script>
+
 </body>
 </html>
