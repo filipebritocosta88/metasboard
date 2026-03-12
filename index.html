@@ -3,175 +3,187 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>MetasBoard | OS v4.0</title>
+  <title>MetasBoard | Intelligence v4.5</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
   <style>
-    :root { --p: #a855f7; --bg: #050505; }
-    body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; -webkit-tap-highlight-color: transparent; }
+    :root { --p: #a855f7; --bg: #030303; }
+    body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
     .font-orbitron { font-family: 'Orbitron', sans-serif; }
-    .glass { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; backdrop-filter: blur(15px); }
+    .glass { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 28px; backdrop-filter: blur(20px); }
     
-    .progress-fill { height: 100%; background: linear-gradient(90deg, #a855f7, #7c3aed); box-shadow: 0 0 15px rgba(168, 85, 247, 0.4); transition: width 1s ease; }
     .nav-active { color: var(--p); opacity: 1 !important; transform: translateY(-5px); }
-    .nav-active::after { content: ''; position: absolute; bottom: -12px; width: 12px; height: 3px; background: var(--p); left: 50%; transform: translateX(-50%); border-radius: 10px; box-shadow: 0 0 10px var(--p); }
+    .nav-active::after { content: ''; position: absolute; bottom: -12px; width: 14px; height: 4px; background: var(--p); left: 50%; transform: translateX(-50%); border-radius: 10px; box-shadow: 0 0 15px var(--p); }
     
-    .blur-mode .money { filter: blur(15px); opacity: 0.1; }
+    input, select { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; border-radius: 20px !important; outline: none !important; padding: 16px !important; }
+    .btn-main { background: linear-gradient(135deg, #a855f7, #7c3aed); font-weight: 800; border-radius: 20px; cursor: pointer; transition: 0.3s; }
+    .btn-main:active { transform: scale(0.95); }
+
+    .heatmap-day { width: 12%; aspect-ratio: 1; border-radius: 8px; margin: 1%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; cursor: pointer; transition: 0.2s; border: 1px solid rgba(255,255,255,0.05); }
+    .heatmap-day:active { transform: scale(0.9); }
     
-    input, select { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; color: white !important; border-radius: 18px !important; outline: none !important; padding: 14px !important; }
-    .btn-main { background: linear-gradient(135deg, #a855f7, #7c3aed); font-weight: 800; transition: 0.2s; border-radius: 18px; cursor: pointer; }
-    .btn-main:active { transform: scale(0.96); }
-
-    .mic-btn.recording { background: #ef4444 !important; animation: pulse 1s infinite; }
-    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
-
-    .heatmap-day { width: 12%; aspect-ratio: 1; border-radius: 6px; margin: 1%; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: bold; }
+    .card-resumo { background: linear-gradient(145deg, rgba(168, 85, 247, 0.1), rgba(0,0,0,0)); border: 1px solid rgba(168, 85, 247, 0.2); }
     .hidden { display: none !important; }
     
-    /* Meta Card Estilo Apple */
-    .meta-card { background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%); border: 1px solid rgba(255,255,255,0.1); transition: 0.3s; }
-    .meta-card:hover { border-color: var(--p); transform: translateY(-3px); }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--p); border-radius: 10px; }
   </style>
 </head>
 <body>
 
-<div id="loginTela" class="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center p-8">
-    <h1 class="font-orbitron text-4xl mb-2 tracking-widest">METAS<span class="text-purple-500">BOARD</span></h1>
+<div id="loginTela" class="fixed inset-0 z-[1000] bg-black flex flex-col items-center justify-center p-8 text-center">
+    <h1 class="font-orbitron text-4xl mb-2 tracking-[0.3em]">METAS<span class="text-purple-500">BOARD</span></h1>
+    <p class="text-[10px] opacity-30 uppercase tracking-[0.5em] mb-12">Private OS v4.5</p>
     <div class="glass p-8 w-full max-w-sm space-y-4">
-        <input id="email" type="email" placeholder="E-mail" class="w-full">
-        <input id="senha" type="password" placeholder="Senha" class="w-full">
-        <button onclick="executarAuth()" id="btnAuth" class="btn-main w-full py-4 uppercase text-[11px]">Entrar</button>
-        <p onclick="alternarAuth()" class="text-center text-[10px] opacity-30 uppercase font-black cursor-pointer py-2">Criar Conta</p>
+        <input id="email" type="email" placeholder="Acesso (E-mail)" class="w-full">
+        <input id="senha" type="password" placeholder="Chave (Senha)" class="w-full">
+        <button onclick="executarAuth()" id="btnAuth" class="btn-main w-full py-4 uppercase text-[12px] tracking-widest">Entrar no Sistema</button>
+        <p onclick="alternarAuth()" class="text-[10px] opacity-40 uppercase font-black cursor-pointer py-2">Nova Chave de Acesso</p>
     </div>
 </div>
 
-<div id="app" class="hidden min-h-screen pb-32">
-    <header class="p-8 flex justify-between items-center max-w-2xl mx-auto">
+<div id="app" class="hidden min-h-screen">
+    <header class="p-8 flex justify-between items-center max-w-2xl mx-auto sticky top-0 z-50 bg-[#030303]/80 backdrop-blur-md">
         <div class="flex flex-col">
-            <h2 class="font-orbitron text-lg tracking-tighter">METAS<span class="text-purple-500">BOARD</span></h2>
-            <span id="dataRef" class="text-[9px] text-purple-400 font-black uppercase mt-1"></span>
+            <h2 class="font-orbitron text-xl">METAS<span class="text-purple-500">BOARD</span></h2>
+            <span id="dataRef" class="text-[10px] text-purple-400 font-black uppercase mt-1"></span>
         </div>
-        <div class="flex gap-2">
-            <button onclick="document.body.classList.toggle('blur-mode')" class="glass p-3">👁️</button>
-            <button onclick="sair()" class="glass px-4 py-2 text-[9px] text-rose-500 font-black border border-rose-500/20">SAIR</button>
-        </div>
+        <button onclick="document.body.classList.toggle('blur-mode')" class="glass p-3">👁️</button>
     </header>
 
-    <main class="max-w-xl mx-auto px-6 space-y-6">
+    <main class="max-w-xl mx-auto px-6 space-y-8 pb-32">
         
         <section id="secHome" class="space-y-6">
-            <div class="glass p-6 border-b-2 border-purple-500/20">
-                <div class="flex justify-between items-end mb-4">
+            <div class="glass p-7 space-y-6 card-resumo">
+                <div class="flex justify-between items-start">
                     <div>
-                        <p class="text-[8px] opacity-40 uppercase font-black">Saldo Atual</p>
-                        <h3 id="saldoReal" class="money font-orbitron text-3xl">R$ 0</h3>
+                        <p class="text-[9px] opacity-40 uppercase font-black tracking-widest">Carteira (Hoje)</p>
+                        <h3 id="saldoReal" class="money font-orbitron text-4xl text-white">R$ 0</h3>
                     </div>
                     <div class="text-right">
-                        <p class="text-[8px] opacity-40 uppercase font-black text-purple-400">Dívidas Abril</p>
-                        <h4 id="dividaProximoMes" class="money font-orbitron text-lg text-rose-400">R$ 0</h4>
+                        <p class="text-[9px] opacity-40 uppercase font-black text-purple-400">Saldo Livre (Final do Mês)</p>
+                        <h4 id="totalLivre" class="money font-orbitron text-xl text-purple-400">R$ 0</h4>
                     </div>
                 </div>
-                <div class="bg-white/5 p-4 rounded-2xl flex justify-between">
-                    <div class="text-center"><p class="text-[7px] opacity-30 uppercase">Entradas Mês</p><p id="rendaMes" class="text-[11px] font-bold text-emerald-400">R$ 0</p></div>
-                    <div class="text-center"><p class="text-[7px] opacity-30 uppercase">Saídas Mês</p><p id="gastoMes" class="text-[11px] font-bold text-rose-400">R$ 0</p></div>
-                    <div class="text-center"><p class="text-[7px] opacity-30 uppercase">Livre</p><p id="totalLivre" class="text-[11px] font-bold text-purple-400">R$ 0</p></div>
+
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-black/40 p-3 rounded-2xl border border-white/5">
+                        <p class="text-[7px] opacity-30 uppercase">Entradas</p>
+                        <p id="rendaMes" class="text-[11px] font-bold text-emerald-400">R$ 0</p>
+                    </div>
+                    <div class="bg-black/40 p-3 rounded-2xl border border-white/5">
+                        <p class="text-[7px] opacity-30 uppercase">Saídas</p>
+                        <p id="gastoMes" class="text-[11px] font-bold text-rose-400">R$ 0</p>
+                    </div>
+                    <div class="bg-black/40 p-3 rounded-2xl border border-white/5">
+                        <p class="text-[7px] opacity-30 uppercase">Próx. Mês</p>
+                        <p id="dividaProximoMes" class="text-[11px] font-bold text-orange-400">R$ 0</p>
+                    </div>
                 </div>
             </div>
 
             <div class="glass p-6 space-y-4">
                 <div class="flex justify-between items-center">
-                    <div class="flex bg-black/40 p-1 rounded-xl">
-                        <button onclick="mudarTipo('divida')" id="t-div" class="text-[9px] px-5 py-2 rounded-lg bg-purple-600 font-black">SAÍDA</button>
-                        <button onclick="mudarTipo('ganho')" id="t-gan" class="text-[9px] px-5 py-2 rounded-lg opacity-20 font-black">RENDA</button>
+                    <div class="flex bg-black/50 p-1.5 rounded-2xl">
+                        <button onclick="mudarTipo('divida')" id="t-div" class="text-[10px] px-6 py-2 rounded-xl bg-purple-600 font-black">DÉBITO</button>
+                        <button onclick="mudarTipo('ganho')" id="t-gan" class="text-[10px] px-6 py-2 rounded-xl opacity-20 font-black">CRÉDITO</button>
                     </div>
-                    <button id="audioBtn" onclick="toggleAudio()" class="mic-btn glass w-12 h-12 flex items-center justify-center text-xl">🎤</button>
+                    <button id="audioBtn" onclick="toggleAudio()" class="glass w-14 h-14 flex items-center justify-center text-2xl">🎤</button>
                 </div>
-                <input id="masterInput" type="text" placeholder="Diga ou digite: 'Placa de vídeo 1200'" class="w-full">
-                <div class="flex gap-2">
-                    <input id="valManual" type="number" placeholder="R$" class="w-1/2">
+                <input id="masterInput" type="text" placeholder="Ex: Mercado 150 reais" class="w-full">
+                <div class="flex gap-3">
+                    <input id="valManual" type="number" placeholder="Valor R$" class="w-1/2">
                     <input id="dateManual" type="date" class="w-1/2">
                 </div>
-                <div class="flex items-center gap-2 px-1">
-                    <input type="checkbox" id="checkParcela" class="w-4 h-4">
-                    <label class="text-[10px] opacity-40 uppercase font-black">Parcelar este valor?</label>
-                    <input id="numParcelas" type="number" placeholder="Ex: 3" class="hidden w-16 !p-2 text-center text-[10px]">
+                <div class="flex items-center gap-3 px-1">
+                    <input type="checkbox" id="checkParcela" class="w-5 h-5 rounded-lg accent-purple-600">
+                    <label class="text-[10px] opacity-50 uppercase font-black">Parcelar compra?</label>
+                    <input id="numParcelas" type="number" placeholder="Meses" class="hidden w-20 !p-2 text-center text-[11px]">
                 </div>
-                <button onclick="salvar()" class="btn-main w-full py-4 text-[10px] uppercase tracking-widest">Lançar Registro</button>
+                <button onclick="salvar()" class="btn-main w-full py-5 text-[11px] uppercase tracking-[0.2em]">Confirmar Lançamento</button>
             </div>
             
             <div id="feed" class="space-y-3"></div>
         </section>
 
         <section id="secMetas" class="hidden space-y-6">
-            <div class="flex justify-between items-center">
-                <h3 class="font-orbitron text-[10px] uppercase tracking-widest">Meu Futuro</h3>
-                <button onclick="abrirModalMeta()" class="btn-main px-6 py-2 text-[9px]">+ Nova Meta</button>
+            <div class="flex justify-between items-center px-2">
+                <h3 class="font-orbitron text-xs tracking-widest uppercase">Estratégias</h3>
+                <button onclick="abrirModalMeta()" class="btn-main px-6 py-3 text-[10px]">+ Novo Objetivo</button>
             </div>
-            <div id="listaMetas" class="space-y-4 pb-10"></div>
+            <div id="listaMetas" class="space-y-5 pb-10"></div>
         </section>
 
         <section id="secGestao" class="hidden space-y-6">
-            <div class="glass p-6">
-                <h4 class="text-[10px] font-black uppercase opacity-30 text-center mb-4">Fluxo de Caixa</h4>
-                <div class="h-48"><canvas id="meuGrafico"></canvas></div>
+            <div class="glass p-6 space-y-5">
+                <div class="flex justify-between items-center">
+                    <h4 class="text-[10px] font-black uppercase text-purple-400">Histórico de Fluxo</h4>
+                    <input type="month" id="filtroMes" onchange="initData()" class="!p-2 text-[10px]">
+                </div>
+                <div id="listaDividasFull" class="space-y-2 max-h-80 overflow-y-auto pr-2"></div>
             </div>
 
-            <div class="glass p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h4 class="text-[10px] font-black uppercase text-purple-400">Histórico Detalhado</h4>
-                    <button onclick="toggleFiltro()" class="text-[9px] opacity-40">Filtrar por Mês 📅</button>
+            <div class="glass p-6 space-y-4 border-t border-emerald-500/20">
+                <h4 class="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Configuração de Salário</h4>
+                <div class="flex gap-3">
+                    <input id="valSalario" type="number" placeholder="R$ Salário Base" class="w-full">
+                    <button onclick="salvarSalario()" class="btn-main px-8 text-[10px]">FIXAR</button>
                 </div>
-                <div id="listaDividasFull" class="space-y-2 max-h-60 overflow-y-auto pr-2"></div>
-            </div>
-
-            <div class="glass p-6 space-y-4">
-                <h4 class="text-[10px] font-black uppercase text-emerald-500">Gestão de Recebimento</h4>
-                <div class="space-y-3">
-                    <div class="flex gap-2">
-                        <input id="valSalario" type="number" placeholder="Valor Salário R$" class="w-full">
-                        <button onclick="salvarSalario()" class="btn-main px-6 text-[9px]">Fixar</button>
-                    </div>
-                    <p class="text-[8px] opacity-30 uppercase italic text-center">Entrada automática todo 5º dia útil.</p>
-                </div>
+                <p class="text-[8px] opacity-30 text-center">Crédito automático no 5º dia útil de cada mês.</p>
             </div>
         </section>
 
-        <section id="secSimulador" class="hidden space-y-6">
-            <div class="glass p-6 border-l-4 border-emerald-500">
-                <h4 class="text-[11px] font-black uppercase mb-2">🔮 Simulador de Vida</h4>
-                <p class="text-[10px] opacity-60 mb-4 italic">Projeção baseada nos seus hábitos atuais:</p>
-                <div class="grid grid-cols-3 gap-2">
-                    <div class="bg-white/5 p-3 rounded-xl text-center"><p class="text-[8px] opacity-40">6 Meses</p><p id="sim6" class="text-[10px] font-bold text-emerald-400">--</p></div>
-                    <div class="bg-white/5 p-3 rounded-xl text-center"><p class="text-[8px] opacity-40">1 Ano</p><p id="sim12" class="text-[10px] font-bold text-emerald-400">--</p></div>
-                    <div class="bg-white/5 p-3 rounded-xl text-center"><p class="text-[8px] opacity-40">5 Anos</p><p id="sim60" class="text-[10px] font-bold text-emerald-400">--</p></div>
+        <section id="secSimulador" class="hidden space-y-8">
+            <div class="glass p-7 bg-emerald-500/5 border-l-4 border-emerald-500">
+                <h4 class="text-[11px] font-black uppercase mb-4 tracking-tighter">🔮 Simulador de Patrimônio</h4>
+                <div class="mb-6">
+                    <p class="text-[9px] opacity-40 uppercase mb-2">Quanto você quer investir por mês?</p>
+                    <div class="flex gap-3">
+                        <input id="inputInvest" type="number" placeholder="R$ 100,00" class="w-full">
+                        <button onclick="initSimulador()" class="btn-main px-6 text-[10px]">Simular</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-black/60 p-4 rounded-2xl text-center"><p class="text-[8px] opacity-40 uppercase">6 Meses</p><p id="sim6" class="text-[11px] font-black text-emerald-400">--</p></div>
+                    <div class="bg-black/60 p-4 rounded-2xl text-center"><p class="text-[8px] opacity-40 uppercase">1 Ano</p><p id="sim12" class="text-[11px] font-black text-emerald-400">--</p></div>
+                    <div class="bg-black/60 p-4 rounded-2xl text-center"><p class="text-[8px] opacity-40 uppercase">5 Anos</p><p id="sim60" class="text-[11px] font-black text-emerald-400">--</p></div>
                 </div>
             </div>
 
-            <div class="glass p-6">
-                <h4 class="text-[11px] font-black uppercase mb-4 text-center">🗺️ Mapa de Calor de Gastos</h4>
+            <div class="glass p-7">
+                <h4 class="text-[11px] font-black uppercase mb-4 text-center">🗓️ Mapa de Calor Mensal</h4>
                 <div id="heatmap" class="flex flex-wrap justify-center"></div>
-                <p class="text-[8px] opacity-30 text-center mt-4">Cores quentes (vermelho) indicam picos de gastos.</p>
+                <p id="txtCalorDetalhe" class="text-[9px] opacity-40 text-center mt-6 uppercase tracking-widest">Clique em um dia para ver detalhes</p>
             </div>
 
-            <div class="glass p-6 bg-purple-500/5">
-                <div class="flex items-center gap-2 mb-3">
-                    <span class="text-xl">🤖</span>
-                    <h4 class="text-[11px] font-black uppercase">GPS Financeiro</h4>
+            <div class="glass p-8 bg-purple-500/5 relative overflow-hidden">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 rounded-2xl bg-purple-500/20 flex items-center justify-center text-2xl">🛰️</div>
+                    <div>
+                        <h4 class="text-[12px] font-black uppercase tracking-widest">GPS Financeiro</h4>
+                        <p id="notaFinanceira" class="text-[10px] text-purple-400 font-bold">Score: --/10</p>
+                    </div>
                 </div>
-                <p id="textoGPS" class="text-xs opacity-80 leading-relaxed italic"></p>
+                <p id="textoGPS" class="text-xs opacity-70 leading-relaxed italic font-medium">Iniciando análise satelital...</p>
+            </div>
+            
+            <div class="glass p-6 flex justify-between items-center">
+                <span class="text-[10px] font-black uppercase opacity-40">Dólar Hoje (Simulação)</span>
+                <span class="font-orbitron text-emerald-400">R$ 4,98</span>
             </div>
         </section>
 
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 glass rounded-none border-t border-white/10 p-6 flex justify-around items-center z-50">
-        <button onclick="nav('secHome', this)" class="nav-active flex flex-col items-center gap-1 transition-all relative"><span class="text-xl">🏠</span><p class="text-[8px] font-black uppercase">Home</p></button>
-        <button onclick="nav('secMetas', this)" class="flex flex-col items-center gap-1 opacity-40 transition-all relative"><span class="text-xl">🎯</span><p class="text-[8px] font-black uppercase">Metas</p></button>
-        <button onclick="nav('secGestao', this)" class="flex flex-col items-center gap-1 opacity-40 transition-all relative"><span class="text-xl">📊</span><p class="text-[8px] font-black uppercase">Gestão</p></button>
-        <button onclick="nav('secSimulador', this)" class="flex flex-col items-center gap-1 opacity-40 transition-all relative"><span class="text-xl">🔮</span><p class="text-[8px] font-black uppercase">Futuro</p></button>
+    <nav class="fixed bottom-0 left-0 right-0 glass rounded-none border-t border-white/10 p-7 flex justify-around items-center z-[100]">
+        <button onclick="nav('secHome', this)" class="nav-active flex flex-col items-center gap-1 opacity-40 transition-all"><span class="text-2xl">🏠</span><p class="text-[8px] font-black uppercase">Home</p></button>
+        <button onclick="nav('secMetas', this)" class="flex flex-col items-center gap-1 opacity-40 transition-all"><span class="text-2xl">🎯</span><p class="text-[8px] font-black uppercase">Metas</p></button>
+        <button onclick="nav('secGestao', this)" class="flex flex-col items-center gap-1 opacity-40 transition-all"><span class="text-2xl">📊</span><p class="text-[8px] font-black uppercase">Fluxo</p></button>
+        <button onclick="nav('secSimulador', this)" class="flex flex-col items-center gap-1 opacity-40 transition-all"><span class="text-2xl">🔮</span><p class="text-[8px] font-black uppercase">Futuro</p></button>
     </nav>
 </div>
 
