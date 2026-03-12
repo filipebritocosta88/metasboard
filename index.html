@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>MetasBoard | Intelligence v6.0</title>
+  <title>MetasBoard | Intelligence v6.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -14,7 +14,7 @@
     .font-orbitron { font-family: 'Orbitron', sans-serif; }
     .glass { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; backdrop-filter: blur(15px); }
     
-    /* CORREÇÃO DE VISIBILIDADE NOS INPUTS */
+    /* VISIBILIDADE DOS INPUTS */
     input, select, textarea { 
         background: #1a1a1a !important; 
         border: 2px solid rgba(255,255,255,0.1) !important; 
@@ -26,7 +26,7 @@
     input::placeholder { color: rgba(255,255,255,0.4) !important; }
     input:focus { border-color: var(--p) !important; background: #222 !important; }
 
-    /* MODAL SWAL CUSTOMIZADO (VÍDEO CORREÇÃO) */
+    /* MODAL SWAL CUSTOMIZADO */
     .swal2-popup { background: #111 !important; border: 1px solid var(--p) !important; border-radius: 24px !important; }
     .swal2-title { color: white !important; font-family: 'Orbitron' !important; }
     .swal2-input { color: white !important; background: #222 !important; border: 1px solid #444 !important; }
@@ -66,7 +66,10 @@
             <h2 class="font-orbitron text-lg">METAS<span class="text-purple-500">BOARD</span></h2>
             <span id="dataRef" class="text-[9px] text-purple-400 font-black uppercase mt-1"></span>
         </div>
-        <button onclick="document.body.classList.toggle('blur-mode')" class="glass p-3">👁️</button>
+        <div class="flex gap-2">
+            <button onclick="document.body.classList.toggle('blur-mode')" class="glass p-3">👁️</button>
+            <button onclick="sair()" class="glass p-3 text-rose-500 font-bold text-[10px]">SAIR</button>
+        </div>
     </header>
 
     <main class="max-w-xl mx-auto px-6 space-y-6">
