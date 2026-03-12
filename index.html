@@ -1,28 +1,21 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#a855f7">
-  
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/6081/6081313.png">
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js')
-          .then(reg => console.log("Metasboard: Pronto!"))
-          .catch(err => console.log("Erro PWA:", err));
-      });
-    }
-  </script>
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>MetasBoard | Intelligence v7.0</title>
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#a855f7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/6081/6081313.png">
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
   <style>
     :root { --p: #a855f7; --bg: #050505; }
     body { background: var(--bg); color: #fff; font-family: 'Inter', sans-serif; margin: 0; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
@@ -53,7 +46,7 @@
     #chatAI { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); transform: translateY(100%); opacity: 0; pointer-events: none; }
     #chatAI.open { transform: translateY(0); opacity: 1; pointer-events: all; }
 
-    .heatmap-day { width: 30px; height: 30px; margin: 4px; border-radius: 8px; display: flex; items-center; justify-content: center; font-size: 10px; font-weight: bold; cursor: pointer; }
+    .heatmap-day { width: 30px; height: 30px; margin: 4px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -209,31 +202,7 @@
                 </div>
                 <div id="heatmap" class="flex flex-wrap justify-center"></div>
             </div>
-
-            <div class="glass p-6 space-y-6">
-                <h4 class="text-[10px] font-black uppercase text-center text-emerald-500">🌍 Câmbio Global Live</h4>
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-2xl">
-                        <span class="text-2xl">🇧🇷</span>
-                        <input id="convReal" type="number" placeholder="Valor R$" class="flex-1 !bg-transparent !border-none !p-0 text-xl" oninput="converterMoeda()">
-                    </div>
-                    <div class="flex items-center gap-4 bg-white/5 p-4 rounded-2xl">
-                        <span id="bandeiraMoeda" class="text-2xl">🇺🇸</span>
-                        <select id="moedaDestino" onchange="converterMoeda()" class="flex-1 !bg-transparent !border-none !p-0 font-bold">
-                            <option value="5.12|🇺🇸|Dólar Americano">USD - Dólar</option>
-                            <option value="5.58|🇪🇺|Euro">EUR - Euro</option>
-                            <option value="6.45|🇬🇧|Libra Esterlina">GBP - Libra</option>
-                            <option value="0.034|🇯🇵|Iene Japonês">JPY - Iene</option>
-                            <option value="3.50|🇦🇪|Dirham Emirados">AED - Dirham</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="text-center p-8 bg-emerald-500/5 rounded-3xl border border-emerald-500/10">
-                    <p id="resConversao" class="text-4xl font-orbitron text-emerald-400">0.00</p>
-                    <p id="labelMoeda" class="text-[9px] opacity-40 uppercase mt-2 tracking-widest">Dólar Americano</p>
-                </div>
-            </div>
-
+            
             <div class="glass p-8 bg-purple-500/5 border-2 border-purple-500/10">
                 <div class="flex justify-between items-center mb-4">
                     <h4 class="text-[10px] font-black uppercase text-purple-400 tracking-widest">🛰️ Core Intelligence</h4>
@@ -259,7 +228,7 @@
         </header>
         <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4">
             <div class="bg-purple-500/10 p-4 rounded-2xl rounded-tl-none border border-purple-500/20 max-w-[80%]">
-                <p class="text-xs leading-relaxed">Olá, Filipe! Sou a inteligência do MetasBoard. Posso te ajudar a entender seus gastos, dar dicas de economia ou explicar como usar qualquer parte do site. O que deseja saber?</p>
+                <p class="text-xs leading-relaxed">Olá, Filipe! Sou a inteligência do MetasBoard. Como posso ajudar hoje?</p>
             </div>
         </div>
         <div class="p-6 border-t border-white/10 bg-black flex gap-2">
