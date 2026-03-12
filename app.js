@@ -1,294 +1,193 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, getDocs, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-// --- CONFIGURAÇÃO FIREBASE ---
-const firebaseConfig = {
-    apiKey: "AIzaSyC4wyouZuCsLZGpmTr5SdXTb7UixdetHoQ",
-    authDomain: "metasboard.firebaseapp.com",
-    projectId: "metasboard",
-    storageBucket: "metasboard.firebasestorage.app",
-    messagingSenderId: "958671032163",
-    appId: "1:958671032163:web:3d150d966e103ca2e78d56"
+// CONFIGURAÇÃO INICIAL E ESTADO
+let db = JSON.parse(localStorage.getItem('metasboard_v2')) || {
+    user: null,
+    transactions: [], // {id, desc, value, type, date}
+    goals: [] // {id, name, target, current, completed: false}
 };
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-// --- VARIÁVEIS GLOBAIS DE ESTADO ---
-let userUID = null;
-let tAtual = 'divida';
-let globalItems = [];
-let globalMetas = [];
-let calorOffset = 0;
-const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-// --- RECONHECIMENTO DE VOZ (MICROFONE) ---
-const recognition = ('webkitSpeechRecognition' in window) ? new webkitSpeechRecognition() : null;
-if (recognition) {
-    recognition.lang = 'pt-BR';
-    recognition.onresult = (e) => {
-        const txt = e.results[0][0].transcript.toLowerCase();
-        document.getElementById('masterInput').value = txt;
-        const valMatch = txt.match(/(\d+([.,]\d+)?)/);
-        if(valMatch) {
-            document.getElementById('valManual').value = valMatch[0].replace(',', '.');
-            document.getElementById('masterInput').value = txt.replace(valMatch[0], '').replace('reais', '').trim();
-        }
-        document.getElementById('audioBtn').classList.remove('bg-red-500');
-    };
+function save() {
+    localStorage.setItem('metasboard_v2', JSON.stringify(db));
+    render();
 }
-window.toggleAudio = () => { if(recognition) { recognition.start(); document.getElementById('audioBtn').classList.add('bg-red-500'); } };
 
-// --- NAVEGAÇÃO E TELAS ---
-window.nav = (id, btn) => {
-    document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
-    document.getElementById(id).classList.remove('hidden');
-    document.querySelectorAll('nav button').forEach(b => { b.classList.remove('nav-active'); b.classList.add('opacity-40'); });
-    btn.classList.add('nav-active'); btn.classList.remove('opacity-40');
-    if(id === 'secSimulador') { renderCalor(); calcularSimulador(); }
-};
+// --- SISTEMA DE AUTENTICAÇÃO ---
+function toggleAuth() {
+    document.getElementById('login-form').classList.toggle('hidden');
+    document.getElementById('register-form').classList.toggle('hidden');
+}
 
-// --- CONTROLE DE ACESSO (AUTH) ---
-window.alternarAuth = () => { 
-    const b = document.getElementById('btnAuth'); 
-    b.innerText = b.innerText === 'ACESSAR TERMINAL' ? 'CRIAR NOVO ACESSO' : 'ACESSAR TERMINAL'; 
-};
-
-window.executarAuth = () => {
-    const e = document.getElementById('email').value, s = document.getElementById('senha').value;
-    if(!e || !s) return Swal.fire('Erro', 'Preencha os campos de acesso.', 'error');
-    if(document.getElementById('btnAuth').innerText === 'ACESSAR TERMINAL') 
-        signInWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Acesso Negado', 'Verifique suas credenciais.', 'error'));
-    else 
-        createUserWithEmailAndPassword(auth, e, s).catch(err => Swal.fire('Erro no Cadastro', 'E-mail inválido ou já em uso.', 'error'));
-};
-
-window.sair = () => {
-    signOut(auth).then(() => {
-        userUID = null;
-        document.getElementById('app').classList.add('hidden');
-        document.getElementById('loginTela').classList.remove('hidden');
-    });
-};
-
-onAuthStateChanged(auth, u => {
-    if(u) {
-        userUID = u.uid;
-        document.getElementById('loginTela').classList.add('hidden');
-        document.getElementById('app').classList.remove('hidden');
-        document.getElementById('dataRef').innerText = new Date().toLocaleDateString('pt-BR', {weekday:'long', day:'numeric', month:'long'});
-        initData(); initMetas(); verificarFixos();
-    }
-});
-
-// --- RENDA E DÍVIDAS FIXAS ---
-async function verificarFixos() {
-    if(!userUID) return;
-    const snap = await getDoc(doc(db, "configs", userUID));
-    const salDiv = document.getElementById('statusSalario');
-    const fixDiv = document.getElementById('statusDividaFixa');
-    if(snap.exists()) {
-        const config = snap.data();
-        salDiv.innerHTML = config.salario ? `<div class="flex justify-between items-center bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10"><div><p class="text-[12px] font-black">${fmt(config.salario)}</p><p class="text-[8px] opacity-40 uppercase">Geração Automática</p></div><button onclick="removerFixo('salario')" class="bg-rose-500/20 text-rose-500 p-2 rounded-lg">✕</button></div>` : `<button onclick="abrirModalSalario()" class="w-full py-4 border-2 border-dashed border-white/10 rounded-2xl text-[10px] font-bold opacity-40">+ Renda Mensal</button>`;
-        fixDiv.innerHTML = (config.dividasFixas || []).map((d, i) => `<div class="flex justify-between items-center bg-white/5 p-4 rounded-2xl border border-white/10"><div><p class="text-[11px] font-black uppercase">${d.nome}</p><p class="text-[8px] opacity-40">Dia ${d.dia}</p></div><div class="flex items-center gap-4"><b class="text-rose-400 font-black">${fmt(d.valor)}</b><button onclick="removerFixo('divida', ${i})" class="text-rose-500 opacity-40">✕</button></div></div>`).join('');
+function handleLogin() {
+    const email = document.getElementById('login-email').value;
+    if(email) {
+        db.user = { email: email };
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('main-dashboard').style.display = 'block';
+        save();
     }
 }
 
-window.abrirModalSalario = async () => {
-    const { value: v } = await Swal.fire({ title: 'Renda Mensal', input: 'number' });
-    if(v) { await setDoc(doc(db, "configs", userUID), { salario: parseFloat(v) }, { merge: true }); verificarFixos(); }
-};
-
-window.abrirModalDividaFixa = async () => {
-    const { value: f } = await Swal.fire({
-        title: 'Nova Conta Fixa',
-        html: `<input id="fn" class="swal2-input" placeholder="Nome"><input id="fv" class="swal2-input" type="number" placeholder="Valor"><input id="fd" class="swal2-input" type="number" placeholder="Dia">`,
-        preConfirm: () => ({ nome: document.getElementById('fn').value, valor: parseFloat(document.getElementById('fv').value), dia: parseInt(document.getElementById('fd').value) })
-    });
-    if(f && f.nome) {
-        const snap = await getDoc(doc(db, "configs", userUID));
-        const atuais = snap.exists() ? (snap.data().dividasFixas || []) : [];
-        await setDoc(doc(db, "configs", userUID), { dividasFixas: [...atuais, f] }, { merge: true });
-        verificarFixos();
+function handleRegister() {
+    const name = document.getElementById('reg-name').value;
+    if(name) {
+        db.user = { name: name };
+        toggleAuth();
+        alert("Conta criada! Faça login.");
     }
-};
-
-window.removerFixo = async (tipo, idx) => {
-    const snap = await getDoc(doc(db, "configs", userUID));
-    if(tipo === 'salario') await updateDoc(doc(db, "configs", userUID), { salario: null });
-    else { let list = snap.data().dividasFixas; list.splice(idx, 1); await updateDoc(doc(db, "configs", userUID), { dividasFixas: list }); }
-    verificarFixos();
-};
-
-// --- LANÇAMENTOS (DÉBITO / CRÉDITO) ---
-window.salvar = async () => {
-    const n = document.getElementById('masterInput').value, v = parseFloat(document.getElementById('valManual').value), 
-          dStr = document.getElementById('dateManual').value || new Date().toISOString().split('T')[0];
-    if(!n || isNaN(v)) return Swal.fire('Oops', 'Preencha corretamente.', 'warning');
-    if(document.getElementById('checkParcela').checked) {
-        const p = parseInt(document.getElementById('numParcelas').value) || 1;
-        for(let i=0; i<p; i++) {
-            let d = new Date(dStr + 'T12:00:00'); d.setMonth(d.getMonth() + i);
-            await addDoc(collection(db, "fluxo"), { nome: `${n} (${i+1}/${p})`, valor: v/p, tipo: tAtual, data: d.toISOString().split('T')[0], userId: userUID });
-        }
-    } else { await addDoc(collection(db, "fluxo"), { nome: n, valor: v, tipo: tAtual, data: dStr, userId: userUID }); }
-    document.getElementById('masterInput').value = ''; document.getElementById('valManual').value = '';
-    confetti({ particleCount: 100, spread: 70 });
-};
-
-// --- PROCESSAMENTO DE DADOS ---
-function initData() {
-    if(!userUID) return;
-    onSnapshot(query(collection(db, "fluxo"), where("userId", "==", userUID)), snap => {
-        let carteira = 0, rMesH = 0, gMesH = 0, rMesT = 0, gMesT = 0;
-        const items = [], hoje = new Date();
-        snap.forEach(doc => {
-            const i = doc.data(); const d = new Date(i.data + 'T12:00:00');
-            if(d <= hoje) { if(i.tipo==='ganho') carteira += i.valor; else carteira -= i.valor; }
-            if(d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear()) {
-                if(i.tipo==='ganho') { rMesT += i.valor; if(d <= hoje) rMesH += i.valor; }
-                else { gMesT += i.valor; if(d <= hoje) gMesH += i.valor; }
-            }
-            items.push({...i, id: doc.id});
-        });
-        globalItems = items; updateUI(carteira, rMesH, gMesH, rMesT, gMesT);
-    });
 }
 
-async function updateUI(carteira, rH, gH, rT, gT) {
-    document.getElementById('saldoReal').innerText = fmt(carteira);
-    document.getElementById('rendaMes').innerText = fmt(rH);
-    document.getElementById('gastoMes').innerText = fmt(gH);
-    document.getElementById('saldoPrevisto').innerText = fmt(carteira + (rT - rH) - (gT - gH));
+function handleLogout() {
+    db.user = null;
+    localStorage.removeItem('metasboard_v2');
+    location.reload();
+}
+
+// --- GESTÃO DE TRANSAÇÕES ---
+function addTransaction() {
+    const desc = document.getElementById('reg-desc').value;
+    const val = parseFloat(document.getElementById('reg-val').value);
+    const type = document.getElementById('reg-type').value;
+
+    if(!desc || !val) return alert("Preencha os dados!");
+
+    db.transactions.push({
+        id: Date.now(),
+        desc,
+        value: val,
+        type,
+        date: new Date().toISOString()
+    });
+
+    save();
+    document.getElementById('reg-desc').value = '';
+    document.getElementById('reg-val').value = '';
+}
+
+// --- FILTROS DE HISTÓRICO ---
+function updateHistory() {
+    const filterDate = document.getElementById('filter-date').value; // YYYY-MM
+    const filterCat = document.getElementById('filter-category').value;
+    const container = document.getElementById('history-content');
+
+    let filtered = db.transactions;
+
+    if(filterDate) {
+        filtered = filtered.filter(t => t.date.includes(filterDate));
+    }
+    if(filterCat !== 'all') {
+        filtered = filtered.filter(t => t.type === filterCat);
+    }
+
+    container.innerHTML = filtered.map(t => `
+        <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid var(--border);">
+            <div>
+                <strong>${t.desc}</strong><br>
+                <small>${new Date(t.date).toLocaleDateString('pt-BR')}</small>
+            </div>
+            <span style="color: ${t.type === 'income' ? 'var(--success)' : 'var(--danger)'}">
+                ${t.type === 'income' ? '+' : '-'} R$ ${t.value.toLocaleString()}
+            </span>
+        </div>
+    `).join('') || '<p style="padding:20px; text-align:center;">Nada encontrado.</p>';
+}
+
+// --- METAS ---
+let currentMetaTab = 'active';
+function switchMetaTab(tab) {
+    currentMetaTab = tab;
+    document.getElementById('btn-metas-ativas').classList.toggle('active', tab === 'active');
+    document.getElementById('btn-metas-concluidas').classList.toggle('active', tab === 'completed');
+    renderMetas();
+}
+
+function renderMetas() {
+    const container = document.getElementById('metas-list');
+    const filtered = db.goals.filter(g => currentMetaTab === 'active' ? !g.completed : g.completed);
     
-    const snap = await getDoc(doc(db, "configs", userUID));
-    const sal = snap.exists() ? (snap.data().salario || 0) : 0;
-    const fix = snap.exists() ? (snap.data().dividasFixas || []).reduce((a,b)=>a+b.valor, 0) : 0;
-    const proxM = new Date(); proxM.setMonth(proxM.getMonth() + 1);
-    const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; }).reduce((a,b)=>a+b.valor, 0);
-    const varR = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'ganho'; }).reduce((a,b)=>a+b.valor, 0);
-    document.getElementById('resumoProxMes').innerText = fmt(sal + varR - fix - varG);
-
-    const hDiv = document.getElementById('listaDividasFull'); hDiv.innerHTML = '';
-    globalItems.sort((a,b) => new Date(b.data) - new Date(a.data)).forEach(i => {
-        hDiv.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5"><div><p class="text-[11px] font-black uppercase">${i.nome}</p><p class="text-[8px] opacity-30">${i.data}</p></div><div class="flex items-center gap-4"><b class="${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b><button onclick="deletarItem('${i.id}')" class="text-rose-500 opacity-20">✕</button></div></div>`;
-    });
-
-    const feed = document.getElementById('feed'); feed.innerHTML = '';
-    globalItems.sort((a,b) => new Date(b.data) - new Date(a.data)).slice(0,5).forEach(i => {
-        feed.innerHTML += `<div class="glass p-4 flex justify-between items-center border-l-4 ${i.tipo==='ganho'?'border-emerald-500':'border-rose-500'}"><span class="text-[10px] font-black uppercase opacity-60">${i.nome}</span><b class="text-[11px] ${i.tipo==='ganho'?'text-emerald-400':'text-rose-400'}">${fmt(i.valor)}</b></div>`;
-    });
+    container.innerHTML = filtered.map(g => `
+        <div style="background:var(--bg-color); padding:15px; border-radius:10px; margin-bottom:10px;">
+            <div style="display:flex; justify-content:space-between;">
+                <span>${g.name}</span>
+                <strong>R$ ${g.target}</strong>
+            </div>
+            ${!g.completed ? `<button onclick="completeGoal(${g.id})" style="font-size:0.7em; margin-top:5px; cursor:pointer;">Concluir</button>` : ''}
+        </div>
+    `).join('') || '<p>Nenhuma meta aqui.</p>';
 }
-window.deletarItem = async (id) => await deleteDoc(doc(db, "fluxo", id));
 
-// --- GESTÃO DE METAS ---
-window.abrirModalMeta = async () => {
-    const { value: f } = await Swal.fire({
-        title: 'Novo Objetivo',
-        html: `<input id="mn" class="swal2-input" placeholder="O que deseja?"><input id="mv" class="swal2-input" type="number" placeholder="Valor Total">`,
-        preConfirm: () => ({ n: document.getElementById('mn').value, v: parseFloat(document.getElementById('mv').value) })
-    });
-    if(f && f.n) await addDoc(collection(db, "metas"), { ...f, pago: 0, userId: userUID, ts: Date.now() });
-};
-
-function initMetas() {
-    onSnapshot(query(collection(db, "metas"), where("userId", "==", userUID)), snap => {
-        const c = document.getElementById('listaMetas'); c.innerHTML = '';
-        const mArr = []; snap.forEach(doc => mArr.push({...doc.data(), id: doc.id}));
-        globalMetas = mArr;
-        mArr.sort((a,b) => (b.pago/b.v) - (a.pago/a.v)).forEach((m, idx) => {
-            const pct = Math.min(100, (m.pago / m.v) * 100);
-            c.innerHTML += `<div class="glass p-6 space-y-4 border-l-4 ${idx===0?'border-yellow-500':'border-purple-500'}"><div class="flex justify-between items-start"><div><p class="text-[8px] font-black text-purple-400">RANK #${idx+1}</p><h4 class="font-orbitron text-[13px] uppercase">${m.n}</h4></div><div class="flex gap-4"><button onclick="addValorMeta('${m.id}')" class="text-xl">💰</button><button onclick="deletarMeta('${m.id}')" class="text-lg opacity-20">🗑️</button></div></div><div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div><div class="flex justify-between text-[10px] font-black"><span>${fmt(m.pago)}</span><span class="opacity-30">${fmt(m.v)}</span></div></div>`;
-        });
-    });
+function completeGoal(id) {
+    const goal = db.goals.find(g => g.id === id);
+    if(goal) goal.completed = true;
+    save();
 }
-window.addValorMeta = async (id) => {
-    const { value: v } = await Swal.fire({ title: 'Aportar Capital', input: 'number' });
-    if(v) {
-        const docRef = doc(db, "metas", id); const m = (await getDoc(docRef)).data();
-        const novoV = m.pago + parseFloat(v); await updateDoc(docRef, { pago: novoV });
-        if(novoV >= m.v) confetti({ particleCount: 200, spread: 100 });
-    }
-};
-window.deletarMeta = async (id) => await deleteDoc(doc(db, "metas", id));
 
-// --- NOVO: SIMULADOR DE VIDA (E SE...?) ---
-window.simularCenario = () => {
-    const nome = document.getElementById('cenarioNome').value;
-    const valor = parseFloat(document.getElementById('cenarioValor').value) || 0;
-    const meses = document.getElementById('cenarioMeses').value;
-    const res = document.getElementById('resultadoCenario');
-    if(!nome || valor <= 0) return;
-    const saldoLivre = parseFloat(document.getElementById('resumoProxMes').innerText.replace(/[R$\s.]/g, '').replace(',', '.'));
-    const novoSaldo = saldoLivre - valor;
-    res.classList.remove('hidden');
-    res.innerHTML = `<h5 class="text-[9px] font-black uppercase text-purple-400">Análise: ${nome}</h5>
-        <p class="text-[11px]">Seu saldo livre cairia para <b class="${novoSaldo < 0 ? 'text-rose-500' : 'text-emerald-400'}">${fmt(novoSaldo)}</b>.</p>
-        <p class="text-[10px] opacity-60">Impacto no Score: <b>-${(valor/(saldoLivre||1)*5).toFixed(1)} pts</b></p>
-        <p class="mt-2 text-[10px] italic border-t border-white/5 pt-2">Dica: Esse valor renderia ${fmt(valor * Math.pow(1.01, meses||12))} em investimentos.</p>`;
-};
+// --- SIMULADOR E MAPA DO FUTURO ---
+function calculateSimulation() {
+    const extra = parseFloat(document.getElementById('sim-val').value) || 0;
+    const years = parseInt(document.getElementById('sim-years').value) || 0;
+    const resultDiv = document.getElementById('sim-result');
 
-// --- FUTURO, CALOR E CÂMBIO ---
-window.mudarMesCalor = (n) => { calorOffset += n; renderCalor(); };
-function renderCalor() {
-    const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
-    document.getElementById('calorDataRef').innerText = dRef.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).toUpperCase();
-    const heatmap = document.getElementById('heatmap'); heatmap.innerHTML = '';
-    for(let d=1; d<=new Date(dRef.getFullYear(), dRef.getMonth() + 1, 0).getDate(); d++) {
-        const total = globalItems.filter(i => { const dt = new Date(i.data + 'T12:00:00'); return dt.getDate() === d && dt.getMonth() === dRef.getMonth() && i.tipo === 'divida'; }).reduce((acc, c) => acc + c.valor, 0);
-        const color = total === 0 ? 'rgba(255,255,255,0.05)' : (total > 200 ? '#f43f5e' : '#fb7185');
-        heatmap.innerHTML += `<div class="heatmap-day" style="background: ${color}" onclick="verDetalheDia(${d})">${d}</div>`;
+    const monthlyIncome = db.transactions.filter(t => t.type === 'income').reduce((a,b) => a + b.value, 0);
+    const monthlyFixed = db.transactions.filter(t => t.type === 'expense').reduce((a,b) => a + b.value, 0);
+    
+    const savings = (monthlyIncome - monthlyFixed) + extra;
+    const total = savings * (years * 12);
+
+    resultDiv.classList.remove('hidden');
+    resultDiv.innerHTML = `
+        <p>Projeção de Acúmulo:</p>
+        <h2 style="color: var(--accent-color)">R$ ${total.toLocaleString('pt-BR')}</h2>
+        <small>Poupando R$ ${savings}/mês por ${years} anos.</small>
+    `;
+}
+
+function renderActivityMap() {
+    const map = document.getElementById('activity-map');
+    const income = db.transactions.filter(t => t.type === 'income').reduce((a,b) => a + b.value, 0);
+    const fixed = db.transactions.filter(t => t.type === 'expense').reduce((a,b) => a + b.value, 0);
+    
+    const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const d = new Date();
+    
+    map.innerHTML = '';
+    for(let i=0; i<12; i++) {
+        const m = (d.getMonth() + i) % 12;
+        map.innerHTML += `
+            <div class="map-item">
+                <strong>${months[m]}</strong>
+                <span style="color:var(--success)">+ R$ ${income}</span>
+                <span style="color:var(--danger)">- R$ ${fixed}</span>
+            </div>
+        `;
     }
 }
-window.verDetalheDia = (dia) => {
-    const dRef = new Date(); dRef.setMonth(dRef.getMonth() + calorOffset);
-    const dStr = `${dRef.getFullYear()}-${String(dRef.getMonth()+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
-    const diaItems = globalItems.filter(i => i.data === dStr);
-    Swal.fire({ title: `Dia ${dia}`, html: `<div class="text-left text-xs">${diaItems.map(i => `<div class='flex justify-between py-1'><span>${i.nome}</span><b>${fmt(i.valor)}</b></div>`).join('') || 'Sem gastos.'}</div>` });
-};
 
-window.calcularSimulador = () => {
-    const inv = parseFloat(document.getElementById('inputInvest').value) || 0;
-    const f = (m) => inv * ((Math.pow(1.01, m) - 1) / 0.01);
-    document.getElementById('sim6').innerText = fmt(f(6));
-    document.getElementById('sim12').innerText = fmt(f(12));
-    document.getElementById('sim60').innerText = fmt(f(60));
-    const score = (inv/100) + ((globalMetas.reduce((a,b)=>a+b.pago,0)/(globalMetas.reduce((a,b)=>a+b.v,0)||1))*5);
-    document.getElementById('scoreGPS').innerText = Math.min(10.0, score).toFixed(1);
-    document.getElementById('textoGPS').innerText = score > 7 ? "Performance Excelente." : "Ajuste Necessário.";
-};
+// --- IA ASSISTANT ---
+function runAIAssistant() {
+    const balance = db.transactions.reduce((acc, t) => t.type === 'income' ? acc + t.value : acc - t.value, 0);
+    alert(`[Metasboard IA]: Olá! Analisei seus dados. Seu saldo atual é R$ ${balance.toLocaleString()}. No simulador, você pode alcançar seus objetivos mais rápido se reduzir as despesas fixas em 10%. Posso ajudar com mais algo?`);
+}
 
-window.converterMoeda = () => {
-    const brl = parseFloat(document.getElementById('convReal').value) || 0;
-    const s = document.getElementById('moedaDestino').value.split('|');
-    document.getElementById('bandeiraMoeda').innerText = s[1];
-    document.getElementById('resConversao').innerText = (brl / parseFloat(s[0])).toLocaleString('en-US', { minimumFractionDigits: 2 });
-};
+// --- RENDERIZAÇÃO GERAL ---
+function render() {
+    if(db.user) {
+        document.getElementById('auth-container').style.display = 'none';
+        document.getElementById('main-dashboard').style.display = 'block';
+    }
 
-// --- CORE IA CHAT SYSTEM ---
-window.abrirChatIA = () => document.getElementById('chatAI').classList.add('open');
-window.fecharChatIA = () => document.getElementById('chatAI').classList.remove('open');
-window.enviarPerguntaIA = () => {
-    const input = document.getElementById('iaInput'); const msg = input.value.trim().toLowerCase(); if(!msg) return;
-    const chat = document.getElementById('chatMessages');
-    chat.innerHTML += `<div class="bg-white/5 p-4 rounded-2xl rounded-tr-none ml-auto max-w-[80%] text-right text-xs">${input.value}</div>`;
-    let r = "Posso ajudar com dinheiro e metas. Tente: 'como economizar' ou 'como usar o site'.";
-    if(msg.includes("metas")) r = "Vá em '🎯 Metas' e use o '+ Nova Meta'. Para investir nelas, use o ícone 💰.";
-    else if(msg.includes("economizar")) r = "Use o Simulador de Vida 🔮 na aba Futuro para ver o impacto de um gasto antes de comprar!";
-    else if(msg.includes("parcelar")) r = "Na Home, marque 'Parcelar Compra'. O sistema divide o valor sozinho nos meses seguintes.";
-    setTimeout(() => { chat.innerHTML += `<div class="bg-purple-500/10 p-4 rounded-2xl rounded-tl-none border border-purple-500/20 max-w-[80%] text-xs">${r}</div>`; chat.scrollTop = chat.scrollHeight; }, 600);
-    input.value = '';
-};
+    const income = db.transactions.filter(t => t.type === 'income').reduce((a,b) => a + b.value, 0);
+    const expense = db.transactions.filter(t => t.type === 'expense').reduce((a,b) => a + b.value, 0);
+    
+    document.getElementById('wallet-display').innerHTML = `
+        <p style="color: var(--text-secondary)">Saldo Geral</p>
+        <h2 style="font-size: 2em; color: ${income-expense >= 0 ? 'var(--success)' : 'var(--danger)'}">
+            R$ ${(income - expense).toLocaleString()}
+        </h2>
+    `;
 
-window.mudarTipo = (t) => { tAtual = t; document.getElementById('t-div').className = t === 'divida' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black'; document.getElementById('t-gan').className = t === 'ganho' ? 'text-[9px] px-6 py-2 rounded-xl bg-purple-600 font-black' : 'text-[9px] px-6 py-2 rounded-xl opacity-20 font-black'; };
+    renderMetas();
+    updateHistory();
+    renderActivityMap();
+}
 
-window.abrirDetalheProximoMes = async () => {
-    const snap = await getDoc(doc(db, "configs", userUID));
-    const config = snap.exists() ? snap.data() : {};
-    const sal = config.salario || 0; const fix = (config.dividasFixas || []).reduce((a,b)=>a+b.valor, 0);
-    const proxM = new Date(); proxM.setMonth(proxM.getMonth() + 1);
-    const varG = globalItems.filter(i => { const d = new Date(i.data + 'T12:00:00'); return d.getMonth() === proxM.getMonth() && i.tipo === 'divida'; }).reduce((a,b)=>a+b.valor, 0);
-    Swal.fire({ title: 'Projeção Próximo Mês', html: `<div class='text-left text-xs space-y-2'><div class='flex justify-between'><span>Salário:</span><b>+${fmt(sal)}</b></div><div class='flex justify-between'><span>Fixo:</span><b>-${fmt(fix)}</b></div><div class='flex justify-between'><span>Parcelas:</span><b>-${fmt(varG)}</b></div><hr><div class='flex justify-between text-orange-400'><span>Livre:</span><b>${fmt(sal-fix-varG)}</b></div></div>` });
-};
+// Início
+render();
